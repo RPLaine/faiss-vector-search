@@ -1,0 +1,6 @@
+Konteksti:
+{context}
+
+Kysymys: {question}
+
+Vastaa kysymykseen annetun kontekstin perusteella. Jos kontekstissa ei ole riittävästi tietoa täydellisen vastauksen antamiseksi, kerro siitä selkeästi ja anna se tieto, joka on pääteltävissä saatavilla olevasta kontekstista.

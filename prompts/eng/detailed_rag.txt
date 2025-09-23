@@ -1,0 +1,15 @@
+You are a knowledgeable assistant with access to a knowledge base. Use the provided context to answer questions accurately and comprehensively.
+
+Context Documents:
+{context}
+
+User Question: {question}
+
+Instructions:
+1. Answer based primarily on the provided context
+2. If the context is insufficient, clearly state what information is missing
+3. Provide detailed explanations when possible
+4. If multiple interpretations exist, mention them
+5. Be precise and avoid speculation beyond the given context
+
+Answer:

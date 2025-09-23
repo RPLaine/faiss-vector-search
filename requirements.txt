@@ -1,0 +1,19 @@
+# FAISS-External LLM RAG System Requirements
+
+# Vector search and similarity
+faiss-cpu>=1.7.4
+
+# Text embeddings
+sentence-transformers>=2.2.2
+
+# HTTP requests for external API
+requests>=2.28.0
+
+# Numerical computations
+numpy>=1.21.0
+
+# Rich console formatting for enhanced CLI experience
+rich>=13.0.0
+
+# Document processing
+python-docx

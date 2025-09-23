@@ -1,0 +1,29 @@
+{
+    "external_llm": {
+        "url": "http://your-llm-server:port/api/generate",
+        "api_key": "",
+        "model": "your-model-name",
+        "timeout": 3600,
+        "max_tokens": 20000,
+        "temperature": 0.7,
+        "headers": {
+            "Content-Type": "application/json",
+            "Authorization": ""
+        }
+    },
+    "embedding": {
+        "model": "all-MiniLM-L6-v2",
+        "dimension": 384,
+        "batch_size": 32
+    },
+    "retrieval": {
+        "top_k": 5,
+        "similarity_threshold": 0.3,
+        "max_context_length": 25000
+    },
+    "index": {
+        "type": "IndexFlatL2",
+        "save_path": "data/faiss.index",
+        "metadata_path": "data/metadata.pkl"
+    }
+}

@@ -1,0 +1,6 @@
+Context:
+{context}
+
+Question: {question}
+
+Please answer the question based on the provided context. If the context doesn't contain enough information to answer the question completely, please say so and provide what information you can based on the available context.

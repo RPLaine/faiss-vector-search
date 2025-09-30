@@ -457,26 +457,46 @@ class RAGSystem:
         # Use the URL exactly as configured without modification
         api_url = llm_config["url"]
         
-        # Prepare Ollama-style payload
-        payload = {
-            "model": llm_config["model"],
-            "prompt": prompt,
-            "stream": False,
-            "options": {
-                "num_predict": llm_config["max_tokens"],
+        # Get payload type from config (default to "prompt" for backward compatibility)
+        payload_type = llm_config.get("payload_type", "prompt")
+        
+        # Prepare payload based on type
+        if payload_type == "message":
+            # OpenAI-style message format
+            payload = {
+                "model": llm_config["model"],
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": False,
+                "max_tokens": llm_config["max_tokens"],
                 "temperature": llm_config.get("temperature", 0.7)
             }
-        }
+        else:
+            # Ollama-style prompt format (default)
+            payload = {
+                "model": llm_config["model"],
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "num_predict": llm_config["max_tokens"],
+                    "temperature": llm_config.get("temperature", 0.7)
+                }
+            }
         
         # Display the payload with rich visuals
         self._display_llm_payload(api_url, payload)
         
         try:
             start_time = time.time()
+            
+            # Prepare headers from config
+            headers = llm_config.get("headers", {})
+            if not headers:
+                headers = {"Content-Type": "application/json"}
+            
             response = requests.post(
                 api_url,
                 json=payload,
-                headers={"Content-Type": "application/json"},
+                headers=headers,
                 timeout=llm_config["timeout"]
             )
             processing_time = time.time() - start_time
@@ -485,12 +505,25 @@ class RAGSystem:
             
             result = response.json()
             
-            # Extract response text (Ollama format)
-            if "response" in result:
-                return result["response"].strip(), processing_time
+            # Extract response text based on payload type
+            payload_type = llm_config.get("payload_type", "prompt")
+            
+            if payload_type == "message":
+                # OpenAI-style response format
+                if "choices" in result and len(result["choices"]) > 0:
+                    return result["choices"][0]["message"]["content"].strip(), processing_time
+                elif "content" in result:
+                    return result["content"].strip(), processing_time
+                else:
+                    logger.error(f"Unexpected message API response format: {result}")
+                    return "Error: Unexpected message API response format", processing_time
             else:
-                logger.error(f"Unexpected API response format: {result}")
-                return "Error: Unexpected API response format", processing_time
+                # Ollama-style response format (default)
+                if "response" in result:
+                    return result["response"].strip(), processing_time
+                else:
+                    logger.error(f"Unexpected prompt API response format: {result}")
+                    return "Error: Unexpected prompt API response format", processing_time
             
         except requests.RequestException as e:
             processing_time = time.time() - start_time if 'start_time' in locals() else 0.0
@@ -615,32 +648,70 @@ class RAGSystem:
             f"[bold green]{payload['model']}[/bold green]", 
             "LLM model to use"
         )
+        
+        # Get payload type for display
+        payload_type = self.config["external_llm"].get("payload_type", "prompt")
+        payload_table.add_row(
+            "payload_type", 
+            f"[bold blue]{payload_type}[/bold blue]", 
+            "Request format type"
+        )
+        
         payload_table.add_row(
             "stream", 
             f"[yellow]{payload['stream']}[/yellow]", 
             "Streaming response mode"
         )
+        # Handle different token limit formats
+        if "max_tokens" in payload:
+            max_tokens_value = payload["max_tokens"]
+        elif "options" in payload and "num_predict" in payload["options"]:
+            max_tokens_value = payload["options"]["num_predict"]
+        else:
+            max_tokens_value = "N/A"
+            
         payload_table.add_row(
             "max_tokens", 
-            f"[magenta]{payload['options']['num_predict']}[/magenta]", 
+            f"[magenta]{max_tokens_value}[/magenta]", 
             "Maximum tokens to generate"
         )
+        # Handle different temperature formats
+        if "temperature" in payload:
+            temperature_value = payload["temperature"]
+        elif "options" in payload and "temperature" in payload["options"]:
+            temperature_value = payload["options"]["temperature"]
+        else:
+            temperature_value = "N/A"
+            
         payload_table.add_row(
             "temperature", 
-            f"[cyan]{payload['options']['temperature']}[/cyan]", 
+            f"[cyan]{temperature_value}[/cyan]", 
             "Randomness in response"
         )
         
         console.print(payload_table)
         
         # Display the prompt with syntax highlighting
-        prompt_text = payload['prompt']
-        # Display full prompt content without truncation
-        display_prompt = prompt_text
+        # Handle different payload types for prompt display
+        if "prompt" in payload:
+            # Prompt-type payload
+            display_prompt = payload['prompt']
+            title = "[bold cyan]📝 Prompt Content[/bold cyan]"
+        elif "messages" in payload:
+            # Message-type payload
+            messages = payload['messages']
+            if messages and len(messages) > 0:
+                display_prompt = messages[0].get('content', 'No content found')
+            else:
+                display_prompt = 'No messages found'
+            title = "[bold cyan]📝 Message Content[/bold cyan]"
+        else:
+            display_prompt = 'No prompt or messages found in payload'
+            title = "[bold cyan]📝 Content[/bold cyan]"
             
         console.print(Panel(
             display_prompt,
-            title="[bold cyan]📝 Prompt Content[/bold cyan]",
+            title=title,
             border_style="cyan",
             padding=(1, 2)
         ))

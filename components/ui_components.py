@@ -79,6 +79,194 @@ class UIManager:
             elif choice == "2":
                 self.console.print("[blue]✅ Direct LLM mode selected[/blue]")
                 return False
+
+    def display_system_status(self, rag_stats, data_dir):
+        """Display current system status and loaded data information."""
+        # Display system status
+        status_table = self.create_info_table(
+            title="🎯 RAG System Status",
+            box_style=box.ROUNDED,
+            title_style="bold green",
+            header_style="bold cyan"
+        )
+        status_table.add_column("Component", style="cyan", no_wrap=True)
+        status_table.add_column("Status", style="green", justify="center")
+        status_table.add_column("Details", style="white")
+        
+        status_table.add_row(
+            "🧠 Embedding Model", 
+            "✅ Ready", 
+            f"all-MiniLM-L6-v2 ({rag_stats.get('embedding_dimension', 'N/A')}D)"
+        )
+        status_table.add_row(
+            "🔍 Vector Index", 
+            "✅ Loaded", 
+            f"{rag_stats.get('index_type', 'FAISS')} from {data_dir}/"
+        )
+        status_table.add_row(
+            "🌐 External LLM", 
+            "🔗 Connected", 
+            f"{rag_stats.get('external_llm_model', 'N/A')} via API"
+        )
+        status_table.add_row(
+            "📊 Documents", 
+            "✅ Ready", 
+            f"{rag_stats['total_documents']} documents available for queries"
+        )
+        
+        self.console.print(status_table)
+        self.console.print()
+
+    def display_available_templates(self):
+        """Display available query templates."""
+        templates_table = self.create_info_table(
+            title="📝 Available Query Templates",
+            box_style=box.SIMPLE,
+            header_style="bold yellow"
+        )
+        templates_table.add_column("Template", style="cyan")
+        templates_table.add_column("Description", style="white")
+        
+        # Default templates
+        templates = [
+            ("basic_rag", "Basic question-answering format"),
+            ("detailed_rag", "Detailed explanations with context"),
+            ("technical_rag", "Technical and precise responses"),
+            ("concise_rag", "Brief and concise answers")
+        ]
+        
+        import os
+        for template, description in templates:
+            template_path = f"prompts/{template}.txt"
+            if os.path.exists(template_path):
+                templates_table.add_row(template, description)
+        
+        self.console.print(templates_table)
+        self.console.print()
+
+    def display_query_header(self, query_number, query, template, use_context):
+        """Display query processing header."""
+        query_panel = Panel.fit(
+            f"[bold white]Query #{query_number}:[/bold white] [cyan]{query}[/cyan]\n"
+            f"[dim]Template: {template} | Context: {'FAISS Enhanced' if use_context else 'Direct LLM'}[/dim]",
+            border_style="cyan",
+            title=f"[bold cyan]Processing Query[/bold cyan]",
+            title_align="left"
+        )
+        self.console.print(query_panel)
+
+    def display_detailed_query_results(self, query, template, result):
+        """Display comprehensive query results."""
+        # Display results summary
+        results_table = Table(
+            title="📊 Query Results",
+            box=box.SIMPLE_HEAD,
+            show_header=True,
+            header_style="bold blue"
+        )
+        results_table.add_column("Metric", style="cyan")
+        results_table.add_column("Value", style="green")
+        
+        results_table.add_row("Documents Found", str(result.get('num_docs_found', 0)))
+        results_table.add_row("Template Used", template)
+        results_table.add_row("Response Length", f"{len(result.get('response', ''))} characters")
+        
+        # Add processing time if available
+        if 'processing_time' in result:
+            processing_time = result['processing_time']
+            results_table.add_row("Processing Time", f"{processing_time:.2f} seconds")
+        
+        self.console.print(results_table)
+        
+        # Display LLM response
+        if result.get('response'):
+            response_panel = Panel(
+                result['response'],
+                title="[bold green]🤖 Response[/bold green]",
+                border_style="green",
+                padding=(1, 2)
+            )
+            self.console.print(response_panel)
+        
+        return result.get('context_docs', [])
+
+    def display_source_documents(self, context_docs):
+        """Display source documents used in the query."""
+        self.console.print("[bold yellow]📚 Source Documents:[/bold yellow]")
+        for i, doc in enumerate(context_docs, 1):
+            # Handle both old format (string) and new format (dict with metadata)
+            if isinstance(doc, dict):
+                content = doc.get('content', str(doc))
+                filename = doc.get('filename', f'Document {i}')
+                doc_preview = content  # Show full content without truncation
+                title = f"[bold cyan]{filename}[/bold cyan]"
+            else:
+                # Fallback for old format
+                doc_preview = doc  # Show full content without truncation
+                title = f"[bold cyan]Source {i}[/bold cyan]"
+            
+            doc_panel = Panel(
+                doc_preview,
+                title=title,
+                border_style="dim",
+                padding=(0, 1)
+            )
+            self.console.print(doc_panel)
+
+    def display_ready_for_queries(self, use_context):
+        """Display ready for queries panel."""
+        self.console.print(Panel.fit(
+            "[bold blue]🚀 RAG Query Interface[/bold blue]\n"
+            f"[yellow]Context Mode: {'FAISS Enhanced' if use_context else 'Direct LLM'}[/yellow]\n"
+            "[dim]Enter queries to search your knowledge base. Type 'quit' or 'exit' to stop.[/dim]\n"
+            "[dim]Press Ctrl+C at any time to interrupt.[/dim]",
+            border_style="blue",
+            title="[bold cyan]Ready for Queries[/bold cyan]"
+        ))
+
+    def display_ready_for_queries_flexible(self):
+        """Display ready for queries panel without pre-selecting context mode."""
+        panel_content = """[bold green]✅ System Ready for Queries[/bold green]
+
+[cyan]📋 Query Options:[/cyan]
+• [bold]FAISS Enhanced[/bold]: Uses document context for informed responses
+• [bold]Direct LLM[/bold]: Direct AI responses without document context
+
+[yellow]💡 You can choose the mode for each individual query[/yellow]
+
+[dim]Commands: 'quit', 'exit', or 'q' to exit | Press Ctrl+C to interrupt[/dim]"""
+        
+        self.console.print(Panel(
+            panel_content,
+            title="[bold green]🚀 Query System[/bold green]",
+            border_style="green",
+            padding=(1, 2)
+        ))
+
+    def display_initialization_panel(self, data_dir):
+        """Display RAG system initialization panel."""
+        self.console.print(Panel.fit(
+            f"[bold cyan]🔧 Initializing RAG Query System[/bold cyan]\n"
+            f"[dim]Loading from '{data_dir}' directory...[/dim]",
+            border_style="cyan"
+        ))
+
+    def display_index_creation_panel(self):
+        """Display FAISS index creation panel."""
+        self.console.print(Panel.fit(
+            "[bold yellow]🔄 Creating fresh FAISS index from files directory...[/bold yellow]\n"
+            "[dim]Loading documents from 'files' directory and building new index...[/dim]",
+            border_style="yellow",
+            title="[bold yellow]Index Creation[/bold yellow]"
+        ))
+
+    def display_knowledge_base_ready(self, data_dir):
+        """Display knowledge base ready panel."""
+        self.console.print(Panel.fit(
+            f"[bold green]📁 Knowledge Base Ready[/bold green]\n"
+            f"[dim]Using FAISS index and metadata from '{data_dir}' directory[/dim]",
+            border_style="green"
+        ))
     
     def create_info_table(self, title, box_style=box.ROUNDED, title_style="bold green", header_style="bold cyan"):
         """Create a standardized info table with common styling."""

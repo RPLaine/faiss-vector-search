@@ -7,6 +7,34 @@
 # Kysymys
 {question}
 
-# Ohjeet
-Vastaa kysymykseen.
-Käytä kontekstia, jos se on saatavilla.
+# Otsikon käyttö
+Kirjoita kysymys otsikoksi.
+
+# Kontekstin käyttö
+Käytä kontekstia mahdollisimman monipuolisesti vastauksessa, jos konteksti on saatavilla.
+Kontekstissa "K" merkitsee kysyjää ja "V" vastaajaa. Älä käytä "K" ja "V" merkintöjä vastauksessasi.
+Jos kontekstia ei ole, vastaa parhaan kykysi mukaan.
+Älä ilmaise, jos sinulla ei ole kontekstia.
+
+# Lähteet tekstissä
+Jos käytät kontekstia, niin ilmaise suluissa (<Source File>, <Lines>) siitä lähteestä, josta tieto on peräisin. 
+Esimerkiksi: (M1.txt, 27-29). 
+Älä ilmaise "Chunk" tai "Characters".
+Älä ilmaise lähdettä tekstissä, vaan vain suluissa.
+Kontekstiviittaus tulee olla rivin tai kappaleen lopussa.
+
+# Lähdeluettelo
+Tee lähdeluettelo käytetyistä lähteistä tekstin loppuun, jos olet käyttänyt lähteitä.
+Älä tee lähdeluetteloa, jos et ole käyttänyt lähteitä.
+Mainitse vain ne lähteet, joita olet käyttänyt vastauksessasi.
+Lähdeluettelon jälkeen ei tule olla muuta tekstiä.
+
+# Formaatti
+Käytä .md-formatointia.
+Esimerkiksi otsikkot merkitään #, ##, ### jne.
+Käytä luetteloita, jos se on tarkoituksenmukaista.
+Käytä kaksinkertaista rivinvaihtoa.
+
+# Tehtävä
+Vastaa käyttäjän kysymykseen yllä olevien ohjeiden mukaisesti.
+Vastauksen tulee olla yksityiskohtainen, todenperäinen ja informatiivinen.

@@ -44,8 +44,8 @@ class QueryRunner:
     def run(self):
         """Main query runner execution flow."""
         try:
-            # Check if index regeneration is needed
-            self._handle_index_regeneration()
+            # Check if index regeneration is needed (delegated to IndexManager)
+            self.index_manager.check_and_handle_index_regeneration()
             
             # Prepare data directory and create FAISS index if needed
             self.index_manager.validate_and_prepare_data_directory()
@@ -80,31 +80,6 @@ class QueryRunner:
         
         # Display ready status
         self.ui.display_knowledge_base_ready(self.data_dir)
-    
-    def _handle_index_regeneration(self):
-        """Check if FAISS index should be regenerated."""
-        index_path = os.path.join(self.data_dir, "faiss.index")
-        metadata_path = os.path.join(self.data_dir, "metadata.pkl")
-        
-        # Check if index files exist
-        index_exists = os.path.exists(index_path) and os.path.exists(metadata_path)
-        
-        if index_exists:
-            # Ask user if they want to regenerate
-            should_regenerate = self.ui.confirm(
-                "[yellow]📁 Existing FAISS index found. Regenerate index from documents?[/yellow]",
-                default=False
-            )
-            
-            if should_regenerate:
-                self.ui.print("[blue]🔄 Regenerating FAISS index...[/blue]")
-                # Clear existing index files
-                self.index_manager.clear_existing_index()
-                # The index will be recreated in validate_and_prepare_data_directory()
-            else:
-                self.ui.print("[green]✅ Using existing FAISS index[/green]")
-        else:
-            self.ui.print("[blue]🆕 No existing FAISS index found. Creating new index...[/blue]")
     
     def _display_system_status(self):
         """Display current system status and loaded data information."""
@@ -150,11 +125,11 @@ class QueryRunner:
                     self.ui.print("[dim]Please enter a query or 'quit' to exit.[/dim]")
                     continue
                 
-                # Get context mode selection for this specific query
-                use_context = self._get_context_mode_choice()
+                # Get context mode selection for this specific query (delegated to UIManager)
+                use_context = self.ui.get_context_mode_choice()
                 
-                # Get template choice
-                template = self._get_template_choice()
+                # Get template choice (delegated to UIManager)
+                template = self.ui.get_template_choice()
                 
                 # Process query with interrupt handling
                 query_count += 1
@@ -183,28 +158,7 @@ class QueryRunner:
                     self._finalize_session(query_count)
                     break
     
-    def _get_context_mode_choice(self):
-        """Get context mode choice for each individual query."""
-        self.ui.print("\n[bold cyan]📋 Select query mode for this question:[/bold cyan]")
-        
-        choice = self.ui.input(
-            "[cyan]Choose mode: [1] FAISS Enhanced (with document context) | [2] Direct LLM (no context)[/cyan]",
-            default="1"
-        ).strip()
-        
-        if choice == "2":
-            self.ui.print("[yellow]🤖 Using Direct LLM mode (no document context)[/yellow]")
-            return False
-        else:
-            self.ui.print("[green]📚 Using FAISS Enhanced mode (with document context)[/green]")
-            return True
-    
-    def _get_template_choice(self):
-        """Get template choice from user."""
-        return self.ui.input(
-            "[cyan]📝 Select template[/cyan]",
-            default="basic_rag"
-        )
+
     
     def _process_query(self, query: str, template: str, query_number: int, use_context: bool):
         """Process a single query with interrupt handling."""

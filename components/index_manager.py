@@ -177,6 +177,32 @@ class IndexManager:
         with open(detailed_metadata_path, 'w', encoding='utf-8') as f:
             json.dump(document_metadata, f, indent=2)
     
+    def check_and_handle_index_regeneration(self) -> bool:
+        """Check if FAISS index should be regenerated and handle user choice."""
+        index_path = os.path.join(self.data_dir, "faiss.index")
+        metadata_path = os.path.join(self.data_dir, "metadata.pkl")
+        
+        # Check if index files exist
+        index_exists = os.path.exists(index_path) and os.path.exists(metadata_path)
+        
+        if index_exists:
+            # Ask user if they want to regenerate
+            should_regenerate = self.ui.confirm(
+                "[yellow]📁 Existing FAISS index found. Regenerate index from documents?[/yellow]",
+                default=False
+            )
+            
+            if should_regenerate:
+                self.ui.print("[blue]🔄 Regenerating FAISS index...[/blue]")
+                self.clear_existing_index()
+                return True  # Needs regeneration
+            else:
+                self.ui.print("[green]✅ Using existing FAISS index[/green]")
+                return False  # No regeneration needed
+        else:
+            self.ui.print("[blue]🆕 No existing FAISS index found. Creating new index...[/blue]")
+            return True  # Needs creation
+
     def get_index_stats(self) -> Dict[str, Any]:
         """Get statistics about the current index."""
         info_path = os.path.join(self.data_dir, "processed_files.json")

@@ -36,9 +36,11 @@ class RAGSystem:
         Initialize the RAG system.
         
         Args:
-            config_path: Path to the configuration file
+            config_path: Path to the configuration file (temp configs for initialization only)
             enable_session_saving: Whether to enable session saving functionality
         """
+        # Always use config.json for reloading, even if initialized with temp config
+        self.config_path = "config.json"
         self.config = self._load_config(config_path)
         self.embedder: Optional[SentenceTransformer] = None
         self.index: Optional[faiss.Index] = None
@@ -71,6 +73,15 @@ class RAGSystem:
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON in {config_path}: {e}")
             raise
+    
+    def reload_config(self):
+        """
+        Reload configuration from file.
+        Useful for picking up configuration changes without restarting the system.
+        """
+        logger.info(f"Reloading configuration from {self.config_path}")
+        self.config = self._load_config(self.config_path)
+        return self.config
     
     def _init_embedder(self):
         """Initialize the sentence transformer model."""
@@ -236,6 +247,7 @@ class RAGSystem:
     def search(self, query: str, k: Optional[int] = None) -> List[str]:
         """
         Search for similar documents.
+        Reloads configuration to pick up any changes to retrieval parameters.
         
         Args:
             query: Query text
@@ -255,6 +267,9 @@ class RAGSystem:
         if self.index.ntotal == 0:
             logger.warning("Index is empty")
             return []
+        
+        # Reload config to pick up any changes to retrieval parameters
+        self.reload_config()
         
         if k is None:
             k = self.config["retrieval"]["top_k"]
@@ -393,6 +408,7 @@ class RAGSystem:
                          use_context: bool = True) -> Tuple[str, float]:
         """
         Generate response using external LLM API with optional retrieved context.
+        Reloads configuration to pick up any changes to context length limits.
         
         Args:
             query: User question
@@ -403,6 +419,9 @@ class RAGSystem:
         Returns:
             Tuple of (generated response, processing time in seconds)
         """
+        # Reload config to pick up any changes to context length limits
+        self.reload_config()
+        
         if use_context and context_docs is None:
             context_docs = self.search(query)
         
@@ -445,6 +464,7 @@ class RAGSystem:
     def _call_external_llm(self, prompt: str) -> Tuple[str, float]:
         """
         Call external LLM API with the formatted prompt.
+        Reloads configuration before each call to pick up any changes.
         
         Args:
             prompt: Formatted prompt string
@@ -452,6 +472,8 @@ class RAGSystem:
         Returns:
             Tuple of (generated response, processing time in seconds)
         """
+        # Reload config to pick up any changes made to config.json
+        self.reload_config()
         llm_config = self.config["external_llm"]
         
         # Use the URL exactly as configured without modification

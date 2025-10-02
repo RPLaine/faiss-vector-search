@@ -267,6 +267,30 @@ class UIManager:
             f"[dim]Using FAISS index and metadata from '{data_dir}' directory[/dim]",
             border_style="green"
         ))
+
+    def get_context_mode_choice(self):
+        """Get context mode choice for each individual query."""
+        self.console.print("\n[bold cyan]📋 Select query mode for this question:[/bold cyan]")
+        
+        choice = Prompt.ask(
+            "[cyan]Choose mode: [1] FAISS Enhanced (with document context) | [2] Direct LLM (no context)[/cyan]",
+            choices=["1", "2"],
+            default="1"
+        )
+        
+        if choice == "2":
+            self.console.print("[yellow]🤖 Using Direct LLM mode (no document context)[/yellow]")
+            return False
+        else:
+            self.console.print("[green]📚 Using FAISS Enhanced mode (with document context)[/green]")
+            return True
+
+    def get_template_choice(self):
+        """Get template choice from user."""
+        return Prompt.ask(
+            "[cyan]📝 Select template[/cyan]",
+            default="basic_rag"
+        )
     
     def create_info_table(self, title, box_style=box.ROUNDED, title_style="bold green", header_style="bold cyan"):
         """Create a standardized info table with common styling."""

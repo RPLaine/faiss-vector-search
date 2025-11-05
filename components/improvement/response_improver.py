@@ -30,7 +30,7 @@ class ResponseImprover:
         self.llm_config = llm_config
         
         # Load improvement prompt from file
-        prompt_path = Path(__file__).parent.parent.parent / "prompts" / "improvement" / "prompt.txt"
+        prompt_path = Path(__file__).parent.parent.parent / "prompts" / "improvement.txt"
         try:
             with open(prompt_path, 'r', encoding='utf-8') as f:
                 self.improvement_prompt_template = f.read()
@@ -72,7 +72,7 @@ class ResponseImprover:
         console.print("\n")
         console.rule("[bold magenta]🔧 IMPROVEMENT PROMPT[/bold magenta]", style="magenta")
         console.print(Panel(
-            improvement_prompt[:2000] + "..." if len(improvement_prompt) > 2000 else improvement_prompt,
+            improvement_prompt,
             border_style="magenta", 
             expand=False
         ))

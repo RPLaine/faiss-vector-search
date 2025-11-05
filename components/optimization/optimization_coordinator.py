@@ -7,6 +7,7 @@ optionally runs iterative improvement if enabled.
 """
 
 import logging
+import time
 from typing import Dict, Any, List, Optional
 from rich.console import Console
 from rich.table import Table
@@ -82,6 +83,9 @@ class OptimizationCoordinator:
             - final_result: Final query result with best parameters
         """
         logger.info(f"🎯 Starting optimization for query: {query[:50]}...")
+        
+        # Start total time tracking
+        total_start_time = time.time()
         
         self.console.print("\n[bold cyan]🌡️  Temperature Optimization Mode[/bold cyan]")
         self.console.print(f"Query: [yellow]{query}[/yellow]")
@@ -208,6 +212,14 @@ class OptimizationCoordinator:
                 if best_result_dict:
                     best_result_dict["response"] = best_response_text
         
+        # Calculate total time
+        total_time = time.time() - total_start_time
+        
+        # Display total time
+        self.console.print()
+        self.console.print(f"[bold cyan]⏱️  Total Time: {total_time:.2f}s[/bold cyan]")
+        self.console.print()
+        
         return {
             "best_parameters": best_params,
             "best_score": best_params.score,
@@ -216,7 +228,8 @@ class OptimizationCoordinator:
             "improvement_history": improvement_result.get("improvement_history", []) if improvement_result else [],
             "final_result": best_result_dict,
             "iterations_completed": len(history),
-            "improvement_iterations": improvement_result.get("iterations_completed", 0) if improvement_result else 0
+            "improvement_iterations": improvement_result.get("iterations_completed", 0) if improvement_result else 0,
+            "total_time": total_time
         }
     
     def _generate_with_parameters(self, query: str, parameters: ParameterSet) -> Dict[str, Any]:

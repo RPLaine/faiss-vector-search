@@ -94,7 +94,7 @@ def handle_demo_errors(error):
         )
         troubleshooting_table.add_row(
             "Template Files",
-            "Ensure basic_rag.txt, detailed_rag.txt, technical_rag.txt, concise_rag.txt exist"
+            "Ensure base.txt, evaluation.txt, improvement.txt exist"
         )
     
     elif "data directory" in error_message.lower() or "faiss.index" in error_message.lower():

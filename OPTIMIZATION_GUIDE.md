@@ -139,7 +139,7 @@ User Query
 The system uses three main prompts (all in Finnish):
 
 ### 1. Evaluation Prompt
-**Location:** `prompts/evaluation/prompt.txt`
+**Location:** `prompts/evaluation.txt`
 
 **Purpose:** Critical evaluation of response quality with reasoning + score
 
@@ -156,7 +156,7 @@ Pisteet: [0.XX]
 ```
 
 ### 2. Improvement Prompt
-**Location:** `prompts/improvement/prompt.txt`
+**Location:** `prompts/improvement.txt`
 
 **Purpose:** Generate improved response based on evaluation feedback
 
@@ -174,8 +174,8 @@ Pisteet: [0.XX]
 
 **Output:** Improved response text
 
-### 3. Basic RAG Prompt
-**Location:** `prompts/basic_rag.txt`
+### 3. Base RAG Prompt
+**Location:** `prompts/base.txt`
 
 **Purpose:** Standard RAG response generation
 
@@ -384,7 +384,7 @@ prompts/
 → Set `"optimization": {"enabled": true}` in config.json
 
 ### "Improvement prompt could not be loaded"
-→ Ensure `prompts/improvement/prompt.txt` exists
+→ Ensure `prompts/improvement.txt` exists
 
 ### "All scores are 1.00"
 → Evaluation prompt may be too lenient, review statistical guidance

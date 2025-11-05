@@ -101,9 +101,6 @@ class QueryRunner:
         
         # Use UI manager for system status display
         self.ui.display_system_status(stats, self.data_dir)
-        
-        # Show available templates
-        self.ui.display_available_templates()
     
     def _run_query_loop(self):
         """Run the interactive query loop."""
@@ -139,8 +136,8 @@ class QueryRunner:
                 # Get context mode selection for this specific query (delegated to UIManager)
                 mode = self.ui.get_context_mode_choice()
                 
-                # Get template choice (delegated to UIManager)
-                template = self.ui.get_template_choice()
+                # Use base template (only one available)
+                template = "base"
                 
                 # Process query with interrupt handling
                 query_count += 1

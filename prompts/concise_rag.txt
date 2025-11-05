@@ -1,7 +1,0 @@
-Perustu alla olevaan kontekstiin ja anna ytimekäs vastaus käyttäjän kysymykseen.
-
-Konteksti: {context}
-
-Kysymys: {question}
-
-Anna lyhyt ja suora vastaus (1–2 virkettä):

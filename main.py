@@ -8,14 +8,34 @@ timestamped folders containing prompts and results.
 """
 
 import sys
+import logging
 import argparse
 from components.ui_components import UIManager
 from components.query_runner import QueryRunner
 from components.error_handler import handle_demo_errors
 
 
+def setup_logging():
+    """Configure logging to suppress verbose initialization messages."""
+    # Set root logger to WARNING to suppress INFO messages
+    logging.basicConfig(
+        level=logging.WARNING,
+        format='%(levelname)s - %(name)s - %(message)s'
+    )
+    
+    # Only show errors for these noisy modules during initialization
+    logging.getLogger('components.rag_system').setLevel(logging.ERROR)
+    logging.getLogger('components.session_manager').setLevel(logging.ERROR)
+    logging.getLogger('components.optimization.response_evaluator').setLevel(logging.ERROR)
+    logging.getLogger('components.query_runner').setLevel(logging.ERROR)
+    logging.getLogger('sentence_transformers').setLevel(logging.ERROR)
+
+
 def main():
     """Main orchestration function for the RAG query system."""
+    # Setup logging configuration first
+    setup_logging()
+    
     try:
         # Parse command line arguments
         parser = argparse.ArgumentParser(

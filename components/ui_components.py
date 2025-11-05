@@ -28,13 +28,19 @@ class UIManager:
     
     def display_welcome_header(self):
         """Display the main welcome header for the application."""
-        self.console.print(Panel.fit(
-            "[bold blue]🚀 RAG Query System[/bold blue]\n"
-            "[dim]Production-ready RAG queries with FAISS vector search and external LLM[/dim]\n\n"
-            "[green]Ready to query your knowledge base![/green]",
-            border_style="blue",
-            title="[bold cyan]RAG Query Tool[/bold cyan]"
+        welcome_text = Text()
+        welcome_text.append("🚀 ", style="bold cyan")
+        welcome_text.append("RAG Query System\n", style="bold white")
+        welcome_text.append("Production-ready semantic search with FAISS and external LLM", style="dim")
+        
+        self.console.print()
+        self.console.print(Panel(
+            welcome_text,
+            border_style="cyan",
+            padding=(1, 2),
+            expand=False
         ))
+        self.console.print()
     
     def display_completion_summary(self):
         """Display the completion summary and next steps."""
@@ -83,18 +89,19 @@ class UIManager:
     def display_system_status(self, rag_stats, data_dir):
         """Display current system status and loaded data information."""
         # Display system status
+        self.console.print()
         status_table = self.create_info_table(
-            title="🎯 RAG System Status",
+            title="🎯 System Status",
             box_style=box.ROUNDED,
-            title_style="bold green",
-            header_style="bold cyan"
+            title_style="bold cyan",
+            header_style="bold white"
         )
-        status_table.add_column("Component", style="cyan", no_wrap=True)
-        status_table.add_column("Status", style="green", justify="center")
-        status_table.add_column("Details", style="white")
+        status_table.add_column("Component", style="cyan", no_wrap=True, width=20)
+        status_table.add_column("Status", style="green", justify="center", width=12)
+        status_table.add_column("Details", style="dim", width=40)
         
         status_table.add_row(
-            "🧠 Embedding Model", 
+            "🧠 Embedding", 
             "✅ Ready", 
             f"all-MiniLM-L6-v2 ({rag_stats.get('embedding_dimension', 'N/A')}D)"
         )
@@ -111,37 +118,10 @@ class UIManager:
         status_table.add_row(
             "📊 Documents", 
             "✅ Ready", 
-            f"{rag_stats['total_documents']} documents available for queries"
+            f"{rag_stats['total_documents']} documents indexed"
         )
         
         self.console.print(status_table)
-        self.console.print()
-
-    def display_available_templates(self):
-        """Display available query templates."""
-        templates_table = self.create_info_table(
-            title="📝 Available Query Templates",
-            box_style=box.SIMPLE,
-            header_style="bold yellow"
-        )
-        templates_table.add_column("Template", style="cyan")
-        templates_table.add_column("Description", style="white")
-        
-        # Default templates
-        templates = [
-            ("basic_rag", "Basic question-answering format"),
-            ("detailed_rag", "Detailed explanations with context"),
-            ("technical_rag", "Technical and precise responses"),
-            ("concise_rag", "Brief and concise answers")
-        ]
-        
-        import os
-        for template, description in templates:
-            template_path = f"prompts/{template}.txt"
-            if os.path.exists(template_path):
-                templates_table.add_row(template, description)
-        
-        self.console.print(templates_table)
         self.console.print()
 
     def display_query_header(self, query_number, query, template, mode):
@@ -268,30 +248,56 @@ class UIManager:
 
     def display_ready_for_queries_flexible(self):
         """Display ready for queries panel without pre-selecting context mode."""
-        panel_content = """[bold green]✅ System Ready for Queries[/bold green]
-
-[cyan]📋 Query Options:[/cyan]
-• [bold]FAISS Enhanced[/bold]: Uses document context for informed responses
-• [bold]Direct LLM[/bold]: Direct AI responses without document context
-
-[yellow]💡 You can choose the mode for each individual query[/yellow]
-
-[dim]Commands: 'quit', 'exit', or 'q' to exit | Press Ctrl+C to interrupt[/dim]"""
+        ready_content = Text()
+        ready_content.append("✅ ", style="bold green")
+        ready_content.append("System Ready\n\n", style="bold white")
         
+        ready_content.append("📋 Query Modes:\n", style="cyan")
+        ready_content.append("  • ", style="dim")
+        ready_content.append("FAISS Enhanced", style="bold cyan")
+        ready_content.append(" - Uses document context\n", style="dim")
+        ready_content.append("  • ", style="dim")
+        ready_content.append("Direct LLM", style="bold yellow")
+        ready_content.append(" - No document context\n", style="dim")
+        ready_content.append("  • ", style="dim")
+        ready_content.append("Optimized", style="bold magenta")
+        ready_content.append(" - Adaptive temperature optimization\n\n", style="dim")
+        
+        ready_content.append("💡 ", style="yellow")
+        ready_content.append("Choose mode for each query\n\n", style="dim italic")
+        
+        ready_content.append("Commands: ", style="dim")
+        ready_content.append("'quit', 'exit', 'q'", style="yellow")
+        ready_content.append(" to exit | ", style="dim")
+        ready_content.append("Ctrl+C", style="yellow")
+        ready_content.append(" to interrupt", style="dim")
+        
+        self.console.print()
         self.console.print(Panel(
-            panel_content,
-            title="[bold green]🚀 Query System[/bold green]",
+            ready_content,
             border_style="green",
-            padding=(1, 2)
+            padding=(1, 2),
+            expand=False
         ))
+        self.console.print()
 
     def display_initialization_panel(self, data_dir):
         """Display RAG system initialization panel."""
-        self.console.print(Panel.fit(
-            f"[bold cyan]🔧 Initializing RAG Query System[/bold cyan]\n"
-            f"[dim]Loading from '{data_dir}' directory...[/dim]",
-            border_style="cyan"
+        init_text = Text()
+        init_text.append("⚙️  ", style="bold cyan")
+        init_text.append("Initializing System\n", style="bold white")
+        init_text.append(f"Loading from ", style="dim")
+        init_text.append(f"'{data_dir}'", style="cyan")
+        init_text.append(" directory...", style="dim")
+        
+        self.console.print()
+        self.console.print(Panel(
+            init_text,
+            border_style="cyan",
+            padding=(1, 2),
+            expand=False
         ))
+        self.console.print()
 
     def display_index_creation_panel(self):
         """Display FAISS index creation panel."""
@@ -304,38 +310,41 @@ class UIManager:
 
     def display_knowledge_base_ready(self, data_dir):
         """Display knowledge base ready panel."""
-        self.console.print(Panel.fit(
-            f"[bold green]📁 Knowledge Base Ready[/bold green]\n"
-            f"[dim]Using FAISS index and metadata from '{data_dir}' directory[/dim]",
-            border_style="green"
+        ready_text = Text()
+        ready_text.append("✅ ", style="bold green")
+        ready_text.append("Knowledge Base Loaded\n", style="bold white")
+        ready_text.append(f"Using FAISS index from ", style="dim")
+        ready_text.append(f"'{data_dir}'", style="green")
+        ready_text.append(" directory", style="dim")
+        
+        self.console.print()
+        self.console.print(Panel(
+            ready_text,
+            border_style="green",
+            padding=(1, 2),
+            expand=False
         ))
+        self.console.print()
 
     def get_context_mode_choice(self):
         """Get context mode choice for each individual query."""
-        self.console.print("\n[bold cyan]📋 Select query mode for this question:[/bold cyan]")
+        self.console.print()
         
         choice = Prompt.ask(
-            "[cyan]Choose mode: [1] FAISS Enhanced | [2] Direct LLM | [3] Optimized FAISS (adaptive)[/cyan]",
+            "[cyan]Select mode: [1] FAISS | [2] Direct | [3] Optimized[/cyan]",
             choices=["1", "2", "3"],
             default="3"
         )
         
         if choice == "2":
-            self.console.print("[yellow]🤖 Using Direct LLM mode (no document context)[/yellow]")
+            self.console.print("[dim]→ Direct LLM mode[/dim]")
             return "direct"
         elif choice == "3":
-            self.console.print("[magenta]🎯 Using Optimized FAISS mode (adaptive parameter tuning)[/magenta]")
+            self.console.print("[dim]→ Optimized mode (adaptive)[/dim]")
             return "optimized"
         else:
-            self.console.print("[green]📚 Using FAISS Enhanced mode (with document context)[/green]")
+            self.console.print("[dim]→ FAISS Enhanced mode[/dim]")
             return "faiss"
-
-    def get_template_choice(self):
-        """Get template choice from user."""
-        return Prompt.ask(
-            "[cyan]📝 Select template[/cyan]",
-            default="basic_rag"
-        )
     
     def create_info_table(self, title, box_style=box.ROUNDED, title_style="bold green", header_style="bold cyan"):
         """Create a standardized info table with common styling."""

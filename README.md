@@ -20,6 +20,10 @@ faiss-system/
 ├── requirements.txt
 ├── components/                 # Core components
 ├── config_example.json          # Configuration template
+├── prompts/                   # System prompts
+│   ├── base.txt              # Main RAG prompt
+│   ├── evaluation.txt        # Response evaluation prompt
+│   └── improvement.txt       # Response improvement prompt
 ├── data/                      # FAISS index files
 ├── docx-files/               # Source documents
 ├── txt-files/                # Converted text

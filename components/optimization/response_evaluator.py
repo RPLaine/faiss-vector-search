@@ -32,7 +32,7 @@ class ResponseEvaluator:
         self.llm_config = llm_config
         
         # Load evaluation prompt from file
-        prompt_path = Path(__file__).parent.parent.parent / "prompts" / "evaluation" / "prompt.txt"
+        prompt_path = Path(__file__).parent.parent.parent / "prompts" / "evaluation.txt"
         try:
             with open(prompt_path, 'r', encoding='utf-8') as f:
                 self.evaluation_prompt_template = f.read()

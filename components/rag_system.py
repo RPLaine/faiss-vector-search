@@ -554,7 +554,7 @@ class RAGSystem:
             logger.error(f"Detailed search failed: {e}")
             return {"documents": [], "scores": [], "metadata": []}
             
-    def load_prompt_template(self, template_name: str = "basic_rag") -> str:
+    def load_prompt_template(self, template_name: str = "base") -> str:
         """
         Load a prompt template from the prompts directory.
         

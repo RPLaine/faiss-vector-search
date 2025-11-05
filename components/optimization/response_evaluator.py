@@ -37,27 +37,12 @@ class ResponseEvaluator:
             with open(prompt_path, 'r', encoding='utf-8') as f:
                 self.evaluation_prompt_template = f.read()
             logger.info(f"✓ Loaded evaluation prompt from {prompt_path}")
+        except FileNotFoundError as e:
+            logger.error(f"❌ Evaluation prompt not found: {prompt_path}")
+            raise FileNotFoundError(f"Required evaluation prompt file not found: {prompt_path}") from e
         except Exception as e:
-            logger.warning(f"⚠️  Could not load evaluation prompt from {prompt_path}: {e}")
-            # Fallback to embedded Finnish prompt
-            self.evaluation_prompt_template = """Arvioit tekoälyavustajan vastauksen laatua.
-
-Kysymys: {question}
-
-Haettu konteksti:
-{context}
-
-Vastaus:
-{response}
-
-Arvioi tämä vastaus asteikolla 0.00 - 1.00 seuraavien kriteerien perusteella:
-- Relevanssi kysymykseen (30%)
-- Konteksti-informaation hyödyntäminen (30%)
-- Selkeys ja johdonmukaisuus (20%)
-- Täydellisyys (20%)
-
-Palauta VAIN desimaaliluku väliltä 0.00 - 1.00. Ei mitään muuta.
-Pisteet:"""
+            logger.error(f"❌ Error loading evaluation prompt from {prompt_path}: {e}")
+            raise
     
     def evaluate_response(self, question: str, context: str, response: str) -> Tuple[float, float, str]:
         """

@@ -8,6 +8,12 @@ Haettu konteksti:
 Vastaus:
 {response}
 
+KIELI:
+**KIRJOITA ARVIOINTI AINA JA VAIN SUOMEKSI.**
+- Kaikki perustelut ja analyysi tulee esittää täysin suomen kielellä
+- ÄLÄ käytä englantia tai muita kieliä
+- Kaikki termit, kuvaukset ja kommentit suomeksi
+
 ARVIOINTIPERIAATE:
 Ole OBJEKTIIVINEN ja KRIITTINEN. Arvioi vastaus sen omien ansioiden perusteella. Tunnista sekä vahvuudet että heikkoudet. Älä anna pisteitä yli 0.90 ellei vastaus ole lähes täydellinen.
 

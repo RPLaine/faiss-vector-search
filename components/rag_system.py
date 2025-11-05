@@ -563,14 +563,17 @@ class RAGSystem:
             
         Returns:
             Template string
+            
+        Raises:
+            FileNotFoundError: If template file does not exist
         """
         template_path = f"prompts/{template_name}.txt"
         try:
             with open(template_path, 'r', encoding='utf-8') as f:
                 return f.read()
-        except FileNotFoundError:
-            logger.warning(f"Template {template_path} not found, using default")
-            return "Context:\n{context}\n\nQuestion: {question}\n\nAnswer:"
+        except FileNotFoundError as e:
+            logger.error(f"❌ Template {template_path} not found. Ensure the file exists.")
+            raise FileNotFoundError(f"Required template file not found: {template_path}") from e
     
     def generate_response(self, 
                          query: str, 
@@ -731,14 +734,14 @@ class RAGSystem:
             logger.error(f"Unexpected error: {e}")
             return f"Error: {str(e)}", processing_time
     
-    def query(self, question: str, k: Optional[int] = None, template_name: str = "basic_rag", use_context: bool = True) -> Dict:
+    def query(self, question: str, k: Optional[int] = None, template_name: str = "base", use_context: bool = True) -> Dict:
         """
         Complete RAG pipeline: search + generate.
         
         Args:
             question: User question
             k: Number of documents to retrieve
-            template_name: Prompt template to use
+            template_name: Prompt template to use (default: "base")
             use_context: If False, uses empty context; if True, uses FAISS context
             
         Returns:

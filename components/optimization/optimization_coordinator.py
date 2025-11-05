@@ -12,6 +12,8 @@ from typing import Dict, Any, List, Optional
 from rich.console import Console
 from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.panel import Panel
+from rich import box
 
 from .response_evaluator import ResponseEvaluator
 from .temperature_optimizer import TemperatureOptimizer, ParameterSet
@@ -215,10 +217,16 @@ class OptimizationCoordinator:
         # Calculate total time
         total_time = time.time() - total_start_time
         
-        # Display total time
-        self.console.print()
-        self.console.print(f"[bold cyan]⏱️  Total Time: {total_time:.2f}s[/bold cyan]")
-        self.console.print()
+        # Display comprehensive final summary
+        self._display_final_summary(
+            query=query,
+            best_params=best_params,
+            best_response=best_response_text,
+            num_docs=best_result_dict.get('num_docs_found', 0) if best_result_dict else 0,
+            optimization_iterations=len(history),
+            improvement_result=improvement_result,
+            total_time=total_time
+        )
         
         return {
             "best_parameters": best_params,
@@ -416,3 +424,166 @@ class OptimizationCoordinator:
             
             self.console.print("\n")
             self.console.print(history_table)
+    
+    def _display_final_summary(
+        self,
+        query: str,
+        best_params,
+        best_response: str,
+        num_docs: int,
+        optimization_iterations: int,
+        improvement_result: Optional[Dict],
+        total_time: float
+    ):
+        """
+        Display comprehensive final summary organized by sections.
+        
+        Args:
+            query: Original user query
+            best_params: Best parameter set
+            best_response: Final response text
+            num_docs: Number of documents retrieved
+            optimization_iterations: Number of temperature optimization iterations
+            improvement_result: Improvement phase result dictionary (if any)
+            total_time: Total elapsed time
+        """
+        from rich.table import Table
+        
+        self.console.print("\n")
+        self.console.rule("[bold green]📋 FINAL SUMMARY[/bold green]", style="green")
+        self.console.print()
+        
+        # Create summary table
+        summary_table = Table(
+            show_header=True,
+            header_style="bold cyan",
+            box=box.ROUNDED,
+            title="Optimization Results"
+        )
+        summary_table.add_column("Section", style="bold", width=25)
+        summary_table.add_column("Details", style="white", width=60)
+        
+        # 1. Configuration
+        summary_table.add_row(
+            "[bold yellow]1. CONFIGURATION[/bold yellow]",
+            ""
+        )
+        summary_table.add_row(
+            "  Model",
+            self.config.get("external_llm", {}).get("model", "N/A")
+        )
+        summary_table.add_row(
+            "  Optimized Temperature",
+            f"{best_params.temperature:.2f}"
+        )
+        summary_table.add_row(
+            "  Top K",
+            f"{best_params.top_k}"
+        )
+        summary_table.add_row(
+            "  Similarity Threshold",
+            f"{best_params.similarity_threshold:.3f}"
+        )
+        summary_table.add_row("", "")
+        
+        # 2. Query
+        query_preview = query[:80] + "..." if len(query) > 80 else query
+        summary_table.add_row(
+            "[bold yellow]2. QUERY[/bold yellow]",
+            ""
+        )
+        summary_table.add_row(
+            "  Question",
+            query_preview
+        )
+        summary_table.add_row("", "")
+        
+        # 3. Retrieval Process
+        summary_table.add_row(
+            "[bold yellow]3. RETRIEVAL PROCESS[/bold yellow]",
+            ""
+        )
+        summary_table.add_row(
+            "  Documents Found",
+            f"{num_docs}"
+        )
+        summary_table.add_row(
+            "  Hit Target",
+            f"{best_params.hit_target}"
+        )
+        summary_table.add_row("", "")
+        
+        # 4. Temperature Evaluation
+        summary_table.add_row(
+            "[bold yellow]4. TEMPERATURE EVALUATION[/bold yellow]",
+            ""
+        )
+        summary_table.add_row(
+            "  Iterations Tested",
+            f"{optimization_iterations}"
+        )
+        summary_table.add_row(
+            "  Best Score",
+            f"{best_params.score:.2f}"
+        )
+        summary_table.add_row("", "")
+        
+        # 5. Improvement Process
+        summary_table.add_row(
+            "[bold yellow]5. IMPROVEMENT PROCESS[/bold yellow]",
+            ""
+        )
+        if improvement_result:
+            imp_iterations = improvement_result.get("iterations_completed", 0)
+            final_score = improvement_result.get("final_score", 0)
+            stopped_reason = improvement_result.get("stopped_reason", "N/A")
+            
+            summary_table.add_row(
+                "  Enabled",
+                "Yes"
+            )
+            summary_table.add_row(
+                "  Iterations",
+                f"{imp_iterations}"
+            )
+            summary_table.add_row(
+                "  Final Score",
+                f"{final_score:.2f}"
+            )
+            summary_table.add_row(
+                "  Stop Reason",
+                stopped_reason[:60]
+            )
+        else:
+            summary_table.add_row(
+                "  Enabled",
+                "No"
+            )
+        summary_table.add_row("", "")
+        
+        # 6. Final Response & Time
+        summary_table.add_row(
+            "[bold yellow]6. FINAL RESPONSE[/bold yellow]",
+            ""
+        )
+        summary_table.add_row(
+            "  Response Length",
+            f"{len(best_response)} characters"
+        )
+        summary_table.add_row(
+            "  Total Elapsed Time",
+            f"{total_time:.2f}s"
+        )
+        
+        self.console.print(summary_table)
+        
+        # Display the actual response
+        self.console.print()
+        response_panel = Panel(
+            best_response,
+            title="[bold green]🤖 Final Optimized Response[/bold green]",
+            border_style="green",
+            padding=(1, 2)
+        )
+        self.console.print(response_panel)
+        self.console.print()

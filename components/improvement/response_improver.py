@@ -35,9 +35,12 @@ class ResponseImprover:
             with open(prompt_path, 'r', encoding='utf-8') as f:
                 self.improvement_prompt_template = f.read()
             logger.info(f"✓ Loaded improvement prompt from {prompt_path}")
+        except FileNotFoundError as e:
+            logger.error(f"❌ Improvement prompt not found: {prompt_path}")
+            raise FileNotFoundError(f"Required improvement prompt file not found: {prompt_path}") from e
         except Exception as e:
-            logger.error(f"❌ Could not load improvement prompt from {prompt_path}: {e}")
-            raise RuntimeError(f"Improvement prompt is required but could not be loaded: {e}")
+            logger.error(f"❌ Error loading improvement prompt from {prompt_path}: {e}")
+            raise
     
     def improve_response(
         self, 

@@ -156,17 +156,19 @@ class UIManager:
         self.console.print(query_panel)
 
     def display_detailed_query_results(self, query, template, result):
-        """Display comprehensive query results."""
-        # Display results summary
+        """Display comprehensive query results with config parameters."""
+        # Display results summary with config parameters
         results_table = Table(
-            title="📊 Query Results",
+            title="📊 Query Results & Configuration",
             box=box.SIMPLE_HEAD,
             show_header=True,
             header_style="bold blue"
         )
-        results_table.add_column("Metric", style="cyan")
+        results_table.add_column("Metric", style="cyan", width=25)
         results_table.add_column("Value", style="green")
         
+        # Query Results
+        results_table.add_row("[bold]RESULTS[/bold]", "")
         results_table.add_row("Documents Found", str(result.get('num_docs_found', 0)))
         results_table.add_row("Template Used", template)
         results_table.add_row("Response Length", f"{len(result.get('response', ''))} characters")
@@ -175,6 +177,21 @@ class UIManager:
         if 'processing_time' in result:
             processing_time = result['processing_time']
             results_table.add_row("Processing Time", f"{processing_time:.2f} seconds")
+        
+        # Config Parameters (if available in result)
+        if 'config_params' in result:
+            cfg = result['config_params']
+            results_table.add_row("", "")
+            results_table.add_row("[bold]CONFIGURATION[/bold]", "")
+            results_table.add_row("1. LLM Model", cfg.get('llm_model', 'N/A'))
+            results_table.add_row("2. Max Tokens", str(cfg.get('max_tokens', 'N/A')))
+            results_table.add_row("3. Temperature", str(cfg.get('temperature', 'N/A')))
+            results_table.add_row("4. Embedding Model", cfg.get('embedding_model', 'N/A'))
+            results_table.add_row("5. Dimensions", str(cfg.get('dimension', 'N/A')))
+            results_table.add_row("6. Retrieval Top K", str(cfg.get('top_k', 'N/A')))
+            results_table.add_row("7. Similarity Threshold", str(cfg.get('similarity_threshold', 'N/A')))
+            results_table.add_row("8. Max Context Length", str(cfg.get('max_context_length', 'N/A')))
+            results_table.add_row("9. Index Type", cfg.get('index_type', 'N/A'))
         
         self.console.print(results_table)
         

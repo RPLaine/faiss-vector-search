@@ -346,6 +346,7 @@ class RAGSystem:
     def search_detailed(self, query: str, k: Optional[int] = None) -> Dict:
         """
         Search for similar documents with detailed information.
+        Reloads configuration to pick up any changes to retrieval parameters.
         
         Args:
             query: Query text
@@ -365,6 +366,9 @@ class RAGSystem:
         if self.index.ntotal == 0:
             logger.warning("Index is empty")
             return {"documents": [], "scores": [], "metadata": []}
+        
+        # Reload config to pick up any changes to retrieval parameters
+        self.reload_config()
         
         if k is None:
             k = self.config["retrieval"]["top_k"]
@@ -643,13 +647,27 @@ class RAGSystem:
             except Exception as e:
                 logger.warning(f"Failed to save result to session: {e}")
         
+        # Gather config parameters for display (excluding sensitive data)
+        config_params = {
+            "llm_model": self.config["external_llm"]["model"],
+            "max_tokens": self.config["external_llm"]["max_tokens"],
+            "temperature": self.config["external_llm"].get("temperature", 0.7),
+            "embedding_model": self.config["embedding"]["model"],
+            "dimension": self.config["embedding"]["dimension"],
+            "top_k": self.config["retrieval"]["top_k"],
+            "similarity_threshold": self.config["retrieval"].get("similarity_threshold", "N/A"),
+            "max_context_length": self.config["retrieval"]["max_context_length"],
+            "index_type": self.config["index"]["type"]
+        }
+        
         return {
             "question": question,
             "context_docs": context_metadata,  # Use metadata for display (includes filenames)
             "response": response,
             "processing_time": processing_time,
             "num_docs_found": len(context_docs),
-            "template_used": template_name
+            "template_used": template_name,
+            "config_params": config_params
         }
     
     def get_session_manager(self) -> Optional[SessionManager]:

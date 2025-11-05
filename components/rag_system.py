@@ -89,7 +89,17 @@ class RAGSystem:
         logger.info(f"Loading embedding model: {model_name}")
         try:
             self.embedder = SentenceTransformer(model_name)
-            logger.info("Embedding model loaded successfully")
+            
+            # Validate dimension matches config
+            actual_dim = self.embedder.get_sentence_embedding_dimension()
+            config_dim = self.config["embedding"]["dimension"]
+            
+            if actual_dim != config_dim:
+                error_msg = f"Dimension mismatch! Model '{model_name}' produces {actual_dim}-dim embeddings, but config specifies {config_dim}. Update config.json embedding.dimension to {actual_dim}"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+            
+            logger.info(f"Embedding model loaded successfully (dimension: {actual_dim})")
         except Exception as e:
             logger.error(f"Failed to load embedding model: {e}")
             raise
@@ -119,15 +129,19 @@ class RAGSystem:
         dim = self.config["embedding"]["dimension"]
         index_type = self.config["index"]["type"]
         
-        if index_type == "IndexFlatL2":
+        if index_type == "IndexFlatIP":
+            # Inner product index for normalized vectors (cosine similarity)
+            self.index = faiss.IndexFlatIP(dim)
+            logger.info(f"Created IndexFlatIP for cosine similarity (requires normalized vectors)")
+        elif index_type == "IndexFlatL2":
             self.index = faiss.IndexFlatL2(dim)
         elif index_type == "IndexIVFFlat":
             # Create IVF index for larger datasets
             quantizer = faiss.IndexFlatL2(dim)
             self.index = faiss.IndexIVFFlat(quantizer, dim, 100)
         else:
-            logger.warning(f"Unknown index type {index_type}, using IndexFlatL2")
-            self.index = faiss.IndexFlatL2(dim)
+            logger.warning(f"Unknown index type {index_type}, using IndexFlatIP")
+            self.index = faiss.IndexFlatIP(dim)
         
         self.metadata = []
         logger.info(f"Created new {index_type} index with dimension {dim}")
@@ -205,8 +219,8 @@ class RAGSystem:
                 if progress_callback:
                     progress_callback(i, len(documents), f"Embedding document {i+1}/{len(documents)}")
                 
-                # Generate embedding for single document
-                vector = self.embedder.encode([doc])
+                # Generate embedding for single document (normalized for IndexFlatIP)
+                vector = self.embedder.encode([doc], normalize_embeddings=True)
                 all_vectors.append(vector[0])
                 
             if progress_callback:
@@ -275,8 +289,8 @@ class RAGSystem:
             k = self.config["retrieval"]["top_k"]
         
         try:
-            # Generate query embedding
-            query_vector = self.embedder.encode([query])
+            # Generate query embedding (normalized for IndexFlatIP)
+            query_vector = self.embedder.encode([query], normalize_embeddings=True)
             query_vector = np.array(query_vector, dtype=np.float32)
             
             # Search
@@ -287,12 +301,26 @@ class RAGSystem:
             # Filter by similarity threshold if configured
             similarity_threshold = self.config["retrieval"].get("similarity_threshold")
             
+            # Determine index type for proper similarity calculation
+            index_type = self.config["index"]["type"]
+            is_inner_product = (index_type == "IndexFlatIP")
+            
+            logger.info(f"Search found {len(indices[0])} raw results from index (ntotal={self.index.ntotal})")
+            
             # Return relevant documents
             results = []
+            filtered_count = 0
             for i, (distance, idx) in enumerate(zip(distances[0], indices[0])):
                 if idx != -1:  # Valid index
-                    # Convert L2 distance to similarity score (lower distance = higher similarity)
-                    similarity = 1.0 / (1.0 + distance)
+                    # Calculate similarity based on index type
+                    if is_inner_product:
+                        # For IndexFlatIP with normalized vectors, distance IS cosine similarity
+                        similarity = float(distance)
+                    else:
+                        # For L2 distance, convert to similarity score
+                        similarity = 1.0 / (1.0 + distance)
+                    
+                    logger.debug(f"Doc {idx}: distance={distance:.4f}, similarity={similarity:.4f}")
                     
                     if similarity_threshold is None or similarity >= similarity_threshold:
                         # Extract content from metadata (handle both old string format and new dict format)
@@ -305,9 +333,10 @@ class RAGSystem:
                             content = metadata_item
                         results.append(content)
                     else:
-                        logger.debug(f"Document {idx} filtered out (similarity: {similarity:.3f})")
+                        filtered_count += 1
+                        logger.debug(f"Document {idx} filtered out (similarity: {similarity:.3f} < threshold: {similarity_threshold})")
             
-            logger.info(f"Retrieved {len(results)} documents for query")
+            logger.info(f"Retrieved {len(results)} documents for query (filtered out: {filtered_count})")
             return results
             
         except Exception as e:
@@ -341,8 +370,8 @@ class RAGSystem:
             k = self.config["retrieval"]["top_k"]
         
         try:
-            # Generate query embedding
-            query_vector = self.embedder.encode([query])
+            # Generate query embedding (normalized for IndexFlatIP)
+            query_vector = self.embedder.encode([query], normalize_embeddings=True)
             query_vector = np.array(query_vector, dtype=np.float32)
             
             # Search
@@ -353,14 +382,29 @@ class RAGSystem:
             # Filter by similarity threshold if configured
             similarity_threshold = self.config["retrieval"].get("similarity_threshold")
             
+            # Determine index type for proper similarity calculation
+            index_type = self.config["index"]["type"]
+            is_inner_product = (index_type == "IndexFlatIP")
+            
+            logger.info(f"Detailed search found {len(indices[0])} raw results from index (ntotal={self.index.ntotal})")
+            
             # Return detailed results including full metadata
             documents = []
             scores = []
             metadata = []
+            filtered_count = 0
             
             for i, (distance, idx) in enumerate(zip(distances[0], indices[0])):
                 if idx != -1:  # Valid index
-                    similarity = 1.0 / (1.0 + distance)
+                    # Calculate similarity based on index type
+                    if is_inner_product:
+                        # For IndexFlatIP with normalized vectors, distance IS cosine similarity
+                        similarity = float(distance)
+                    else:
+                        # For L2 distance, convert to similarity score
+                        similarity = 1.0 / (1.0 + distance)
+                    
+                    logger.debug(f"Doc {idx}: distance={distance:.4f}, similarity={similarity:.4f}")
                     
                     if similarity_threshold is None or similarity >= similarity_threshold:
                         metadata_item = self.metadata[idx]
@@ -372,6 +416,11 @@ class RAGSystem:
                             documents.append(metadata_item)
                             metadata.append(metadata_item)  # String format
                         scores.append(similarity)
+                    else:
+                        filtered_count += 1
+                        logger.debug(f"Document {idx} filtered out (similarity: {similarity:.3f} < threshold: {similarity_threshold})")
+            
+            logger.info(f"Detailed search retrieved {len(documents)} documents (filtered out: {filtered_count})")
             
             return {
                 "documents": documents,

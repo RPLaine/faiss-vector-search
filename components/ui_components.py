@@ -192,8 +192,19 @@ class UIManager:
             results_table.add_row("7. Similarity Threshold", str(cfg.get('similarity_threshold', 'N/A')))
             results_table.add_row("8. Max Context Length", str(cfg.get('max_context_length', 'N/A')))
             results_table.add_row("9. Index Type", cfg.get('index_type', 'N/A'))
+            
+            # Add dynamic threshold params if configured
+            if cfg.get('hit_target') != 'N/A':
+                results_table.add_row("", "")
+                results_table.add_row("[bold]DYNAMIC THRESHOLD[/bold]", "")
+                results_table.add_row("Hit Target", str(cfg.get('hit_target', 'N/A')))
+                results_table.add_row("Step Size", str(cfg.get('step', 'N/A')))
         
         self.console.print(results_table)
+        
+        # Display dynamic threshold progression table if available
+        if 'threshold_stats' in result:
+            self._display_threshold_progression(result['threshold_stats'])
         
         # Display LLM response
         if result.get('response'):
@@ -555,6 +566,70 @@ class UIManager:
             
             # Show first few vector components
             self.console.print(f"\n[dim]First 10 vector components: {query_vector[:10].tolist()}[/dim]")
+    
+    def _display_threshold_progression(self, threshold_stats):
+        """Display dynamic threshold progression table."""
+        if not threshold_stats or "progression" not in threshold_stats:
+            return
+        
+        self.console.print()  # Add spacing
+        
+        # Create progression table
+        progression_table = Table(
+            title="🎯 Dynamic Threshold Progression",
+            box=box.ROUNDED,
+            show_header=True,
+            header_style="bold yellow"
+        )
+        progression_table.add_column("Attempt", style="dim", width=8, justify="center")
+        progression_table.add_column("Threshold", style="cyan", justify="right")
+        progression_table.add_column("Hits", style="green", justify="right")
+        progression_table.add_column("Status", style="white")
+        
+        hit_target = threshold_stats.get("hit_target", 0)
+        
+        for i, attempt in enumerate(threshold_stats["progression"], 1):
+            threshold = attempt["threshold"]
+            hits = attempt["hits"]
+            target_reached = attempt["target_reached"]
+            
+            # Color code the status
+            if target_reached:
+                status = f"[bold green]✓ Target Reached ({hits}/{hit_target})[/bold green]"
+                hits_display = f"[bold green]{hits}[/bold green]"
+            elif hits > 0:
+                status = f"[yellow]↑ {hits}/{hit_target}[/yellow]"
+                hits_display = f"[yellow]{hits}[/yellow]"
+            else:
+                status = f"[dim]✗ No hits[/dim]"
+                hits_display = f"[dim]{hits}[/dim]"
+            
+            progression_table.add_row(
+                str(i),
+                f"{threshold:.3f}",
+                hits_display,
+                status
+            )
+            
+            # Stop showing after target is reached (but show that row)
+            if target_reached:
+                break
+        
+        self.console.print(progression_table)
+        
+        # Summary
+        summary_text = (
+            f"[bold]Summary:[/bold] "
+            f"Attempted {threshold_stats['attempts']} thresholds, "
+            f"stopped at {threshold_stats['final_threshold']:.3f} "
+            f"with {threshold_stats['final_hits']} documents "
+        )
+        if threshold_stats['target_reached']:
+            summary_text += f"[green](✓ Target of {hit_target} reached)[/green]"
+        else:
+            summary_text += f"[yellow](⚠ Target of {hit_target} not reached)[/yellow]"
+        
+        self.console.print(f"\n{summary_text}\n")
     
     def show_progress(self, description, total=None):
         """Create and return a progress context manager."""

@@ -258,6 +258,112 @@ class RAGSystem:
             logger.error(f"Failed to add documents: {e}")
             raise
     
+    def _search_with_dynamic_threshold(self, query_vector: np.ndarray, k: int) -> Tuple[np.ndarray, np.ndarray, Dict]:
+        """
+        Perform FAISS search with dynamic similarity threshold adjustment.
+        Starts from threshold=1.0 and gradually lowers it by 'step' until hit_target is reached.
+        
+        Args:
+            query_vector: Query embedding vector
+            k: Number of results to retrieve from FAISS
+            
+        Returns:
+            Tuple of (distances, indices, threshold_stats) 
+            where threshold_stats contains detailed progression data
+        """
+        if self.index is None:
+            return np.array([[]], dtype=np.float32), np.array([[]], dtype=np.int64), {}
+        
+        # Get config parameters
+        hit_target = self.config["retrieval"].get("hit_target", 3)
+        step = self.config["retrieval"].get("step", 0.05)
+        initial_threshold = 1.0
+        index_type = self.config["index"]["type"]
+        is_inner_product = (index_type == "IndexFlatIP")
+        
+        # Perform initial FAISS search
+        k_search = min(k, self.index.ntotal)
+        distances_all, indices_all = self.index.search(query_vector, k_search)  # type: ignore[misc]
+        
+        logger.info(f"Dynamic threshold search: target={hit_target}, step={step}, raw_results={len(indices_all[0])}")
+        
+        # Track threshold progression
+        threshold_progression = []
+        
+        # Try progressively lower thresholds
+        current_threshold = initial_threshold
+        best_distances: Optional[np.ndarray] = None
+        best_indices: Optional[np.ndarray] = None
+        best_count = 0
+        final_threshold = current_threshold
+        
+        while current_threshold >= 0.0:
+            # Filter results by current threshold
+            filtered_distances = []
+            filtered_indices = []
+            
+            for distance, idx in zip(distances_all[0], indices_all[0]):
+                if idx != -1:  # Valid index
+                    # Calculate similarity based on index type
+                    if is_inner_product:
+                        similarity = float(distance)
+                    else:
+                        similarity = 1.0 / (1.0 + distance)
+                    
+                    if similarity >= current_threshold:
+                        filtered_distances.append(distance)
+                        filtered_indices.append(idx)
+            
+            result_count = len(filtered_indices)
+            
+            # Record this threshold attempt
+            threshold_progression.append({
+                "threshold": round(current_threshold, 3),
+                "hits": result_count,
+                "target_reached": result_count >= hit_target
+            })
+            
+            logger.debug(f"Threshold {current_threshold:.3f}: {result_count} documents")
+            
+            # Check if we've met the hit target
+            if result_count >= hit_target:
+                best_distances = np.array([filtered_distances], dtype=np.float32)
+                best_indices = np.array([filtered_indices], dtype=np.int64)
+                best_count = result_count
+                final_threshold = current_threshold
+                logger.info(f"Hit target reached at threshold={current_threshold:.3f} with {result_count} documents")
+                break
+            
+            # Keep track of best result so far
+            if result_count > best_count:
+                best_distances = np.array([filtered_distances], dtype=np.float32)
+                best_indices = np.array([filtered_indices], dtype=np.int64)
+                best_count = result_count
+                final_threshold = current_threshold
+            
+            # Lower threshold
+            current_threshold -= step
+        
+        # Prepare stats
+        threshold_stats = {
+            "hit_target": hit_target,
+            "step": step,
+            "final_threshold": round(final_threshold, 3),
+            "final_hits": best_count,
+            "target_reached": best_count >= hit_target,
+            "attempts": len(threshold_progression),
+            "progression": threshold_progression
+        }
+        
+        # If we never reached hit_target, return the best we found
+        if best_distances is None or best_indices is None or best_count < hit_target:
+            logger.warning(f"Could not reach hit_target={hit_target}. Returning {best_count} documents at lowest threshold")
+            if best_distances is None or best_indices is None:
+                # Return empty results
+                return np.array([[]], dtype=np.float32), np.array([[]], dtype=np.int64), threshold_stats
+        
+        return best_distances, best_indices, threshold_stats
+    
     def search(self, query: str, k: Optional[int] = None) -> List[str]:
         """
         Search for similar documents.
@@ -288,55 +394,53 @@ class RAGSystem:
         if k is None:
             k = self.config["retrieval"]["top_k"]
         
+        # k is guaranteed to be not None here
+        assert k is not None
+        k_int = k if isinstance(k, int) else int(k)
+        
+        # Check if dynamic threshold is enabled
+        use_dynamic = "hit_target" in self.config["retrieval"]
+        if use_dynamic:
+            logger.info(f"🎯 DYNAMIC THRESHOLD MODE - hit_target={self.config['retrieval']['hit_target']}, step={self.config['retrieval'].get('step', 0.05)}")
+        else:
+            logger.info(f"📌 FIXED THRESHOLD MODE - threshold={self.config['retrieval'].get('similarity_threshold', 'None')}")
+        
+        threshold_stats = None
+        
         try:
             # Generate query embedding (normalized for IndexFlatIP)
             query_vector = self.embedder.encode([query], normalize_embeddings=True)
             query_vector = np.array(query_vector, dtype=np.float32)
             
-            # Search
-            k = min(k, self.index.ntotal)  # Don't request more than available
-            # Type hint: FAISS search method returns (distances, indices) tuple
-            distances, indices = self.index.search(query_vector, k)  # type: ignore[misc]
-            
-            # Filter by similarity threshold if configured
-            similarity_threshold = self.config["retrieval"].get("similarity_threshold")
+            # Use dynamic threshold search if hit_target is configured
+            if use_dynamic:
+                distances, indices, threshold_stats = self._search_with_dynamic_threshold(query_vector, k_int)
+            else:
+                # Original search with fixed threshold
+                k_search = min(k_int, self.index.ntotal)  # Don't request more than available
+                distances, indices = self.index.search(query_vector, k_search)  # type: ignore[misc]
             
             # Determine index type for proper similarity calculation
             index_type = self.config["index"]["type"]
             is_inner_product = (index_type == "IndexFlatIP")
             
-            logger.info(f"Search found {len(indices[0])} raw results from index (ntotal={self.index.ntotal})")
+            logger.info(f"Search returned {len(indices[0])} documents from index (ntotal={self.index.ntotal})")
             
-            # Return relevant documents
+            # Extract documents from results (dynamic threshold already filtered)
             results = []
-            filtered_count = 0
             for i, (distance, idx) in enumerate(zip(distances[0], indices[0])):
                 if idx != -1:  # Valid index
-                    # Calculate similarity based on index type
-                    if is_inner_product:
-                        # For IndexFlatIP with normalized vectors, distance IS cosine similarity
-                        similarity = float(distance)
+                    # Extract content from metadata (handle both old string format and new dict format)
+                    metadata_item = self.metadata[idx]
+                    if isinstance(metadata_item, dict):
+                        # New format with filename metadata
+                        content = metadata_item.get('content', str(metadata_item))
                     else:
-                        # For L2 distance, convert to similarity score
-                        similarity = 1.0 / (1.0 + distance)
-                    
-                    logger.debug(f"Doc {idx}: distance={distance:.4f}, similarity={similarity:.4f}")
-                    
-                    if similarity_threshold is None or similarity >= similarity_threshold:
-                        # Extract content from metadata (handle both old string format and new dict format)
-                        metadata_item = self.metadata[idx]
-                        if isinstance(metadata_item, dict):
-                            # New format with filename metadata
-                            content = metadata_item.get('content', str(metadata_item))
-                        else:
-                            # Old format (just strings)
-                            content = metadata_item
-                        results.append(content)
-                    else:
-                        filtered_count += 1
-                        logger.debug(f"Document {idx} filtered out (similarity: {similarity:.3f} < threshold: {similarity_threshold})")
+                        # Old format (just strings)
+                        content = metadata_item
+                    results.append(content)
             
-            logger.info(f"Retrieved {len(results)} documents for query (filtered out: {filtered_count})")
+            logger.info(f"Retrieved {len(results)} documents for query")
             return results
             
         except Exception as e:
@@ -373,30 +477,42 @@ class RAGSystem:
         if k is None:
             k = self.config["retrieval"]["top_k"]
         
+        # k is guaranteed to be not None here
+        assert k is not None
+        k_int = k if isinstance(k, int) else int(k)
+        
+        # Check if dynamic threshold is enabled
+        use_dynamic = "hit_target" in self.config["retrieval"]
+        if use_dynamic:
+            logger.info(f"🎯 DYNAMIC THRESHOLD MODE (detailed) - hit_target={self.config['retrieval']['hit_target']}, step={self.config['retrieval'].get('step', 0.05)}")
+        else:
+            logger.info(f"📌 FIXED THRESHOLD MODE (detailed) - threshold={self.config['retrieval'].get('similarity_threshold', 'None')}")
+        
+        threshold_stats = None
+        
         try:
             # Generate query embedding (normalized for IndexFlatIP)
             query_vector = self.embedder.encode([query], normalize_embeddings=True)
             query_vector = np.array(query_vector, dtype=np.float32)
             
-            # Search
-            k = min(k, self.index.ntotal)  # Don't request more than available
-            # Type hint: FAISS search method returns (distances, indices) tuple
-            distances, indices = self.index.search(query_vector, k)  # type: ignore[misc]
-            
-            # Filter by similarity threshold if configured
-            similarity_threshold = self.config["retrieval"].get("similarity_threshold")
+            # Use dynamic threshold search if hit_target is configured
+            if use_dynamic:
+                distances, indices, threshold_stats = self._search_with_dynamic_threshold(query_vector, k_int)
+            else:
+                # Original search with fixed threshold
+                k_search = min(k_int, self.index.ntotal)  # Don't request more than available
+                distances, indices = self.index.search(query_vector, k_search)  # type: ignore[misc]
             
             # Determine index type for proper similarity calculation
             index_type = self.config["index"]["type"]
             is_inner_product = (index_type == "IndexFlatIP")
             
-            logger.info(f"Detailed search found {len(indices[0])} raw results from index (ntotal={self.index.ntotal})")
+            logger.info(f"Detailed search returned {len(indices[0])} documents from index (ntotal={self.index.ntotal})")
             
             # Return detailed results including full metadata
             documents = []
             scores = []
             metadata = []
-            filtered_count = 0
             
             for i, (distance, idx) in enumerate(zip(distances[0], indices[0])):
                 if idx != -1:  # Valid index
@@ -410,27 +526,29 @@ class RAGSystem:
                     
                     logger.debug(f"Doc {idx}: distance={distance:.4f}, similarity={similarity:.4f}")
                     
-                    if similarity_threshold is None or similarity >= similarity_threshold:
-                        metadata_item = self.metadata[idx]
-                        if isinstance(metadata_item, dict):
-                            content = metadata_item.get('content', str(metadata_item))
-                            documents.append(content)
-                            metadata.append(metadata_item)  # Full metadata for display
-                        else:
-                            documents.append(metadata_item)
-                            metadata.append(metadata_item)  # String format
-                        scores.append(similarity)
+                    metadata_item = self.metadata[idx]
+                    if isinstance(metadata_item, dict):
+                        content = metadata_item.get('content', str(metadata_item))
+                        documents.append(content)
+                        metadata.append(metadata_item)  # Full metadata for display
                     else:
-                        filtered_count += 1
-                        logger.debug(f"Document {idx} filtered out (similarity: {similarity:.3f} < threshold: {similarity_threshold})")
+                        documents.append(metadata_item)
+                        metadata.append(metadata_item)  # String format
+                    scores.append(similarity)
             
-            logger.info(f"Detailed search retrieved {len(documents)} documents (filtered out: {filtered_count})")
+            logger.info(f"Detailed search retrieved {len(documents)} documents")
             
-            return {
+            result: Dict = {
                 "documents": documents,
                 "scores": scores, 
                 "metadata": metadata
             }
+            
+            # Add threshold stats if available
+            if threshold_stats:
+                result["threshold_stats"] = threshold_stats  # type: ignore
+            
+            return result
             
         except Exception as e:
             logger.error(f"Detailed search failed: {e}")
@@ -631,9 +749,11 @@ class RAGSystem:
             search_results = self.search_detailed(question, k)
             context_docs = search_results["documents"]  # String content for response
             context_metadata = search_results["metadata"]  # Full metadata for display
+            threshold_stats = search_results.get("threshold_stats")  # Dynamic threshold stats if available
         else:
             context_docs = []
             context_metadata = []
+            threshold_stats = None
         
         response, processing_time = self.generate_response(question, context_docs, template_name, use_context)
         
@@ -656,11 +776,13 @@ class RAGSystem:
             "dimension": self.config["embedding"]["dimension"],
             "top_k": self.config["retrieval"]["top_k"],
             "similarity_threshold": self.config["retrieval"].get("similarity_threshold", "N/A"),
+            "hit_target": self.config["retrieval"].get("hit_target", "N/A"),
+            "step": self.config["retrieval"].get("step", "N/A"),
             "max_context_length": self.config["retrieval"]["max_context_length"],
             "index_type": self.config["index"]["type"]
         }
         
-        return {
+        result = {
             "question": question,
             "context_docs": context_metadata,  # Use metadata for display (includes filenames)
             "response": response,
@@ -669,6 +791,12 @@ class RAGSystem:
             "template_used": template_name,
             "config_params": config_params
         }
+        
+        # Add threshold stats if available
+        if threshold_stats:
+            result["threshold_stats"] = threshold_stats
+        
+        return result
     
     def get_session_manager(self) -> Optional[SessionManager]:
         """

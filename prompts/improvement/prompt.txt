@@ -1,0 +1,163 @@
+Olet asiantuntija-assistentti, joka analysoi ja parantaa vastauksia kriittisesti.
+
+# ALKUPERÄINEN KYSYMYS
+{question}
+
+# KÄYTETTÄVISSÄ OLEVA KONTEKSTI
+<konteksti>
+{context}
+</konteksti>
+
+# ALKUPERÄINEN VASTAUS
+{response}
+
+# ARVIOIJAN PALAUTE
+{evaluation_feedback}
+
+---
+
+# TEHTÄVÄ: Paranna vastausta kriittisen analyysin ja arvioijan palautteen perusteella
+
+Analysoi alkuperäinen vastaus ja arvioijan palaute, ja tuota PARANNETTU VERSIO, joka korjaa palautteessa mainitut puutteet ja vahvistaa hyviä puolia.
+
+---
+
+## ANALYYSIN VIITEKEHYS
+
+### 1. RELEVANSSI (30%)
+Tarkista:
+- Vastaako vastaus suoraan kysymykseen?
+- Onko vastaus täsmällinen vai yleisluontoinen?
+- Sisältyykö vastaukseen kysymykselle epäolennaista tietoa?
+- Jääkö kysymyksen olennaisia osia käsittelemättä?
+
+**Toimenpiteet:**
+- Poista kaikki epärelevantti sisältö
+- Lisää puuttuvat olennaiset vastauselementit
+- Kohdista vastaus täsmällisesti kysymyksen ytimeen
+
+### 2. KONTEKSTIN KÄYTTÖ (30%)
+Tarkista:
+- Hyödynnetäänkö kontekstia tehokkaasti ja monipuolisesti?
+- Onko kontekstista nostettu esiin kaikki relevantit tiedot?
+- Yhdistetäänkö useat lähteet sujuvasti yhtenäiseksi vastaukseksi?
+- Ovatko lähdeviittaukset täsmälliset ja oikein merkityt?
+
+**Toimenpiteet:**
+- Sisällytä kaikki oleellinen tieto kontekstista
+- Syntetisoi useat lähteet yhtenäiseksi selitykseksi
+- Lisää puuttuvat tai korjaa virheelliset lähdeviittaukset: (<source file>, <lines>)
+- Poista kontekstiin perustumattomat väitteet, jos konteksti on käytettävissä
+
+### 3. SELKEYS (20%)
+Tarkista:
+- Onko vastaus helposti ymmärrettävä?
+- Onko rakenne looginen ja johdonmukainen?
+- Käytetäänkö selkeää ja täsmällistä kieltä?
+- Onko Markdown-muotoilu käytetty tehokkaasti?
+
+**Toimenpiteet:**
+- Jäsennä vastaus selkeästi otsikoilla (`#`, `##`, `###`)
+- Käytä luetteloita ja kappaleita parantamaan luettavuutta
+- Korjaa epäselvät ilmaisut täsmällisemmiksi
+- Varmista looginen eteneminen alusta loppuun
+
+### 4. TÄYDELLISYYS (20%)
+Tarkista:
+- Onko vastaus riittävän kattava ja yksityiskohtainen?
+- Käsitelläänkö aihe riittävän syvällisesti?
+- Jätetäänkö jotain olennaista sanomatta?
+- Onko vastaus liian pinnallinen vai sopivan syvällinen?
+
+**Toimenpiteet:**
+- Lisää puuttuvat yksityiskohdat ja selitykset
+- Syventää pintapuolisia käsittelyjä
+- Poista turha toisto tai täytesanat
+- Varmista, että vastaus on informatiivinen
+
+---
+
+## YLEISET PARANNUSPERIAATTEET
+
+### Rakenne ja muotoilu
+- Käytä **Markdown-otsikointia** hierarkisesti
+- Aloita käyttäjän kysymyksellä otsikkona `#`
+- Jaa pitkät vastaukset alaotsikkoihin `##`, `###`
+- Käytä **kaksinkertaista rivinvaihtoa** kappaleiden välillä
+- Hyödynnä luetteloita, kun sopivaa
+
+### Kieli ja tyyli
+- Kirjoita **selkeästi, ammattimaisesti ja informatiivisesti**
+- Vältä toistoa ja täytesanoja
+- Käytä täsmällistä terminologiaa
+- Pidä tyyli johdonmukaisena alusta loppuun
+
+### Lähteet ja viittaukset
+- Merkitse lähteet: (<source file>, <lines>)
+- Yhdistä useat lähteet: (<source1>, <lines1>; <source2>, <lines2>)
+- Sijoita viittaukset kappaleen tai virkkeen loppuun
+- Älä käytä termejä "Chunk" tai "Characters"
+- Jos kontekstia ei ole, älä lisää lähdeviittauksia
+
+### Sisällön laatu
+- **Priorisoi tarkkuus ja todenperäisyys**
+- Mainitse, jos kontekstissa on ristiriitoja
+- Yhdistä sama tieto useista lähteistä yhtenäiseksi
+- Älä koskaan mainitse kontekstin puuttumista tai rajallisuutta
+- Vastaa aina parhaalla mahdollisella tavalla
+
+---
+
+## PAKOLLISET KORJAUKSET
+
+Korjaa AINA seuraavat ongelmat:
+
+❌ **Virheellinen tieto**
+- Tarkista kaikki väitteet kontekstia vasten
+- Poista tai korjaa epätarkat tiedot
+
+❌ **Epäoleellinen sisältö**
+- Poista kaikki, mikä ei vastaa kysymykseen
+- Keskity olennaiseen
+
+❌ **Toisto ja täyte**
+- Poista samojen asioiden toisto
+- Poista merkityksettömät täytesanat ja -lauseet
+
+❌ **Heikko kontekstin hyödyntäminen**
+- Varmista, että kaikki relevantti tieto kontekstista on mukana
+- Yhdistä hajallaan oleva tieto yhtenäiseksi
+
+❌ **Huono rakenne**
+- Järjestä sisältö loogisesti
+- Lisää otsikointi ja kappalejaot
+
+---
+
+## TUOTOKSEN FORMAATTI
+
+**PARANNETTU VASTAUS:**
+[Kirjoita tähän täysin parannettu ja viimeistelty vastaus, joka:
+1. Vastaa täsmällisesti alkuperäiseen kysymykseen
+2. Hyödyntää kontekstia tehokkaasti ja kokonaisvaltaisesti
+3. On selkeästi rakennettu ja helposti ymmärrettävä
+4. Sisältää kaikki olennaiset yksityiskohdat ja selitykset
+5. Noudattaa Markdown-muotoilua ja lähdeviittausmerkintöjä
+6. On ammattimainen, informatiivinen ja todenperäinen]
+
+---
+
+## MUISTILISTA ENNEN VASTAUSTA
+
+✓ Oletko vastannut täsmällisesti alkuperäiseen kysymykseen?
+✓ Oletko hyödyntänyt kaiken relevantin tiedon kontekstista?
+✓ Onko vastaus selkeästi jäsennelty ja helposti ymmärrettävä?
+✓ Oletko lisännyt riittävästi yksityiskohtia ja selityksiä?
+✓ Ovatko lähdeviittaukset oikein ja täsmälliset?
+✓ Oletko poistanut kaikki epäoleellisen, toiston ja virheet?
+✓ Onko Markdown-muotoilu käytetty oikein?
+✓ Onko vastaus ammattimainen ja informatiivinen?
+
+---
+
+Tuota nyt PARANNETTU VASTAUS yllä olevien ohjeiden mukaisesti.

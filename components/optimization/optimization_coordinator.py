@@ -2,11 +2,12 @@
 Optimization Coordinator Module
 
 Coordinates the optimization process by managing the interaction between
-ResponseEvaluator, AdaptiveOptimizer, and RAGSystem.
+ResponseEvaluator, AdaptiveOptimizer, and RAGSystem. After optimization,
+optionally runs iterative improvement if enabled.
 """
 
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from rich.console import Console
 from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -26,6 +27,7 @@ class OptimizationCoordinator:
     2. RAG system generates response with those parameters
     3. Evaluator scores the response
     4. Optimizer adjusts based on score
+    5. Optionally runs iterative improvement on best response
     """
     
     def __init__(self, rag_system, config: Dict[str, Any]):
@@ -54,6 +56,13 @@ class OptimizationCoordinator:
         }
         self.optimizer = TemperatureOptimizer(optimizer_config)
         self.max_iterations = len(optimizer_config["temperature_values"])
+        
+        # Check if improvement is enabled
+        improvement_config = config.get("improvement", {})
+        self.improvement_enabled = improvement_config.get("enabled", False)
+        
+        # Lazy-load improvement coordinator only if needed
+        self.improvement_coordinator = None
         
         self.console = Console()
         
@@ -141,7 +150,8 @@ class OptimizationCoordinator:
                 "response": response_text,
                 "score": score,
                 "reasoning": reasoning,
-                "result": result
+                "result": result,
+                "context": context_used
             })
             
             # Track best result
@@ -178,13 +188,35 @@ class OptimizationCoordinator:
         # Display optimization results
         self._display_optimization_results(history, best_params)
         
+        # Run iterative improvement if enabled
+        improvement_result = None
+        if self.improvement_enabled:
+            improvement_result = self._run_improvement_phase(
+                question=query,
+                context_used=all_responses[-1].get("context", ""),  # Use context from last response
+                best_response=best_response_text,
+                best_score=best_params.score,
+                best_reasoning=all_responses[-1].get("reasoning", "") if all_responses else "",
+                best_temperature=best_params.temperature  # Pass best temperature from optimization
+            )
+            
+            # If improvement succeeded, update best response and result
+            if improvement_result:
+                best_response_text = improvement_result["final_response"]
+                best_params.score = improvement_result["final_score"]
+                # Update the result dict with improved response
+                if best_result_dict:
+                    best_result_dict["response"] = best_response_text
+        
         return {
             "best_parameters": best_params,
             "best_score": best_params.score,
             "best_response": best_response_text,
             "optimization_history": [p.to_dict() for p in history],
+            "improvement_history": improvement_result.get("improvement_history", []) if improvement_result else [],
             "final_result": best_result_dict,
-            "iterations_completed": len(history)
+            "iterations_completed": len(history),
+            "improvement_iterations": improvement_result.get("iterations_completed", 0) if improvement_result else 0
         }
     
     def _generate_with_parameters(self, query: str, parameters: ParameterSet) -> Dict[str, Any]:
@@ -220,6 +252,59 @@ class OptimizationCoordinator:
         finally:
             # Restore original config
             self.rag_system.config = original_config
+    
+    def _run_improvement_phase(
+        self,
+        question: str,
+        context_used: str,
+        best_response: str,
+        best_score: float,
+        best_reasoning: str,
+        best_temperature: float
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Run iterative improvement phase on the best optimized response.
+        
+        Args:
+            question: Original user question
+            context_used: Context documents used for generation
+            best_response: Best response from optimization
+            best_score: Best score from optimization
+            best_reasoning: Reasoning for best score
+            best_temperature: Best temperature from optimization
+            
+        Returns:
+            Improvement result dictionary or None if improvement fails
+        """
+        try:
+            # Lazy-load improvement coordinator
+            if self.improvement_coordinator is None:
+                from ..improvement import ImprovementCoordinator
+                self.improvement_coordinator = ImprovementCoordinator(self.config)
+                logger.info("✅ Improvement coordinator initialized")
+            
+            self.console.print("\n")
+            self.console.rule("[bold magenta]🔄 ITERATIVE IMPROVEMENT PHASE[/bold magenta]", style="magenta")
+            self.console.print(f"[dim]Using optimized temperature: {best_temperature:.2f}[/dim]")
+            self.console.print()
+            
+            # Run iterative improvement with best temperature
+            improvement_result = self.improvement_coordinator.improve_iteratively(
+                question=question,
+                context=context_used,
+                initial_response=best_response,
+                initial_score=best_score,
+                initial_reasoning=best_reasoning,
+                temperature=best_temperature  # Pass best temperature to improvement
+            )
+            
+            return improvement_result
+            
+        except Exception as e:
+            logger.error(f"❌ Improvement phase failed: {e}")
+            self.console.print(f"[red]⚠️  Improvement phase failed: {e}[/red]")
+            self.console.print("[yellow]Continuing with optimization result...[/yellow]")
+            return None
     
     def _display_response_comparisons(self, all_responses: List[Dict[str, Any]]):
         """

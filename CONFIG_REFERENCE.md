@@ -73,6 +73,41 @@ Controls the LLM-based evaluation of responses.
 
 **Note:** These settings override the main `external_llm` settings for evaluation requests only. Lower temperature ensures consistent scoring, while sufficient max_tokens allows for detailed reasoning.
 
+---
+
+## Improvement Configuration (`improvement`)
+
+Controls iterative response improvement using evaluation feedback. Runs after optimization phase if enabled.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `enabled` | boolean | `false` | Enable/disable iterative improvement |
+| `target_score` | float | `1.0` | Target evaluation score (0.0-1.0) to stop improvement |
+
+### Improver Sub-configuration (`improvement.improver`)
+
+Controls the LLM-based response improvement.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `max_tokens` | integer | `2000` | Maximum tokens for improved response |
+| `timeout` | integer | `300` | Timeout for improvement requests in seconds |
+
+**Note:** Temperature is automatically inherited from the best temperature found during optimization. If optimization is disabled, falls back to `external_llm.temperature`.
+
+**Process:** The improvement phase alternates between evaluation and improvement until:
+1. The target score is reached (default: 1.0)
+2. The response degrades (score decreases)
+3. No improvement occurs (score stays the same)
+
+**Note:** A safety limit of 50 iterations prevents infinite loops, but in practice the loop converges or degrades naturally.
+
+**Note:** These settings override the main `external_llm` settings for improvement requests only. Higher temperature and max_tokens allow for comprehensive improvements.
+
+**Temperature Inheritance:** The improvement phase uses the best temperature found during optimization. This ensures improvements are generated with the same temperature that produced the best initial response.
+
+---
+
 ## Configuration Inheritance
 
 The optimization evaluator inherits settings from `external_llm` and overrides them with `optimization.evaluator` settings:
@@ -114,6 +149,14 @@ This means:
             "temperature": 0.1,
             "max_tokens": 500,
             "timeout": 60
+        }
+    },
+    "improvement": {
+        "enabled": true,
+        "target_score": 1.0,
+        "improver": {
+            "max_tokens": 2000,
+            "timeout": 300
         }
     }
 }

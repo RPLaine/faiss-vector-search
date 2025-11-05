@@ -16,6 +16,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from .rag_system import RAGSystem
 from .index_manager import IndexManager
 from .rag_initializer import RAGInitializer
+from .optimization import OptimizationCoordinator
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ class QueryRunner:
         self.ui = ui_manager
         self.data_dir = data_dir
         self.rag: Optional[RAGSystem] = None
+        self.optimizer: Optional[OptimizationCoordinator] = None
         
         # Initialize subsystem components
         self.index_manager = IndexManager(ui_manager, data_dir)
@@ -52,6 +54,15 @@ class QueryRunner:
             
             # Initialize RAG system
             self.rag = self.rag_initializer.initialize_rag_system(self.data_dir)
+            
+            # Initialize optimization coordinator if optimization is enabled
+            if self.rag and self.rag.config.get("optimization", {}).get("enabled", False):
+                try:
+                    self.optimizer = OptimizationCoordinator(self.rag, self.rag.config)
+                    logger.info("✅ Optimization coordinator initialized")
+                except Exception as e:
+                    logger.warning(f"⚠️  Could not initialize optimizer: {e}")
+                    self.optimizer = None
             
             # Validate RAG system loaded properly
             self._validate_rag_system()
@@ -126,14 +137,14 @@ class QueryRunner:
                     continue
                 
                 # Get context mode selection for this specific query (delegated to UIManager)
-                use_context = self.ui.get_context_mode_choice()
+                mode = self.ui.get_context_mode_choice()
                 
                 # Get template choice (delegated to UIManager)
                 template = self.ui.get_template_choice()
                 
                 # Process query with interrupt handling
                 query_count += 1
-                self._process_query(query, template, query_count, use_context)
+                self._process_query(query, template, query_count, mode)
                 
                 # Ask if user wants to continue
                 if not self.ui.confirm("[yellow]❓ Ask another question?[/yellow]", default=True):
@@ -160,16 +171,38 @@ class QueryRunner:
     
 
     
-    def _process_query(self, query: str, template: str, query_number: int, use_context: bool):
-        """Process a single query with interrupt handling."""
+    def _process_query(self, query: str, template: str, query_number: int, mode: str):
+        """Process a single query with interrupt handling.
+        
+        Args:
+            query: User's question
+            template: Template name to use
+            query_number: Sequential query number
+            mode: Query mode - "faiss", "direct", or "optimized"
+        """
         if self.rag is None:
             raise RuntimeError("RAG system not initialized")
         
         # Display query header
-        self.ui.display_query_header(query_number, query, template, use_context)
+        self.ui.display_query_header(query_number, query, template, mode)
         
         try:
-            # Process query with progress indicator
+            # Handle optimization mode
+            if mode == "optimized":
+                if self.optimizer is None:
+                    self.ui.print("[yellow]⚠️  Optimization not enabled. Enable in config.json and restart.[/yellow]")
+                    self.ui.print("[yellow]Falling back to FAISS Enhanced mode...[/yellow]")
+                    mode = "faiss"
+                else:
+                    # Run optimization
+                    opt_result = self.optimizer.optimize_for_query(query)
+                    
+                    # Display the best response
+                    if opt_result and opt_result.get("final_result"):
+                        self._display_query_results(query, template, opt_result["final_result"])
+                    return
+            
+            # Process query with progress indicator (for faiss and direct modes)
             with Progress(
                 SpinnerColumn(),
                 TextColumn("[progress.description]{task.description}"),
@@ -177,6 +210,9 @@ class QueryRunner:
                 transient=True
             ) as progress:
                 query_task = progress.add_task(f"[yellow]Processing: '{query[:50]}{'...' if len(query) > 50 else ''}'", total=None)
+                
+                # Convert mode to use_context boolean
+                use_context = (mode == "faiss")
                 
                 # This is where the actual RAG query happens
                 result = self.rag.query(question=query, template_name=template, use_context=use_context)

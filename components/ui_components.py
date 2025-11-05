@@ -144,11 +144,25 @@ class UIManager:
         self.console.print(templates_table)
         self.console.print()
 
-    def display_query_header(self, query_number, query, template, use_context):
-        """Display query processing header."""
+    def display_query_header(self, query_number, query, template, mode):
+        """Display query processing header.
+        
+        Args:
+            query_number: Sequential query number
+            query: User's question
+            template: Template name
+            mode: Query mode - "faiss", "direct", or "optimized"
+        """
+        # Map mode to display text
+        mode_text = {
+            "faiss": "FAISS Enhanced",
+            "direct": "Direct LLM",
+            "optimized": "Optimized FAISS (Adaptive)"
+        }.get(mode, str(mode))
+        
         query_panel = Panel.fit(
             f"[bold white]Query #{query_number}:[/bold white] [cyan]{query}[/cyan]\n"
-            f"[dim]Template: {template} | Context: {'FAISS Enhanced' if use_context else 'Direct LLM'}[/dim]",
+            f"[dim]Template: {template} | Mode: {mode_text}[/dim]",
             border_style="cyan",
             title=f"[bold cyan]Processing Query[/bold cyan]",
             title_align="left"
@@ -301,17 +315,20 @@ class UIManager:
         self.console.print("\n[bold cyan]📋 Select query mode for this question:[/bold cyan]")
         
         choice = Prompt.ask(
-            "[cyan]Choose mode: [1] FAISS Enhanced (with document context) | [2] Direct LLM (no context)[/cyan]",
-            choices=["1", "2"],
-            default="1"
+            "[cyan]Choose mode: [1] FAISS Enhanced | [2] Direct LLM | [3] Optimized FAISS (adaptive)[/cyan]",
+            choices=["1", "2", "3"],
+            default="3"
         )
         
         if choice == "2":
             self.console.print("[yellow]🤖 Using Direct LLM mode (no document context)[/yellow]")
-            return False
+            return "direct"
+        elif choice == "3":
+            self.console.print("[magenta]🎯 Using Optimized FAISS mode (adaptive parameter tuning)[/magenta]")
+            return "optimized"
         else:
             self.console.print("[green]📚 Using FAISS Enhanced mode (with document context)[/green]")
-            return True
+            return "faiss"
 
     def get_template_choice(self):
         """Get template choice from user."""

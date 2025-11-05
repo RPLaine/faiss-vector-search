@@ -785,6 +785,7 @@ class RAGSystem:
         result = {
             "question": question,
             "context_docs": context_metadata,  # Use metadata for display (includes filenames)
+            "documents": context_docs,  # Actual document content for evaluation
             "response": response,
             "processing_time": processing_time,
             "num_docs_found": len(context_docs),

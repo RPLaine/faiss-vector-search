@@ -4,117 +4,58 @@
  */
 
 import { uiManager } from './manager.js';
+import { createAccumulatorTable } from './utils/table-builder.js';
 
 // Threshold attempts accumulator
-let thresholdAccumulatorCard = null;
-let thresholdAttemptsData = [];
+let thresholdTable = null;
 
 /**
  * Display threshold attempt event
  */
 export function displayThresholdAttempt(data) {
-    // Create accumulator card if it doesn't exist
-    if (!thresholdAccumulatorCard) {
-        thresholdAccumulatorCard = createThresholdAccumulatorCard();
-        uiManager.appendElement(thresholdAccumulatorCard);
+    // Create accumulator table if it doesn't exist
+    if (!thresholdTable) {
+        thresholdTable = createAccumulatorTable({
+            title: '🔍 Similarity Threshold Attempts',
+            className: 'threshold-table',
+            collapsible: true,
+            collapsed: true,
+            columns: [
+                { 
+                    key: 'threshold', 
+                    label: 'Threshold', 
+                    format: v => v.toFixed(3) 
+                },
+                { 
+                    key: 'hits', 
+                    label: 'Hits' 
+                },
+                { 
+                    key: 'target', 
+                    label: 'Target' 
+                },
+                { 
+                    key: 'target_reached',
+                    label: 'Status',
+                    format: v => v ? '✅ Target Reached' : '🔍 Searching',
+                    className: v => v ? 'status-success' : 'status-searching'
+                }
+            ]
+        });
+        uiManager.appendElement(thresholdTable.element);
     }
     
-    // Add new attempt to data
-    thresholdAttemptsData.push(data);
+    // Add new attempt to table
+    thresholdTable.addRow(data);
     
-    // Update the table with new attempt
-    updateThresholdTable();
-    
-    // If target reached, finalize the card
+    // If target reached, finalize the table
     if (data.target_reached) {
-        finalizeThresholdCard();
-        thresholdAccumulatorCard = null;
-        thresholdAttemptsData = [];
+        thresholdTable.finalize(
+            `✅ Similarity Threshold - Target Reached (${data.threshold.toFixed(3)})`,
+            { color: '#6a9955' }
+        );
+        thresholdTable = null;
     }
-}
-
-/**
- * Create threshold accumulator card
- */
-function createThresholdAccumulatorCard() {
-    const box = document.createElement('div');
-    box.className = 'action-box threshold-accumulator-box';
-    box.innerHTML = `
-        <div class="action-header threshold-collapsible">🔍 Similarity Threshold Attempts <span class="toggle-btn">[expand]</span></div>
-        <div class="action-details threshold-content collapsed">
-            <table class="threshold-table">
-                <thead>
-                    <tr>
-                        <th>Threshold</th>
-                        <th>Hits</th>
-                        <th>Target</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody id="threshold-table-body">
-                </tbody>
-            </table>
-        </div>
-    `;
-    
-    // Add click handler for collapse/expand
-    const header = box.querySelector('.threshold-collapsible');
-    const content = box.querySelector('.threshold-content');
-    const toggleBtn = box.querySelector('.toggle-btn');
-    
-    header.onclick = () => {
-        content.classList.toggle('collapsed');
-        toggleBtn.textContent = content.classList.contains('collapsed') ? '[expand]' : '[collapse]';
-    };
-    
-    return box;
-}
-
-/**
- * Update threshold table with accumulated attempts
- */
-function updateThresholdTable() {
-    if (!thresholdAccumulatorCard) return;
-    
-    const tbody = thresholdAccumulatorCard.querySelector('#threshold-table-body');
-    if (!tbody) return;
-    
-    // Clear existing rows
-    tbody.innerHTML = '';
-    
-    // Add rows for all attempts
-    thresholdAttemptsData.forEach((attempt, index) => {
-        const row = document.createElement('tr');
-        const status = attempt.target_reached ? '✅ Target Reached' : '🔍 Searching';
-        const statusClass = attempt.target_reached ? 'status-success' : 'status-searching';
-        
-        row.innerHTML = `
-            <td>${attempt.threshold.toFixed(3)}</td>
-            <td>${attempt.hits}</td>
-            <td>${attempt.target}</td>
-            <td class="${statusClass}">${status}</td>
-        `;
-        tbody.appendChild(row);
-    });
-}
-
-/**
- * Finalize threshold card when target reached
- */
-function finalizeThresholdCard() {
-    if (!thresholdAccumulatorCard) return;
-    
-    // Get the final threshold value that reached the target
-    const finalAttempt = thresholdAttemptsData[thresholdAttemptsData.length - 1];
-    const thresholdValue = finalAttempt ? finalAttempt.threshold.toFixed(3) : '';
-    
-    const header = thresholdAccumulatorCard.querySelector('.action-header');
-    if (header) {
-        header.innerHTML = `✅ Similarity Threshold - Target Reached (${thresholdValue})`;
-        header.style.color = '#6a9955';
-    }
-    
-    thresholdAccumulatorCard.classList.add('threshold-complete');
 }
 
 /**
@@ -193,8 +134,8 @@ export function displayLLMRequest(data) {
     box.className = 'action-box llm-request-box';
     
     box.innerHTML = `
-        <div class="action-header">🚀 LLM API Request</div>
-        <div class="action-details">
+        <div class="action-header llm-collapsible">🚀 LLM API Request</div>
+        <div class="action-details llm-content collapsed">
             <div class="detail-item"><span class="label">Endpoint:</span> ${uiManager.escapeHtml(data.endpoint)}</div>
             <div class="detail-item"><span class="label">Model:</span> ${data.model}</div>
             <div class="detail-item"><span class="label">Temperature:</span> ${data.temperature}</div>
@@ -202,13 +143,21 @@ export function displayLLMRequest(data) {
         </div>
     `;
     
+    // Add click handler for main collapse/expand
+    const header = box.querySelector('.llm-collapsible');
+    const content = box.querySelector('.llm-content');
+    
+    header.onclick = () => {
+        content.classList.toggle('collapsed');
+    };
+    
     // Add collapsible prompt section
     const promptSection = createCollapsibleSection('📝 Prompt', 'prompt-section');
     const promptContent = document.createElement('pre');
     promptContent.className = 'prompt-content';
     promptContent.textContent = data.prompt;
     promptSection.appendChild(promptContent);
-    box.appendChild(promptSection);
+    content.appendChild(promptSection);
     
     // Add collapsible payload section (collapsed by default)
     const payloadSection = createCollapsibleSection('🔧 Raw Payload', 'payload-section', true);
@@ -216,7 +165,7 @@ export function displayLLMRequest(data) {
     payloadContent.className = 'payload-content';
     payloadContent.textContent = JSON.stringify(data.payload, null, 2);
     payloadSection.appendChild(payloadContent);
-    box.appendChild(payloadSection);
+    content.appendChild(payloadSection);
     
     uiManager.appendElement(box);
 }
@@ -230,12 +179,20 @@ export function displayLLMResponse(data) {
     
     if (data.success) {
         box.innerHTML = `
-            <div class="action-header">✅ LLM Response</div>
-            <div class="action-details">
+            <div class="action-header llm-collapsible">✅ LLM Response</div>
+            <div class="action-details llm-content collapsed">
                 <div class="detail-item"><span class="label">Generation Time:</span> ${data.generation_time.toFixed(2)}s</div>
                 <div class="detail-item"><span class="label">Response Length:</span> ${data.response_length} characters</div>
             </div>
         `;
+        
+        // Add click handler for main collapse/expand
+        const header = box.querySelector('.llm-collapsible');
+        const content = box.querySelector('.llm-content');
+        
+        header.onclick = () => {
+            content.classList.toggle('collapsed');
+        };
         
         // Add collapsible response section
         const responseSection = createCollapsibleSection('💬 Full Response', 'response-section');
@@ -243,7 +200,7 @@ export function displayLLMResponse(data) {
         responseContent.className = 'response-text-full';
         responseContent.textContent = data.text;
         responseSection.appendChild(responseContent);
-        box.appendChild(responseSection);
+        content.appendChild(responseSection);
     } else {
         box.innerHTML = `
             <div class="action-header">❌ LLM Error</div>
@@ -480,15 +437,31 @@ function createCollapsibleSection(title, className, collapsed = false) {
  * Display query start event
  */
 export function displayQueryStart(data) {
+    // Remove welcome message on first query
+    const welcomeMessage = document.querySelector('.welcome-message');
+    if (welcomeMessage) {
+        welcomeMessage.remove();
+    }
+    
     const box = document.createElement('div');
     box.className = 'action-box query-lifecycle-box';
+    const queryText = uiManager.escapeHtml(data.query || 'N/A');
     box.innerHTML = `
-        <div class="action-header">⚡ Query Processing Started</div>
-        <div class="action-details">
+        <div class="action-header query-collapsible">❓ ${queryText}</div>
+        <div class="action-details query-content collapsed">
             <div class="detail-item"><span class="label">Mode:</span> ${data.mode || 'N/A'}</div>
             <div class="detail-item"><span class="label">Status:</span> Processing...</div>
         </div>
     `;
+    
+    // Add click handler for collapse/expand
+    const header = box.querySelector('.query-collapsible');
+    const content = box.querySelector('.query-content');
+    
+    header.onclick = () => {
+        content.classList.toggle('collapsed');
+    };
+    
     uiManager.appendElement(box);
 }
 
@@ -510,18 +483,11 @@ export function displayQueryComplete(data) {
 }
 
 /**
- * Display user query
+ * Display user query (deprecated - now combined with displayQueryStart)
  */
 export function displayUserQuery(query) {
-    const box = document.createElement('div');
-    box.className = 'action-box query-box';
-    box.innerHTML = `
-        <div class="action-header">❓ User Query</div>
-        <div class="action-details">
-            <div class="detail-item query-text">${uiManager.escapeHtml(query)}</div>
-        </div>
-    `;
-    uiManager.appendElement(box);
+    // This function is deprecated but kept for backward compatibility
+    // The query is now displayed as part of displayQueryStart
 }
 
 /**

@@ -19,8 +19,8 @@ class UIManager {
             queryInput: document.getElementById('query-input'),
             executeBtn: document.getElementById('executeBtn'),
             statusDot: document.getElementById('statusDot'),
+            connectionStatus: document.getElementById('connectionStatus'),
             terminalInfo: document.getElementById('terminalInfo'),
-            loadingIndicator: document.getElementById('loadingIndicator'),
             modeRadios: document.querySelectorAll('input[name="queryMode"]')
         };
     }
@@ -33,8 +33,14 @@ class UIManager {
         
         if (connected) {
             this.elements.statusDot.classList.remove('disconnected');
+            this.elements.connectionStatus.textContent = 'online';
+            this.elements.connectionStatus.classList.remove('offline');
+            this.elements.connectionStatus.classList.add('online');
         } else {
             this.elements.statusDot.classList.add('disconnected');
+            this.elements.connectionStatus.textContent = 'offline';
+            this.elements.connectionStatus.classList.remove('online');
+            this.elements.connectionStatus.classList.add('offline');
         }
     }
 
@@ -46,9 +52,11 @@ class UIManager {
         this.elements.queryInput.disabled = loading;
         
         if (loading) {
-            this.elements.loadingIndicator.classList.add('active');
+            this.elements.executeBtn.classList.add('loading');
+            this.elements.executeBtn.innerHTML = '<span class="spinner">⟳</span>';
         } else {
-            this.elements.loadingIndicator.classList.remove('active');
+            this.elements.executeBtn.classList.remove('loading');
+            this.elements.executeBtn.innerHTML = '➤';
         }
     }
 
@@ -109,15 +117,17 @@ class UIManager {
      */
     showWelcome() {
         this.elements.contentArea.innerHTML = `
-            <div class="welcome-message">
-                <h3>RAG System Terminal</h3>
-                <ul>
-                    <li>Connected to RAG API server</li>
-                    <li>Enter your query below and press Enter or click Execute</li>
-                    <li>Select mode: full, faiss, or none (type mode name or use radio buttons)</li>
-                    <li>Type 'clear' to clear the terminal</li>
-                    <li>Type 'help' for available commands</li>
-                </ul>
+            <div class="welcome-message action-box">
+                <div class="action-header">👋 Welcome to RAG System</div>
+                <div class="action-details">
+                    <ul class="welcome-list">
+                        <li>Connected to RAG API server</li>
+                        <li>Enter your query below and press Enter or click the send button</li>
+                        <li>Select mode: full, faiss, or none</li>
+                        <li>Use the menu (⋮) to clear the terminal</li>
+                        <li>Type 'help' for available commands</li>
+                    </ul>
+                </div>
             </div>
         `;
     }

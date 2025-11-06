@@ -8,7 +8,6 @@ import { appState } from '../state.js';
 import { apiService } from '../services/api.js';
 import { uiManager } from '../ui/manager.js';
 import { displayResponse, showHelp } from '../ui/components.js';
-import { displayUserQuery } from '../ui/websocket-components.js';
 
 class QueryHandler {
     /**
@@ -44,9 +43,6 @@ class QueryHandler {
             uiManager.appendOutput('System: Please wait for current query to complete', 'error');
             return;
         }
-
-        // Display query in card format
-        displayUserQuery(query);
 
         // Get mode configuration
         const mode = uiManager.getSelectedMode();

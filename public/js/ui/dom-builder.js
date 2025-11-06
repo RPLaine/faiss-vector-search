@@ -16,10 +16,17 @@ class DOMBuilder {
         // Build and append header
         body.appendChild(this.createHeader());
         
-        // Build and append content area
-        body.appendChild(this.createContentArea());
+        // Create main container
+        const mainContainer = document.createElement('div');
+        mainContainer.className = 'main-container';
         
-        // Build and append input area
+        // Build and append content area to container
+        mainContainer.appendChild(this.createContentArea());
+        
+        // Append container to body
+        body.appendChild(mainContainer);
+        
+        // Build and append input area directly to body
         body.appendChild(this.createInputArea());
     }
 
@@ -37,11 +44,13 @@ class DOMBuilder {
         statusDot.className = 'status-indicator';
         statusDot.id = 'statusDot';
         
-        const titleText = document.createElement('span');
-        titleText.textContent = 'RAG Terminal';
+        const connectionStatus = document.createElement('span');
+        connectionStatus.className = 'connection-status';
+        connectionStatus.id = 'connectionStatus';
+        connectionStatus.textContent = 'offline';
         
         title.appendChild(statusDot);
-        title.appendChild(titleText);
+        title.appendChild(connectionStatus);
         
         const info = document.createElement('div');
         info.className = 'terminal-info';
@@ -116,6 +125,27 @@ class DOMBuilder {
             modeSelector.appendChild(wrapper);
         });
         
+        // Add menu button
+        const menuBtn = document.createElement('button');
+        menuBtn.type = 'button';
+        menuBtn.className = 'menu-btn';
+        menuBtn.id = 'menuBtn';
+        menuBtn.innerHTML = '⋮';
+        menuBtn.title = 'Menu';
+        modeSelector.appendChild(menuBtn);
+        
+        // Create menu modal
+        const menuModal = document.createElement('div');
+        menuModal.className = 'menu-modal';
+        menuModal.id = 'menuModal';
+        menuModal.innerHTML = `
+            <button type="button" class="menu-item" id="clearBtn">
+                <span class="menu-icon">🗑️</span>
+                <span class="menu-label">Clear</span>
+            </button>
+        `;
+        modeSelector.appendChild(menuModal);
+        
         return modeSelector;
     }
 
@@ -141,34 +171,19 @@ class DOMBuilder {
         input.placeholder = 'Enter your query...';
         input.autocomplete = 'off';
         
-        const loadingIndicator = document.createElement('span');
-        loadingIndicator.className = 'loading-indicator';
-        loadingIndicator.id = 'loadingIndicator';
-        loadingIndicator.textContent = '▋';
+        // Send button inside input
+        const sendBtn = document.createElement('button');
+        sendBtn.type = 'button';
+        sendBtn.className = 'send-btn';
+        sendBtn.id = 'executeBtn';
+        sendBtn.innerHTML = '➤';
+        sendBtn.title = 'Send query';
         
         inputWrapper.appendChild(input);
-        inputWrapper.appendChild(loadingIndicator);
-        
-        // Button group
-        const buttonGroup = document.createElement('div');
-        buttonGroup.className = 'button-group';
-        
-        const executeBtn = document.createElement('button');
-        executeBtn.className = 'btn btn-primary';
-        executeBtn.id = 'executeBtn';
-        executeBtn.textContent = 'Execute';
-        
-        const clearBtn = document.createElement('button');
-        clearBtn.className = 'btn';
-        clearBtn.id = 'clearBtn';
-        clearBtn.textContent = 'Clear';
-        
-        buttonGroup.appendChild(executeBtn);
-        buttonGroup.appendChild(clearBtn);
+        inputWrapper.appendChild(sendBtn);
         
         queryRow.appendChild(prefix);
         queryRow.appendChild(inputWrapper);
-        queryRow.appendChild(buttonGroup);
         
         return queryRow;
     }

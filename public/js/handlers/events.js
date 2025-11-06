@@ -13,6 +13,7 @@ class EventManager {
     registerEvents() {
         this.registerQueryInputEvents();
         this.registerButtonEvents();
+        this.registerMenuEvents();
         this.registerKeyboardShortcuts();
     }
 
@@ -43,7 +44,41 @@ class EventManager {
         if (clearBtn) {
             clearBtn.addEventListener('click', () => {
                 uiManager.clearContent();
+                this.closeMenu();
             });
+        }
+    }
+
+    /**
+     * Register menu events
+     */
+    registerMenuEvents() {
+        const menuBtn = document.getElementById('menuBtn');
+        const menuModal = document.getElementById('menuModal');
+        
+        if (menuBtn && menuModal) {
+            // Toggle menu on button click
+            menuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                menuModal.classList.toggle('active');
+            });
+            
+            // Close menu when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!menuModal.contains(e.target) && e.target !== menuBtn) {
+                    menuModal.classList.remove('active');
+                }
+            });
+        }
+    }
+
+    /**
+     * Close menu modal
+     */
+    closeMenu() {
+        const menuModal = document.getElementById('menuModal');
+        if (menuModal) {
+            menuModal.classList.remove('active');
         }
     }
 

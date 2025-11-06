@@ -5,6 +5,7 @@
 
 import { uiManager } from './manager.js';
 import { displayFinalResponse } from './websocket-components.js';
+import { createStaticTable } from './utils/table-builder.js';
 
 /**
  * Display query response
@@ -117,45 +118,30 @@ export function displaySourceDocuments(docs) {
  * Display threshold progression
  */
 export function displayThresholdProgression(stats) {
-    const thresholdSection = document.createElement('div');
-    thresholdSection.className = 'threshold-section';
-    
-    const title = document.createElement('div');
-    title.className = 'section-title';
-    title.textContent = '🎯 Dynamic Threshold Progression';
-    thresholdSection.appendChild(title);
-    
-    const table = document.createElement('table');
-    table.className = 'threshold-table';
-    
-    const thead = document.createElement('thead');
-    thead.innerHTML = `
-        <tr>
-            <th>Iteration</th>
-            <th>Threshold</th>
-            <th>Hits</th>
-            <th>Status</th>
-        </tr>
-    `;
-    table.appendChild(thead);
-    
-    const tbody = document.createElement('tbody');
-    stats.progression.forEach(item => {
-        const row = document.createElement('tr');
-        const statusIcon = item.status === 'success' ? '✅' : 
-                          item.status === 'failed' ? '❌' : '🔄';
-        row.innerHTML = `
-            <td>${item.iteration}</td>
-            <td>${item.threshold.toFixed(3)}</td>
-            <td>${item.hits}</td>
-            <td>${statusIcon} ${item.status}</td>
-        `;
-        tbody.appendChild(row);
+    const table = createStaticTable({
+        title: '🎯 Dynamic Threshold Progression',
+        className: 'threshold-table',
+        columns: [
+            { key: 'iteration', label: 'Iteration' },
+            { 
+                key: 'threshold', 
+                label: 'Threshold',
+                format: v => v.toFixed(3)
+            },
+            { key: 'hits', label: 'Hits' },
+            { 
+                key: 'status', 
+                label: 'Status',
+                format: (v) => {
+                    const icon = v === 'success' ? '✅' : v === 'failed' ? '❌' : '🔄';
+                    return `${icon} ${v}`;
+                }
+            }
+        ],
+        data: stats.progression
     });
-    table.appendChild(tbody);
     
-    thresholdSection.appendChild(table);
-    uiManager.appendElement(thresholdSection);
+    uiManager.appendElement(table);
 }
 
 /**

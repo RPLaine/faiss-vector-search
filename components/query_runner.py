@@ -272,23 +272,17 @@ class QueryRunner:
         self.ui.display_query_header(query_number, query, template, mode)
         
         try:
-            # Process query with progress indicator
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                console=self.ui.console,
-                transient=True
-            ) as progress:
-                query_task = progress.add_task(f"[yellow]Processing: '{query[:50]}{'...' if len(query) > 50 else ''}'", total=None)
-                
-                # Use new mode-based query system
-                result = self.rag.query(
-                    query=query, 
-                    mode=query_mode,
-                    template_name=template
-                )
-                
-                progress.update(query_task, description="[green]✅ Query completed")
+            # Execute query (Progress is handled inside modes/optimization if needed)
+            self.ui.console.print(f"[yellow]⏳ Processing query in '{query_mode}' mode...[/yellow]")
+            
+            result = self.rag.query(
+                query=query, 
+                mode=query_mode,
+                template_name=template,
+                ui_callback=self.ui  # Pass UI for real-time display
+            )
+            
+            self.ui.console.print("[green]✅ Query completed[/green]\n")
             
             # Display results
             self._display_query_results(query, template, result)

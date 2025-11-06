@@ -68,9 +68,18 @@ class FaissMode(BaseMode):
             template_name=template_name
         )
         
+        # Display prompt if UI callback is provided
+        ui_callback = kwargs.get('ui_callback')
+        if ui_callback:
+            ui_callback.display_llm_request(prompt, len(retrieval_result['documents']))
+        
         # Generate response
         temperature = kwargs.get('temperature', self.config.get('external_llm', {}).get('temperature', 0.7))
         llm_response = self.llm_service.call(prompt, temperature)
+        
+        # Display response immediately if UI callback is provided
+        if ui_callback:
+            ui_callback.display_llm_response(llm_response.text, llm_response.generation_time)
         
         processing_time = time.time() - start_time
         
@@ -81,13 +90,14 @@ class FaissMode(BaseMode):
             metadata={
                 'template_name': template_name,
                 'temperature': temperature,
-                'num_docs_retrieved': len(retrieval_result['documents']),
+                'num_docs_found': len(retrieval_result['documents']),
                 'retrieval_time': retrieval_result['retrieval_time'],
                 'threshold_used': retrieval_result['threshold_used'],
                 'threshold_stats': retrieval_result.get('threshold_stats'),
                 'generation_time': llm_response.generation_time,
                 'context_docs': retrieval_result['documents'],
-                'total_documents': len(retrieval_result['documents'])
+                'total_documents': len(retrieval_result['documents']),
+                'prompt': prompt  # Add prompt for display
             }
         )
     

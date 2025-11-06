@@ -162,8 +162,10 @@ class UIManager:
         results_table.add_column("Value", style="green")
         
         # Query Results
+        metadata = result.get('metadata', {})
         results_table.add_row("[bold]RESULTS[/bold]", "")
-        results_table.add_row("Documents Found", str(result.get('num_docs_found', 0)))
+        results_table.add_row("Mode", str(result.get('mode', 'N/A')).upper())
+        results_table.add_row("Documents Found", str(metadata.get('num_docs_found', 0)))
         results_table.add_row("Template Used", template)
         results_table.add_row("Response Length", f"{len(result.get('response', ''))} characters")
         
@@ -196,15 +198,26 @@ class UIManager:
         
         self.console.print(results_table)
         
-        # Display dynamic threshold progression table if available
-        if 'threshold_stats' in result:
-            self._display_threshold_progression(result['threshold_stats'])
+        # Check if this is full mode with pipeline metadata
+        metadata = result.get('metadata', {})
+        if result.get('mode') == 'full' and 'pipeline' in metadata:
+            # Pass metadata (which contains pipeline) to display function
+            self._display_full_pipeline_tables(metadata)
+        else:
+            # Display dynamic threshold progression table if available (for FAISS mode)
+            if 'threshold_stats' in metadata:
+                self._display_threshold_progression(metadata['threshold_stats'])
+            
+            # Display LLM generation details for FAISS mode
+            if result.get('mode') == 'faiss' and ('generation_time' in metadata or 'temperature' in metadata):
+                self._display_llm_generation_info(metadata)
         
-        # Display LLM response
+        # Display final response at the end (always last)
         if result.get('response'):
+            self.console.print()
             response_panel = Panel(
                 result['response'],
-                title="[bold green]🤖 Response[/bold green]",
+                title="[bold green]🤖 Final Response[/bold green]",
                 border_style="green",
                 padding=(1, 2)
             )
@@ -223,8 +236,8 @@ class UIManager:
                 doc_preview = content  # Show full content without truncation
                 title = f"[bold cyan]{filename}[/bold cyan]"
             else:
-                # Fallback for old format
-                doc_preview = doc  # Show full content without truncation
+                # Should not happen - documents should always be dicts
+                doc_preview = str(doc)
                 title = f"[bold cyan]Source {i}[/bold cyan]"
             
             doc_panel = Panel(
@@ -656,6 +669,268 @@ class UIManager:
             summary_text += f"[yellow](⚠ Target of {hit_target} not reached)[/yellow]"
         
         self.console.print(f"\n{summary_text}\n")
+    
+    def _display_full_pipeline_tables(self, metadata: dict):
+        """
+        Display all pipeline tables in execution order for Full mode.
+        
+        Args:
+            metadata: Query result metadata containing pipeline data
+        """
+        pipeline = metadata.get('pipeline', {})
+        
+        # 1. Dynamic Retrieval Table
+        retrieval_meta = pipeline.get('retrieval', {})
+        if retrieval_meta:
+            self.console.print()
+            retrieval_table = Table(
+                title="🔍 Step 1: Dynamic Retrieval",
+                box=box.ROUNDED,
+                show_header=True,
+                header_style="bold cyan"
+            )
+            retrieval_table.add_column("Metric", style="cyan", width=25)
+            retrieval_table.add_column("Value", style="white", justify="right")
+            
+            retrieval_table.add_row("Documents Retrieved", str(retrieval_meta.get('num_docs', 0)))
+            retrieval_table.add_row("Threshold Used", f"{retrieval_meta.get('threshold_used', 0):.3f}")
+            retrieval_table.add_row("Retrieval Time", f"{retrieval_meta.get('retrieval_time', 0):.2f}s")
+            
+            self.console.print(retrieval_table)
+            
+            # Display threshold progression if available
+            threshold_stats = retrieval_meta.get('threshold_stats')
+            if threshold_stats:
+                self._display_threshold_progression(threshold_stats)
+        
+        # 2. Temperature Optimization Table
+        opt_meta = pipeline.get('optimization', {})
+        if opt_meta:
+            self.console.print()
+            opt_table = Table(
+                title="🌡️  Step 2: Temperature Optimization",
+                box=box.ROUNDED,
+                show_header=True,
+                header_style="bold yellow"
+            )
+            opt_table.add_column("Metric", style="yellow", width=25)
+            opt_table.add_column("Value", style="white", justify="right")
+            
+            opt_table.add_row("Best Temperature", f"{opt_meta.get('best_temperature', 0):.2f}")
+            opt_table.add_row("Best Score", f"{opt_meta.get('best_score', 0):.2f}")
+            opt_table.add_row("Iterations Tested", str(opt_meta.get('optimization_iterations', 0)))
+            opt_table.add_row("Optimization Time", f"{opt_meta.get('total_optimization_time', 0):.2f}s")
+            
+            self.console.print(opt_table)
+            
+            # Display detailed temperature history if available
+            temp_history = opt_meta.get('temperature_history', [])
+            if temp_history:
+                self._display_temperature_history(temp_history, opt_meta.get('best_temperature', 0))
+        
+        # 3. Response Improvement Table
+        imp_meta = pipeline.get('improvement', {})
+        if imp_meta:
+            self.console.print()
+            imp_table = Table(
+                title="🔄 Step 3: Response Improvement",
+                box=box.ROUNDED,
+                show_header=True,
+                header_style="bold magenta"
+            )
+            imp_table.add_column("Metric", style="magenta", width=25)
+            imp_table.add_column("Value", style="white", justify="right")
+            
+            iterations = imp_meta.get('iterations', 0)
+            initial_score = imp_meta.get('initial_score', 0)
+            final_score = imp_meta.get('final_score', 0)
+            delta = imp_meta.get('improvement_delta', 0)
+            converged = imp_meta.get('converged', False)
+            
+            imp_table.add_row("Iterations Completed", str(iterations))
+            imp_table.add_row("Initial Score", f"{initial_score:.2f}")
+            imp_table.add_row("Final Score", f"{final_score:.2f}")
+            
+            # Color code the improvement delta
+            if delta > 0:
+                delta_str = f"[green]+{delta:.2f}[/green]"
+            elif delta < 0:
+                delta_str = f"[red]{delta:.2f}[/red]"
+            else:
+                delta_str = f"[dim]{delta:.2f}[/dim]"
+            imp_table.add_row("Improvement Delta", delta_str)
+            
+            status = "[green]✓ Converged[/green]" if converged else "[yellow]○ Stopped[/yellow]"
+            imp_table.add_row("Status", status)
+            
+            self.console.print(imp_table)
+            
+            # Display detailed improvement history if available
+            imp_history = imp_meta.get('improvement_history', [])
+            if imp_history:
+                self._display_improvement_history(imp_history)
+    
+    def _display_temperature_history(self, history: list, best_temp: float):
+        """Display detailed temperature optimization history."""
+        if not history:
+            return
+        
+        self.console.print()
+        temp_table = Table(
+            title="🌡️  Temperature Test Results",
+            box=box.SIMPLE,
+            show_header=True,
+            header_style="bold cyan"
+        )
+        temp_table.add_column("Test #", style="dim", width=8, justify="center")
+        temp_table.add_column("Temperature", style="cyan", justify="right")
+        temp_table.add_column("Score", style="yellow", justify="right")
+        temp_table.add_column("Status", style="white")
+        
+        for i, record in enumerate(history, 1):
+            temp = record.get('temperature', record.get('parameters', {}).get('temperature', 0))
+            score = record.get('score', 0)
+            
+            # Highlight the best
+            is_best = abs(temp - best_temp) < 0.01
+            if is_best:
+                status = "[bold green]🏆 Best[/bold green]"
+                temp_str = f"[bold green]{temp:.2f}[/bold green]"
+                score_str = f"[bold green]{score:.2f}[/bold green]"
+            else:
+                status = "✓"
+                temp_str = f"{temp:.2f}"
+                score_str = f"{score:.2f}"
+            
+            temp_table.add_row(str(i), temp_str, score_str, status)
+        
+        self.console.print(temp_table)
+    
+    def _display_improvement_history(self, history: list):
+        """Display detailed improvement iteration history."""
+        if not history:
+            return
+        
+        self.console.print()
+        imp_history_table = Table(
+            title="🔄 Improvement Iterations",
+            box=box.SIMPLE,
+            show_header=True,
+            header_style="bold cyan"
+        )
+        imp_history_table.add_column("Iteration", style="cyan", width=10, justify="center")
+        imp_history_table.add_column("Score", style="yellow", justify="right")
+        imp_history_table.add_column("Change", style="magenta", justify="right")
+        imp_history_table.add_column("Action", style="white")
+        
+        for record in history:
+            iteration = record.get('iteration', 0)
+            score = record.get('score', 0)
+            action = record.get('action', '')
+            score_change = record.get('score_change', 0)
+            
+            # Format iteration
+            if iteration == 0:
+                iter_str = "Initial"
+                change_str = "-"
+            else:
+                iter_str = str(iteration)
+                change_str = f"{score_change:+.2f}"
+            
+            # Color code based on action
+            if action == "Improved" or action == "Initial":
+                score_str = f"[green]{score:.2f}[/green]"
+                action_str = f"[green]{action}[/green]"
+            elif action == "No Change":
+                score_str = f"[yellow]{score:.2f}[/yellow]"
+                action_str = f"[yellow]{action}[/yellow]"
+            else:
+                score_str = f"[red]{score:.2f}[/red]"
+                action_str = f"[red]{action}[/red]"
+            
+            imp_history_table.add_row(iter_str, score_str, change_str, action_str)
+        
+        self.console.print(imp_history_table)
+    
+    def _display_llm_generation_info(self, metadata: dict):
+        """
+        Display LLM generation information for FAISS mode.
+        
+        Args:
+            metadata: Query metadata containing generation details
+        """
+        self.console.print()
+        llm_table = Table(
+            title="🤖 LLM Generation Details",
+            box=box.ROUNDED,
+            show_header=True,
+            header_style="bold green"
+        )
+        llm_table.add_column("Metric", style="cyan", width=25)
+        llm_table.add_column("Value", style="white", justify="right")
+        
+        # Temperature used
+        if 'temperature' in metadata:
+            llm_table.add_row("Temperature", f"{metadata['temperature']:.2f}")
+        
+        # Generation time
+        if 'generation_time' in metadata:
+            llm_table.add_row("Generation Time", f"{metadata['generation_time']:.2f}s")
+        
+        # Retrieval time for context
+        if 'retrieval_time' in metadata:
+            llm_table.add_row("Retrieval Time", f"{metadata['retrieval_time']:.2f}s")
+        
+        # Threshold used
+        if 'threshold_used' in metadata:
+            llm_table.add_row("Threshold Used", f"{metadata['threshold_used']:.3f}")
+        
+        # Number of documents in context
+        if 'num_docs_found' in metadata:
+            llm_table.add_row("Documents in Context", str(metadata['num_docs_found']))
+        
+        self.console.print(llm_table)
+    
+    def display_llm_request(self, prompt: str, num_docs: int):
+        """
+        Display LLM request immediately when sent.
+        
+        Args:
+            prompt: The prompt being sent to LLM
+            num_docs: Number of documents in context
+        """
+        self.console.print()
+        self.console.print(f"[bold blue]📤 Sending request to LLM...[/bold blue] (with {num_docs} documents in context)")
+        self.console.print()
+        
+        prompt_panel = Panel(
+            prompt,
+            title="[bold blue]📤 LLM Request (Prompt)[/bold blue]",
+            border_style="blue",
+            padding=(1, 2)
+        )
+        self.console.print(prompt_panel)
+        self.console.print("[dim]⏳ Waiting for response...[/dim]")
+    
+    def display_llm_response(self, response: str, generation_time: float):
+        """
+        Display LLM response immediately when received.
+        
+        Args:
+            response: The LLM's response text
+            generation_time: Time taken to generate response
+        """
+        self.console.print()
+        self.console.print(f"[bold green]✅ Response received![/bold green] (generated in {generation_time:.2f}s)")
+        self.console.print()
+        
+        response_panel = Panel(
+            response,
+            title="[bold green]🤖 LLM Response[/bold green]",
+            border_style="green",
+            padding=(1, 2)
+        )
+        self.console.print(response_panel)
     
     def show_progress(self, description, total=None):
         """Create and return a progress context manager."""

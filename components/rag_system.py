@@ -275,7 +275,9 @@ class RAGSystem:
         use_dynamic = "hit_target" in self.config["retrieval"]
         hit_target = self.config["retrieval"].get("hit_target") if use_dynamic else None
         step = self.config["retrieval"].get("step", 0.05)
-        similarity_threshold = self.config["retrieval"].get("similarity_threshold")
+        
+        # Only use fixed similarity_threshold if dynamic threshold is NOT enabled
+        similarity_threshold = None if use_dynamic else self.config["retrieval"].get("similarity_threshold")
         
         return self.search_service.search_detailed(
             query=query,

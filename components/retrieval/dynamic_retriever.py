@@ -9,8 +9,6 @@ import logging
 import time
 from typing import List, Dict, Any, Optional
 
-from .threshold_strategy import ThresholdStrategy
-
 logger = logging.getLogger(__name__)
 
 
@@ -27,9 +25,6 @@ class DynamicRetriever:
         """
         self.config = config
         self.rag_system = rag_system
-        self.threshold_strategy = ThresholdStrategy(
-            default_threshold=config.get('retrieval', {}).get('default_threshold', 0.5)
-        )
         
     def retrieve(
         self,
@@ -58,13 +53,22 @@ class DynamicRetriever:
         if top_k is None:
             top_k = self.config.get('retrieval', {}).get('top_k', 10)
         
-        logger.info(f"Retrieving up to {top_k} documents for query")
+        # Default hit_target from config if not specified
+        if hit_target is None:
+            hit_target = self.config.get('retrieval', {}).get('hit_target', 3)
+        
+        logger.info(f"Retrieving documents with hit_target={hit_target}, top_k={top_k}")
         
         # Get documents from RAGSystem's search_detailed method
+        # This will use search_service's search_with_dynamic_threshold which already:
+        # 1. Starts from threshold=1.0
+        # 2. Iteratively lowers it until hit_target is reached
+        # 3. Generates proper threshold_stats with progression
         raw_results = self.rag_system.search_detailed(query, k=top_k)
         
-        # Extract document list - new structure has documents as list of dicts
+        # Extract document list - already filtered by dynamic threshold
         documents_data = raw_results.get('documents', [])
+        threshold_stats = raw_results.get('threshold_stats', {})
         
         if not documents_data:
             logger.warning("No documents retrieved from index")
@@ -72,46 +76,34 @@ class DynamicRetriever:
                 'documents': [],
                 'threshold_used': None,
                 'retrieval_time': time.time() - start_time,
-                'threshold_stats': {'method': 'no_results'}
+                'threshold_stats': threshold_stats or {'method': 'no_results'}
             }
         
-        # Extract similarities from document dicts
-        similarities = [doc.get('score', 0.0) for doc in documents_data]
-        
-        # Calculate threshold
-        threshold, stats = self.threshold_strategy.calculate_threshold(
-            similarities=similarities,
-            hit_target=hit_target,
-            min_threshold=min_threshold,
-            max_threshold=max_threshold
-        )
-        
-        # Filter documents by threshold - build structured document list
+        # Build structured document list from search results
         filtered_docs = []
         for doc_data in documents_data:
-            score = doc_data.get('score', 0.0)
-            if score >= threshold:
-                # Create structured document dict
-                doc_dict = {
-                    'text': doc_data.get('content', ''),
-                    'content': doc_data.get('content', ''),
-                    'similarity': score,
-                    'filename': doc_data.get('filename', 'Unknown'),
-                    'metadata': doc_data
-                }
-                filtered_docs.append(doc_dict)
+            doc_dict = {
+                'text': doc_data.get('content', ''),
+                'content': doc_data.get('content', ''),
+                'similarity': doc_data.get('score', 0.0),
+                'filename': doc_data.get('filename', 'Unknown'),
+                'metadata': doc_data
+            }
+            filtered_docs.append(doc_dict)
         
         retrieval_time = time.time() - start_time
+        final_threshold = threshold_stats.get('final_threshold', None)
         
+        threshold_str = f"{final_threshold:.3f}" if final_threshold is not None else "N/A"
         logger.info(
             f"Retrieved {len(filtered_docs)} documents "
-            f"(threshold: {threshold:.3f}, time: {retrieval_time:.2f}s)"
+            f"(threshold: {threshold_str}, time: {retrieval_time:.2f}s)"
         )
         
         return {
             'documents': filtered_docs,
-            'threshold_used': threshold,
+            'threshold_used': final_threshold,
             'retrieval_time': retrieval_time,
-            'threshold_stats': stats,
+            'threshold_stats': threshold_stats,
             'total_candidates': len(documents_data)
         }

@@ -243,8 +243,7 @@ class ImprovementCoordinator:
                 
                 # No need to advance progress since total=None (indeterminate)
         
-        # Display improvement progress table
-        self._display_improvement_progress(history, best_iteration)
+        # Don't display table here - let the final summary handle it
         
         return self._build_result(
             final_response=best_response,

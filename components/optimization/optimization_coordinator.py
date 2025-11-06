@@ -188,11 +188,7 @@ class OptimizationCoordinator:
             for _ in history:
                 progress.advance(task)
         
-        # Display all response comparisons
-        self._display_response_comparisons(all_responses)
-        
-        # Display optimization results
-        self._display_optimization_results(history, best_params)
+        # Don't display intermediate tables - let the final summary handle everything
         
         # Run iterative improvement if enabled
         improvement_result = None
@@ -217,16 +213,7 @@ class OptimizationCoordinator:
         # Calculate total time
         total_time = time.time() - total_start_time
         
-        # Display comprehensive final summary
-        self._display_final_summary(
-            query=query,
-            best_params=best_params,
-            best_response=best_response_text,
-            num_docs=best_result_dict.get('num_docs_found', 0) if best_result_dict else 0,
-            optimization_iterations=len(history),
-            improvement_result=improvement_result,
-            total_time=total_time
-        )
+        # Don't display final summary here - let the UI handle it at the end
         
         return {
             "best_parameters": best_params,

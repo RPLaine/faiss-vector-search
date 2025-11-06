@@ -79,7 +79,8 @@ class FullMode(BaseMode):
             'best_temperature': opt_result['best_parameters'].temperature,
             'best_score': opt_result['best_score'],
             'optimization_iterations': opt_result['iterations_completed'],
-            'total_optimization_time': opt_result.get('total_time', 0)
+            'total_optimization_time': opt_result.get('total_time', 0),
+            'temperature_history': opt_result.get('optimization_history', [])
         }
         
         initial_response = opt_result['best_response']
@@ -109,7 +110,9 @@ class FullMode(BaseMode):
             'final_score': improvement_result.get('final_score'),
             'initial_score': opt_result['best_score'],
             'improvement_delta': improvement_result.get('final_score', 0) - opt_result['best_score'],
-            'converged': 'convergence' in improvement_result.get('stopped_reason', '').lower()
+            'converged': 'convergence' in improvement_result.get('stopped_reason', '').lower(),
+            'stopped_reason': improvement_result.get('stopped_reason', ''),
+            'improvement_history': improvement_result.get('improvement_history', [])
         }
         
         final_response = improvement_result['final_response']
@@ -122,6 +125,7 @@ class FullMode(BaseMode):
             mode='full',
             metadata={
                 'template_name': template_name,
+                'num_docs_found': len(retrieval_result['documents']),
                 'pipeline': pipeline_metadata,
                 'total_documents': len(retrieval_result['documents']),
                 'context_docs': retrieval_result['documents'],

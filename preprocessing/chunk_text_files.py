@@ -279,9 +279,10 @@ def process_text_files():
     Process all text files in the txt-files directory and create chunks
     in the files directory.
     """
-    # Define directories
-    txt_dir = Path("txt-files")
-    output_dir = Path("files")
+    # Define directories relative to project root
+    script_dir = Path(__file__).parent.parent  # Go up to project root
+    txt_dir = script_dir / "txt-files"
+    output_dir = script_dir / "files"
     
     # Create output directory if it doesn't exist
     output_dir.mkdir(exist_ok=True)

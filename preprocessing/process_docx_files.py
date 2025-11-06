@@ -162,9 +162,10 @@ def process_docx_files():
     Process all DOCX files in the docx-files directory and save them as markdown text files
     in the txt-files directory.
     """
-    # Define directories
-    docx_dir = Path("docx-files")
-    output_dir = Path("txt-files")
+    # Define directories relative to project root
+    script_dir = Path(__file__).parent.parent  # Go up to project root
+    docx_dir = script_dir / "docx-files"
+    output_dir = script_dir / "txt-files"
     
     # Create output directory if it doesn't exist
     output_dir.mkdir(exist_ok=True)

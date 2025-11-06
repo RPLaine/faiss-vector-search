@@ -30,6 +30,7 @@ class QueryRunner:
         self.data_dir = data_dir
         self.rag: Optional[RAGSystem] = None
         self.optimizer: Optional[OptimizationCoordinator] = None
+        self.default_mode: Optional[str] = None  # Can be set to override UI mode selection
         
         # Initialize subsystem components
         self.index_manager = IndexManager(ui_manager, data_dir)
@@ -70,6 +71,9 @@ class QueryRunner:
             # Display system status
             self._display_system_status()
             
+            # Select query mode interactively
+            self._select_query_mode()
+            
             # Run interactive query loop
             self._run_query_loop()
             
@@ -102,13 +106,83 @@ class QueryRunner:
         # Use UI manager for system status display
         self.ui.display_system_status(stats, self.data_dir)
     
+    def _select_query_mode(self):
+        """Allow user to select query mode before starting query loop."""
+        from rich.table import Table
+        from rich import box
+        
+        self.ui.print("\n")
+        self.ui.print("[bold cyan]🎯 Query Mode Selection[/bold cyan]\n")
+        
+        # Create mode description table
+        mode_table = Table(
+            title="Available Query Modes",
+            box=box.ROUNDED,
+            show_header=True,
+            header_style="bold cyan"
+        )
+        mode_table.add_column("Mode", style="yellow", width=12)
+        mode_table.add_column("Description", style="white", width=50)
+        mode_table.add_column("Pipeline", style="dim", width=30)
+        
+        mode_table.add_row(
+            "1. none",
+            "Direct LLM without retrieval",
+            "LLM only"
+        )
+        mode_table.add_row(
+            "2. faiss",
+            "Dynamic retrieval from FAISS index",
+            "Retrieval → LLM"
+        )
+        mode_table.add_row(
+            "3. full",
+            "Complete optimized pipeline",
+            "Retrieval → Optimization → Improvement"
+        )
+        
+        self.ui.console.print(mode_table)
+        self.ui.print()
+        
+        # Get user selection
+        while True:
+            choice = self.ui.input(
+                "[cyan]Select mode (1-3)[/cyan]",
+                default="3"
+            ).strip()
+            
+            mode_map = {
+                "1": "none",
+                "2": "faiss",
+                "3": "full",
+                "none": "none",
+                "faiss": "faiss",
+                "full": "full"
+            }
+            
+            if choice in mode_map:
+                self.default_mode = mode_map[choice]
+                self.ui.print(f"[green]✅ Selected mode: {self.default_mode}[/green]\n")
+                break
+            else:
+                self.ui.print("[red]Invalid choice. Please select 1, 2, or 3.[/red]")
+    
     def _run_query_loop(self):
         """Run the interactive query loop."""
         if self.rag is None:
             raise RuntimeError("RAG system not initialized")
         
-        # Display ready for queries panel (without pre-selecting context mode)
-        self.ui.display_ready_for_queries_flexible()
+        # Display ready for queries panel with current mode
+        if self.default_mode:
+            mode_display = {
+                'none': '🎯 Direct LLM',
+                'faiss': '📚 FAISS Retrieval',
+                'full': '⚡ Full Pipeline'
+            }
+            self.ui.print(f"\n[bold green]✨ Ready for queries in {mode_display.get(self.default_mode, self.default_mode)} mode[/bold green]")
+            self.ui.print("[dim]Type your question, or 'quit' to exit[/dim]\n")
+        else:
+            self.ui.display_ready_for_queries_flexible()
         
         query_count = 0
         
@@ -133,8 +207,12 @@ class QueryRunner:
                     self.ui.print("[dim]Please enter a query or 'quit' to exit.[/dim]")
                     continue
                 
-                # Get context mode selection for this specific query (delegated to UIManager)
-                mode = self.ui.get_context_mode_choice()
+                # Get context mode selection for this specific query
+                # Use default mode if set, otherwise ask user
+                if self.default_mode:
+                    mode = self.default_mode
+                else:
+                    mode = self.ui.get_context_mode_choice()
                 
                 # Use base template (only one available)
                 template = "base"
@@ -175,31 +253,26 @@ class QueryRunner:
             query: User's question
             template: Template name to use
             query_number: Sequential query number
-            mode: Query mode - "faiss", "direct", or "optimized"
+            mode: Query mode - "faiss", "direct", "optimized", or explicit modes "none", "full"
         """
         if self.rag is None:
             raise RuntimeError("RAG system not initialized")
+        
+        # Map legacy modes to new mode names
+        mode_mapping = {
+            "direct": "none",
+            "faiss": "faiss",
+            "optimized": "full"
+        }
+        
+        # Use mapped mode or keep as-is if already using new names
+        query_mode = mode_mapping.get(mode, mode)
         
         # Display query header
         self.ui.display_query_header(query_number, query, template, mode)
         
         try:
-            # Handle optimization mode
-            if mode == "optimized":
-                if self.optimizer is None:
-                    self.ui.print("[yellow]⚠️  Optimization not enabled. Enable in config.json and restart.[/yellow]")
-                    self.ui.print("[yellow]Falling back to FAISS Enhanced mode...[/yellow]")
-                    mode = "faiss"
-                else:
-                    # Run optimization
-                    opt_result = self.optimizer.optimize_for_query(query)
-                    
-                    # Display the best response
-                    if opt_result and opt_result.get("final_result"):
-                        self._display_query_results(query, template, opt_result["final_result"])
-                    return
-            
-            # Process query with progress indicator (for faiss and direct modes)
+            # Process query with progress indicator
             with Progress(
                 SpinnerColumn(),
                 TextColumn("[progress.description]{task.description}"),
@@ -208,11 +281,12 @@ class QueryRunner:
             ) as progress:
                 query_task = progress.add_task(f"[yellow]Processing: '{query[:50]}{'...' if len(query) > 50 else ''}'", total=None)
                 
-                # Convert mode to use_context boolean
-                use_context = (mode == "faiss")
-                
-                # This is where the actual RAG query happens
-                result = self.rag.query(question=query, template_name=template, use_context=use_context)
+                # Use new mode-based query system
+                result = self.rag.query(
+                    query=query, 
+                    mode=query_mode,
+                    template_name=template
+                )
                 
                 progress.update(query_task, description="[green]✅ Query completed")
             
@@ -224,6 +298,8 @@ class QueryRunner:
             raise
         except Exception as e:
             self.ui.print(f"[red]❌ Query processing failed: {e}[/red]")
+            import traceback
+            traceback.print_exc()
             raise
     
     def _display_query_results(self, query: str, template: str, result: dict):

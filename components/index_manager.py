@@ -38,8 +38,7 @@ class IndexManager:
             self.ui.display_index_creation_panel()
             return self.create_faiss_index_from_files()
         else:
-            # Index already exists, no need to recreate
-            self.ui.print("[green]✅ Using existing FAISS index[/green]")
+            # Index already exists, no need to recreate (silent - already shown in check_and_handle_index_regeneration)
             return True
     
     def create_faiss_index_from_files(self) -> bool:
@@ -143,10 +142,10 @@ class IndexManager:
     
     def _create_index_with_documents(self, document_contents: List[str], document_metadata: List[Dict[str, Any]]):
         """Create FAISS index using temporary RAG system."""
-        from .config_manager import ConfigManager
+        from .services import ConfigurationProvider
         
         # Create temporary config for this data directory
-        temp_config_path = ConfigManager.create_temp_config_for_directory(
+        temp_config_path = ConfigurationProvider.create_temp_config_for_directory(
             self.data_dir, 
             base_config_path="config.json"
         )
@@ -158,18 +157,15 @@ class IndexManager:
             # Add document contents for embedding (strings only)
             temp_rag.add_documents(document_contents, save=True)
             
-            # For compatibility with RAGSystem's metadata format (List[str]),
-            # we'll store just the content and save the detailed metadata separately
-            # The original system expects metadata to be the document contents
-            temp_rag.metadata = document_contents  # Store document contents as metadata
-            temp_rag._save_index()  # Save again with updated metadata
+            # The new refactored RAGSystem saves metadata automatically via IndexService
+            # No need to manually update metadata or call _save_index()
             
             # Save detailed metadata separately for our reference
             self._save_detailed_metadata(document_metadata)
             
         finally:
             # Clean up temporary config
-            ConfigManager.cleanup_temp_config(temp_config_path)
+            ConfigurationProvider.cleanup_temp_config(temp_config_path)
     
     def _save_detailed_metadata(self, document_metadata: List[Dict[str, Any]]):
         """Save detailed metadata separately from FAISS metadata."""

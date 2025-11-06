@@ -261,8 +261,8 @@ class OptimizationCoordinator:
             self.rag_system.config["retrieval"]["similarity_threshold"] = parameters.similarity_threshold
             self.rag_system.config["retrieval"]["hit_target"] = parameters.hit_target
             
-            # Generate response
-            result = self.rag_system.query(query)
+            # Generate response using FAISS mode
+            result = self.rag_system.query(query=query, mode='faiss')
             
             return result
             

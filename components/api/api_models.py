@@ -18,9 +18,11 @@ class QueryRequest:
     template_name: str = "base"
     optimize: bool = False
     improve: bool = False
+    mode: Optional[str] = None  # 'none', 'faiss', or 'full'
     temperature: Optional[float] = None
     top_k: Optional[int] = None
     similarity_threshold: Optional[float] = None
+    hit_target: Optional[int] = None
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""

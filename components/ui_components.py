@@ -103,7 +103,7 @@ class UIManager:
         status_table.add_row(
             "🧠 Embedding", 
             "✅ Ready", 
-            f"all-MiniLM-L6-v2 ({rag_stats.get('embedding_dimension', 'N/A')}D)"
+            f"{rag_stats.get('embedding_model', 'N/A')} ({rag_stats.get('embedding_dimension', 'N/A')}D)"
         )
         status_table.add_row(
             "🔍 Vector Index", 
@@ -113,7 +113,7 @@ class UIManager:
         status_table.add_row(
             "🌐 External LLM", 
             "🔗 Connected", 
-            f"{rag_stats.get('external_llm_model', 'N/A')} via API"
+            f"{rag_stats.get('llm_model', 'N/A')} via API"
         )
         status_table.add_row(
             "📊 Documents", 

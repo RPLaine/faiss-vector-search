@@ -5,6 +5,7 @@ Provides clean access to configuration for all subsystems without duplication.
 Thread-safe and suitable for web service environments.
 """
 
+import os
 import logging
 from typing import Dict, Any, Optional
 from pathlib import Path
@@ -226,3 +227,60 @@ class ConfigurationProvider:
     def to_json(self) -> str:
         """Export configuration as JSON string (for GUI API)."""
         return json.dumps(self._config, indent=2)
+    
+    # Static utility methods for config file operations
+    
+    @staticmethod
+    def save_config(config: Dict[str, Any], config_path: str) -> None:
+        """
+        Save configuration to file.
+        
+        Args:
+            config: Configuration dictionary to save
+            config_path: Path where to save the configuration
+        """
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=2)
+        logger.info(f"Saved configuration to {config_path}")
+    
+    @staticmethod
+    def create_temp_config_for_directory(data_dir: str, base_config_path: str = "config.json") -> str:
+        """
+        Create temporary configuration with updated paths for specific data directory.
+        
+        Args:
+            data_dir: Target data directory for index and metadata files
+            base_config_path: Base configuration file to copy from
+            
+        Returns:
+            Path to the temporary configuration file
+        """
+        # Load original config
+        with open(base_config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        
+        # Update paths to use the specified data directory
+        config["index"]["save_path"] = os.path.join(data_dir, "faiss.index")
+        config["index"]["metadata_path"] = os.path.join(data_dir, "metadata.pkl")
+        
+        # Create temporary config file
+        temp_config_path = f"temp_config_{os.getpid()}.json"
+        ConfigurationProvider.save_config(config, temp_config_path)
+        
+        logger.info(f"Created temporary config for directory: {data_dir}")
+        return temp_config_path
+    
+    @staticmethod
+    def cleanup_temp_config(temp_config_path: str) -> None:
+        """
+        Remove temporary configuration file.
+        
+        Args:
+            temp_config_path: Path to the temporary configuration file to remove
+        """
+        try:
+            if os.path.exists(temp_config_path):
+                os.remove(temp_config_path)
+                logger.info(f"Cleaned up temporary config: {temp_config_path}")
+        except Exception as e:
+            logger.warning(f"Failed to clean up temporary config {temp_config_path}: {e}")

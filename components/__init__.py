@@ -5,8 +5,12 @@ from .query_runner import QueryRunner
 from .ui_components import UIManager
 from .session_manager import SessionManager
 from .index_manager import IndexManager
-from .config_manager import ConfigManager
 from .rag_initializer import RAGInitializer
+from .exceptions import (
+    RAGException, ConfigurationError, EmbeddingError,
+    IndexError, SearchError, LLMAPIError, SessionError,
+    DocumentProcessingError
+)
 
 __all__ = [
     'RAGSystem',
@@ -14,6 +18,14 @@ __all__ = [
     'UIManager',
     'SessionManager',
     'IndexManager',
-    'ConfigManager',
-    'RAGInitializer'
+    'RAGInitializer',
+    # Exceptions
+    'RAGException',
+    'ConfigurationError',
+    'EmbeddingError',
+    'IndexError',
+    'SearchError',
+    'LLMAPIError',
+    'SessionError',
+    'DocumentProcessingError'
 ]

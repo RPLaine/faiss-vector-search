@@ -124,6 +124,12 @@ class RAGController:
         """
         Execute RAG query with optional optimization and improvement.
         
+        This method now supports mode-based queries:
+        - mode='none': Direct LLM without retrieval
+        - mode='faiss': Dynamic retrieval with FAISS
+        - mode='full': Complete pipeline (retrieval + optimization + improvement)
+        - If mode is specified, it overrides optimize/use_context flags
+        
         Args:
             request: QueryRequest object with query parameters
             
@@ -144,38 +150,45 @@ class RAGController:
             self._emit_progress({
                 "type": "query_start",
                 "query": request.query,
-                "timestamp": timestamp
+                "timestamp": timestamp,
+                "mode": request.mode or self._determine_mode_from_flags(request)
             })
             
-            # Apply parameter overrides if provided
-            if request.temperature is not None:
-                self.config_provider.update_llm_temperature(request.temperature)
-            if request.top_k is not None or request.similarity_threshold is not None:
-                self.config_provider.update_retrieval_params(
-                    top_k=request.top_k,
-                    similarity_threshold=request.similarity_threshold
-                )
-            
-            # Execute based on mode
-            if request.optimize:
-                result = self._query_with_optimization(request)
+            # Use new mode-based architecture if mode is specified
+            if request.mode is not None:
+                result = self._query_with_mode(request)
             else:
-                result = self._query_standard(request)
+                # Legacy path: use optimize and use_context flags
+                # Apply parameter overrides if provided
+                if request.temperature is not None:
+                    self.config_provider.update_llm_temperature(request.temperature)
+                if request.top_k is not None or request.similarity_threshold is not None:
+                    self.config_provider.update_retrieval_params(
+                        top_k=request.top_k,
+                        similarity_threshold=request.similarity_threshold
+                    )
+                
+                # Execute based on mode
+                if request.optimize:
+                    result = self._query_with_optimization(request)
+                else:
+                    result = self._query_standard(request)
+                
+                # Apply improvement if requested
+                if request.improve and not request.optimize:
+                    # Note: optimization already includes improvement
+                    result = self._apply_improvement(request, result)
             
             # Emit documents found if available
-            if result.get("documents"):
-                docs = self._format_documents(result.get("documents", []))
+            if result.get("documents") or result.get("context_docs"):
+                docs = result.get("documents") or result.get("context_docs", [])
+                formatted_docs = self._format_documents(docs)
                 self._emit_progress({
                     "type": "documents_retrieved",
-                    "message": f"📚 Retrieved {len(docs)} source documents",
-                    "num_docs": len(docs),
-                    "documents": docs[:3] if len(docs) > 3 else docs  # Send first 3 for preview
+                    "message": f"📚 Retrieved {len(formatted_docs)} source documents",
+                    "num_docs": len(formatted_docs),
+                    "documents": formatted_docs[:3] if len(formatted_docs) > 3 else formatted_docs
                 })
-            
-            # Apply improvement if requested
-            if request.improve and not request.optimize:
-                # Note: optimization already includes improvement
-                result = self._apply_improvement(request, result)
             
             processing_time = time.time() - start_time
             
@@ -192,11 +205,11 @@ class RAGController:
                 response=result.get("response", ""),
                 processing_time=processing_time,
                 num_docs_found=result.get("num_docs_found", 0),
-                documents=self._format_documents(result.get("documents", [])),
+                documents=self._format_documents(result.get("documents", result.get("context_docs", []))),
                 template_used=request.template_name,
                 timestamp=timestamp,
-                optimization_applied=request.optimize,
-                improvement_applied=request.improve,
+                optimization_applied=request.optimize or request.mode == 'full',
+                improvement_applied=request.improve or request.mode == 'full',
                 optimization_score=result.get("optimization_score"),
                 improvement_iterations=result.get("improvement_iterations", 0),
                 retrieval_time=result.get("retrieval_time"),
@@ -206,6 +219,37 @@ class RAGController:
         finally:
             self._is_busy = False
             self._current_operation = None
+    
+    def _determine_mode_from_flags(self, request: QueryRequest) -> str:
+        """Determine mode from legacy optimize/use_context flags."""
+        if request.optimize:
+            return 'full'
+        elif request.use_context:
+            return 'faiss'
+        else:
+            return 'none'
+    
+    def _query_with_mode(self, request: QueryRequest) -> Dict[str, Any]:
+        """Execute query using new mode-based architecture."""
+        # Prepare kwargs for mode execution
+        kwargs = {
+            'template_name': request.template_name,
+            'top_k': request.top_k,
+            'hit_target': request.hit_target,
+            'temperature': request.temperature
+        }
+        
+        # Remove None values
+        kwargs = {k: v for k, v in kwargs.items() if v is not None}
+        
+        # Execute using mode-based system
+        result = self.rag_system.query(
+            query=request.query,
+            mode=request.mode,
+            **kwargs
+        )
+        
+        return result
     
     def _query_standard(self, request: QueryRequest) -> Dict[str, Any]:
         """Execute standard RAG query - FAISS mode (dynamic retrieval only) or None mode (direct LLM)."""
@@ -225,9 +269,9 @@ class RAGController:
             
             retrieval_start = time.time()
             result = self.rag_system.query(
-                question=request.query,
-                template_name=request.template_name,
-                use_context=True
+                query=request.query,
+                mode='faiss',
+                template_name=request.template_name
             )
             retrieval_time = time.time() - retrieval_start
             
@@ -235,8 +279,8 @@ class RAGController:
             self._emit_action({
                 "action": "retrieval_complete",
                 "data": {
-                    "num_docs": result.get("num_docs_found", 0),
-                    "documents": result.get("documents", []),  # All documents, no truncation
+                    "num_docs": result.get("metadata", {}).get("total_documents", 0),
+                    "documents": result.get("metadata", {}).get("documents", []),
                     "time": retrieval_time
                 }
             })
@@ -472,7 +516,8 @@ class RAGController:
     
     def get_document_count(self) -> int:
         """Get total document count."""
-        return self.rag_system.index.ntotal if self.rag_system.index else 0
+        stats = self.rag_system.get_stats()
+        return stats.get("total_documents", 0)
     
     # Health Check API
     

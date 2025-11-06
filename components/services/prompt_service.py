@@ -116,3 +116,48 @@ class PromptService:
                 logger.warning(f"Failed to preload prompt {prompt_name}: {e}")
         
         logger.info(f"Preloaded {len(self._cache)} prompt templates")
+    
+    def build_prompt(self, query: str, template_name: str = "base") -> str:
+        """
+        Build a prompt for a query without context (None mode).
+        
+        Args:
+            query: User's question
+            template_name: Name of prompt template to use
+            
+        Returns:
+            Formatted prompt string
+        """
+        return self.format_prompt(template_name, question=query, context="")
+    
+    def build_prompt_with_context(
+        self, 
+        query: str, 
+        context_docs: list, 
+        template_name: str = "base"
+    ) -> str:
+        """
+        Build a prompt with retrieved context documents (FAISS/Full modes).
+        
+        Args:
+            query: User's question
+            context_docs: List of retrieved document dictionaries
+            template_name: Name of prompt template to use
+            
+        Returns:
+            Formatted prompt string with context
+        """
+        # Format context from documents
+        context_parts = []
+        for i, doc in enumerate(context_docs, 1):
+            text = doc.get('text', '')
+            filename = doc.get('filename', 'Unknown')
+            similarity = doc.get('similarity', 0.0)
+            
+            context_parts.append(
+                f"[Document {i}] (Source: {filename}, Relevance: {similarity:.2f})\n{text}"
+            )
+        
+        context = "\n\n".join(context_parts)
+        
+        return self.format_prompt(template_name, question=query, context=context)

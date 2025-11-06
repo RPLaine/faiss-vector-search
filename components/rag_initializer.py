@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from .rag_system import RAGSystem
-from .config_manager import ConfigManager
+from .services import ConfigurationProvider
 
 
 class RAGInitializer:
@@ -57,7 +57,7 @@ class RAGInitializer:
         """
         if data_dir != "files":
             # Create temporary config for non-default data directory
-            temp_config_path = ConfigManager.create_temp_config_for_directory(
+            temp_config_path = ConfigurationProvider.create_temp_config_for_directory(
                 data_dir, 
                 base_config_path="config.json"
             )
@@ -67,7 +67,7 @@ class RAGInitializer:
                 rag_system = RAGSystem(config_path=temp_config_path)
             finally:
                 # Clean up temporary config
-                ConfigManager.cleanup_temp_config(temp_config_path)
+                ConfigurationProvider.cleanup_temp_config(temp_config_path)
         else:
             # Use default config for files directory
             rag_system = RAGSystem()

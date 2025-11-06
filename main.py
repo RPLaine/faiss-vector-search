@@ -12,7 +12,6 @@ import logging
 import argparse
 from components.ui_components import UIManager
 from components.query_runner import QueryRunner
-from components.error_handler import handle_demo_errors
 
 
 def setup_logging():
@@ -47,6 +46,8 @@ Examples:
   python main.py --data-dir files          # Query mode with files/ directory  
   python main.py --data-dir /path/to/data  # Query mode with custom directory
 
+Query modes will be selected interactively at startup.
+
 The system loads existing FAISS index and metadata files for querying.
 All queries and responses are automatically saved to timestamped session folders.
 Press Ctrl+C at any time to exit gracefully.
@@ -76,7 +77,18 @@ Press Ctrl+C at any time to exit gracefully.
         print("\n\n🛑 Operation cancelled by user (Ctrl+C)")
         sys.exit(0)
     except Exception as e:
-        handle_demo_errors(e)
+        # Simple error handling with helpful message
+        print(f"\n❌ Error: {e}")
+        print("\nTroubleshooting:")
+        print("  1. Check that config.json exists and is valid")
+        print("  2. Ensure all dependencies are installed: pip install -r requirements.txt")
+        print("  3. Verify FAISS index files exist in the data directory")
+        print("  4. Check that the LLM API is accessible")
+        
+        import traceback
+        print("\nFull error details:")
+        traceback.print_exc()
+        sys.exit(1)
 
 
 if __name__ == "__main__":

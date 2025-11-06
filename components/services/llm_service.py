@@ -269,3 +269,37 @@ class LLMService:
         self.total_time = 0.0
         self.total_tokens = 0
         logger.info("LLM service statistics reset")
+    
+    def generate(self, prompt: str, temperature: Optional[float] = None) -> str:
+        """
+        Simple generation method for None mode.
+        
+        Args:
+            prompt: Text prompt
+            temperature: Optional temperature override
+            
+        Returns:
+            Generated text string
+        """
+        response = self.call(prompt=prompt, temperature=temperature)
+        return response.text
+    
+    def call_llm(
+        self, 
+        prompt: str, 
+        temperature: Optional[float] = None,
+        **kwargs
+    ) -> str:
+        """
+        Alias for generate() - used by FAISS and Full modes.
+        
+        Args:
+            prompt: Text prompt
+            temperature: Optional temperature override
+            **kwargs: Additional parameters passed to call()
+            
+        Returns:
+            Generated text string
+        """
+        response = self.call(prompt=prompt, temperature=temperature, **kwargs)
+        return response.text

@@ -166,7 +166,7 @@ export function displayLLMRequest(data) {
     content.appendChild(promptSection);
     
     // Add collapsible payload section (collapsed by default)
-    const payloadSection = createCollapsibleSection('🔧 Raw Payload', 'payload-section', true);
+    const payloadSection = createCollapsibleSection('🔧 Raw Payload', 'payload-section');
     const payloadContent = document.createElement('pre');
     payloadContent.className = 'payload-content';
     payloadContent.textContent = JSON.stringify(data.payload, null, 2);
@@ -309,7 +309,7 @@ export function displayTemperatureEvaluation(data) {
     });
     
     if (data.reasoning) {
-        const reasoningSection = createCollapsibleSection('💭 Reasoning', 'reasoning-section', true);
+        const reasoningSection = createCollapsibleSection('💭 Reasoning', 'reasoning-section');
         const reasoningContent = document.createElement('div');
         reasoningContent.className = 'reasoning-text';
         reasoningContent.textContent = data.reasoning;
@@ -399,7 +399,7 @@ export function displayImprovementEvaluation(data) {
     });
     
     if (data.reasoning) {
-        const reasoningSection = createCollapsibleSection('💭 Reasoning', 'reasoning-section', true);
+        const reasoningSection = createCollapsibleSection('💭 Reasoning', 'reasoning-section');
         const reasoningContent = document.createElement('div');
         reasoningContent.className = 'reasoning-text';
         reasoningContent.textContent = data.reasoning;
@@ -431,18 +431,16 @@ export function displayImprovementIterationOld(data) {
 /**
  * Helper: Create collapsible section
  */
-function createCollapsibleSection(title, className, collapsed = false) {
+function createCollapsibleSection(title, className, collapsed = true) {
     const section = document.createElement('div');
     section.className = className + (collapsed ? ' collapsed' : '');
     
     const header = document.createElement('div');
     header.className = `${className.split('-')[0]}-header collapsible-header`;
-    header.innerHTML = `${title} <span class="toggle-btn">[${collapsed ? 'expand' : 'collapse'}]</span>`;
+    header.textContent = title;
     
     header.onclick = () => {
         section.classList.toggle('collapsed');
-        header.querySelector('.toggle-btn').textContent = 
-            section.classList.contains('collapsed') ? '[expand]' : '[collapse]';
     };
     
     section.appendChild(header);

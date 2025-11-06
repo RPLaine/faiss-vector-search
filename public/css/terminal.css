@@ -699,6 +699,7 @@ body::-webkit-scrollbar-thumb:hover {
     margin-left: 8px;
 }
 
+/* DEPRECATED - Old LLM prompt box styles (keeping for backward compatibility) */
 .llm-prompt-box {
     background: #1e1e1e;
     border: 1px solid #4ec9b0;
@@ -715,7 +716,7 @@ body::-webkit-scrollbar-thumb:hover {
     font-weight: bold;
 }
 
-.prompt-content {
+.llm-prompt-box .prompt-content {
     padding: 15px;
     color: #d4d4d4;
     font-size: 12px;
@@ -756,7 +757,7 @@ body::-webkit-scrollbar-thumb:hover {
     color: #4ec9b0;
 }
 
-.payload-content {
+.llm-payload-box .payload-content {
     padding: 15px;
     color: #ce9178;
     font-size: 11px;
@@ -1070,54 +1071,67 @@ body::-webkit-scrollbar-thumb:hover {
     line-height: 1.5;
 }
 
-/* Prompt section */
-.prompt-section {
-    border-top: 1px solid #3e3e42;
-    background: #1e1e1e;
-}
-
-.prompt-header {
-    padding: 10px 15px;
-    background: #2d2d30;
-    color: #4ec9b0;
-    font-weight: bold;
-    font-size: 12px;
-    cursor: pointer;
-    user-select: none;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.prompt-header:hover {
-    background: #3e3e42;
-}
-
+/* Collapsible section base styles */
 .collapsible-header {
     cursor: pointer;
     user-select: none;
-}
-
-.collapsible-header .toggle-btn {
-    color: #9cdcfe;
+    padding: 8px 12px;
+    background: #2d2d30;
+    font-weight: bold;
     font-size: 11px;
-    font-weight: normal;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #3e3e42;
 }
 
-.collapsible-header:hover .toggle-btn {
+.collapsible-header:hover {
+    background: #3e3e42;
+}
+
+/* Specific collapsible section colors */
+.prompt-header {
     color: #4ec9b0;
 }
 
-.prompt-content {
+.payload-header {
+    color: #c586c0;
+}
+
+.response-header {
+    color: #4fc1ff;
+}
+
+.docs-header {
+    color: #6a9955;
+}
+
+.reasoning-header {
+    color: #dcdcaa;
+}
+
+/* Collapsible section containers - card-like styling */
+.prompt-section,
+.payload-section,
+.response-section,
+.docs-section,
+.reasoning-section {
     background: #252526;
-    padding: 12px 15px;
-    border-radius: 0;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    margin: 10px 12px;
+    overflow: hidden;
+    box-shadow: 0 0 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Prompt section content */
+.prompt-section .prompt-content {
+    background: #1e1e1e;
+    padding: 10px 12px;
     font-size: 11px;
     color: #ce9178;
     line-height: 1.5;
     white-space: pre-wrap;
-    max-height: 400px;
-    overflow-y: auto;
     overflow-x: auto;
     margin: 0;
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
@@ -1128,39 +1142,12 @@ body::-webkit-scrollbar-thumb:hover {
 }
 
 /* Payload section (collapsible) */
-.payload-section {
-    border-top: 1px solid #3e3e42;
-}
-
-.payload-header {
-    padding: 10px 15px;
-    background: #2d2d30;
-    color: #c586c0;
-    font-size: 12px;
-    cursor: pointer;
-    user-select: none;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.payload-header:hover {
-    background: #3e3e42;
-}
-
-.payload-header .toggle-btn {
-    color: #9cdcfe;
-    font-size: 11px;
-}
-
-.payload-content {
-    padding: 12px 15px;
+.payload-section .payload-content {
+    padding: 10px 12px;
     background: #1e1e1e;
     color: #ce9178;
     font-size: 11px;
     line-height: 1.5;
-    max-height: 500px;
-    overflow-y: auto;
     overflow-x: auto;
     margin: 0;
     white-space: pre;
@@ -1172,29 +1159,14 @@ body::-webkit-scrollbar-thumb:hover {
 }
 
 /* Response section (collapsible) */
-.response-section {
-    border-top: 1px solid #3e3e42;
+.response-section .response-text-full {
     background: #1e1e1e;
-}
-
-.response-header {
-    padding: 10px 15px;
-    background: #2d2d30;
-    color: #4fc1ff;
-    font-weight: bold;
-    font-size: 12px;
-}
-
-.response-text-full {
-    background: #252526;
-    padding: 12px 15px;
+    padding: 10px 12px;
     border-left: 3px solid #4fc1ff;
-    font-size: 12px;
+    font-size: 11px;
     color: #d4d4d4;
     line-height: 1.6;
     white-space: pre-wrap;
-    max-height: 500px;
-    overflow-y: auto;
     overflow-x: auto;
     word-wrap: break-word;
 }
@@ -1204,22 +1176,9 @@ body::-webkit-scrollbar-thumb:hover {
 }
 
 /* Documents section (collapsible) */
-.docs-section {
-    border-top: 1px solid #3e3e42;
-}
-
-.docs-header {
-    padding: 10px 15px;
-    background: #2d2d30;
-    color: #6a9955;
-    font-weight: bold;
-    font-size: 12px;
-}
-
-.docs-container {
+.docs-section .docs-container {
     background: #1e1e1e;
-    max-height: 600px;
-    overflow-y: auto;
+    overflow-x: auto;
 }
 
 .docs-section.collapsed .docs-container {
@@ -1227,18 +1186,18 @@ body::-webkit-scrollbar-thumb:hover {
 }
 
 .doc-item {
-    margin: 10px 15px;
+    margin: 8px 10px;
     background: #252526;
-    border-left: 3px solid #6a9955;
-    border-radius: 4px;
+    border-left: 2px solid #6a9955;
+    border-radius: 3px;
     overflow: hidden;
 }
 
 .doc-item-header {
-    padding: 8px 12px;
+    padding: 6px 10px;
     background: #2d2d30;
     color: #4ec9b0;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: bold;
     display: flex;
     justify-content: space-between;
@@ -1247,20 +1206,35 @@ body::-webkit-scrollbar-thumb:hover {
 
 .doc-score {
     color: #dcdcaa;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: normal;
 }
 
 .doc-item-content {
-    padding: 10px 12px;
+    padding: 8px 10px;
     color: #d4d4d4;
     font-size: 11px;
     line-height: 1.5;
     white-space: pre-wrap;
-    max-height: 300px;
-    overflow-y: auto;
     overflow-x: auto;
     word-wrap: break-word;
+}
+
+/* Reasoning section (collapsible) */
+.reasoning-section .reasoning-text {
+    background: #1e1e1e;
+    padding: 10px 12px;
+    border-left: 3px solid #dcdcaa;
+    font-size: 11px;
+    color: #d4d4d4;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    overflow-x: auto;
+    word-wrap: break-word;
+}
+
+.reasoning-section.collapsed .reasoning-text {
+    display: none;
 }
 
 /* Response preview - DEPRECATED (keeping for backward compatibility) */

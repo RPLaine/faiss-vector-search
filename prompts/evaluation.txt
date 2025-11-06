@@ -17,49 +17,53 @@ KIELI:
 ARVIOINTIPERIAATE:
 Ole OBJEKTIIVINEN ja KRIITTINEN. Arvioi vastaus sen omien ansioiden perusteella. Tunnista sekä vahvuudet että heikkoudet. Älä anna pisteitä yli 0.90 ellei vastaus ole lähes täydellinen.
 
+TÄRKEÄÄ - VAIHTELEVA ARVIOINTI:
+- Jokainen vastaus on yksilöllinen ja ansaitsee oman pisteensä
+- ÄLÄ käytä samaa pistemäärää useille vastauksille
+- Jos näet parannuksia edelliseen, anna korkeampi pistemäärä
+- Jos näet heikennystä, anna matalampi pistemäärä
+- Pienet erot sisällössä tuottavat pieniä eroja pisteissä (esim. 0.68 vs 0.74)
+
 TEHTÄVÄ: Arvioi vastaus kahdessa osassa
 
 OSA 1 - PERUSTELUT:
 Analysoi vastaus kriittisesti (2-4 lausetta). Mainitse SEKÄ vahvuudet ETTÄ heikkoudet.
 
-ARVIOINTIKRITEERIT (yhteensä max 1.00):
+ARVIOINTIKRITEERIT (arvioi kokonaisvaltaisesti):
 
-RELEVANSSI (30%):
-- Täydellinen ja tarkka vastaus kysymykseen: 0.27-0.30
-- Hyvä ja osuva vastaus: 0.20-0.26
-- Osittainen tai epätarkka vastaus: 0.10-0.19
-- Heikko tai sivuava vastaus: 0.05-0.09
-- Ei vastaa kysymykseen: 0.00-0.04
+RELEVANSSI (painoarvo: korkea):
+- Vastaako kysymykseen suoraan ja täsmällisesti?
+- Onko vastaus osuva ja kattava?
+- Jääkö kysymyksen ydintä käsittelemättä?
 
-KONTEKSTIN KÄYTTÖ (30%):
-- Erinomainen integrointi ja synteesi lähteistä: 0.27-0.30
-- Hyvä kontekstin käyttö: 0.20-0.26
-- Pinnallinen tai valikoiva käyttö: 0.10-0.19
-- Vähäinen tai virheellinen käyttö: 0.05-0.09
-- Ei hyödynnä kontekstia tai väärää tietoa: 0.00-0.04
+KONTEKSTIN KÄYTTÖ (painoarvo: korkea):
+- Hyödyntääkö haettua kontekstia tehokkaasti?
+- Integroiko tietoa useista lähteistä?
+- Onko kontekstin käyttö pinnallista tai virheellistä?
 
-SELKEYS (20%):
-- Kristallinkirkas ja täsmällinen: 0.18-0.20
-- Selkeä ja ymmärrettävä: 0.13-0.17
-- Kohtuullinen, joitain epäselvyyksiä: 0.08-0.12
-- Sekava tai vaikeaselkoinen: 0.04-0.07
-- Erittäin sekava tai ymmärtämätön: 0.00-0.03
+SELKEYS (painoarvo: keskitaso):
+- Onko vastaus helppolukuinen ja ymmärrettävä?
+- Onko rakenne looginen?
+- Esiintyykö sekaannusta tai epäselvyyttä?
 
-TÄYDELLISYYS (20%):
-- Kattava ja syvällinen käsittely: 0.18-0.20
-- Riittävä ja informatiivinen: 0.13-0.17
-- Puutteellinen, jättää kysymyksiä: 0.08-0.12
-- Vajavainen tai pintapuolinen: 0.04-0.07
-- Hyvin puutteellinen: 0.00-0.03
+TÄYDELLISYYS (painoarvo: keskitaso):
+- Käsitelläänkö aihe riittävän syvällisesti?
+- Jääkö olennaisia näkökohtia käsittelemättä?
+- Onko vastaus ytimekäs vai liian lyhyt?
 
-PAKOLLISET VÄHENNYKSET:
-- Virheellinen tieto: -0.20
-- Merkittävä epäoleellinen sisältö: -0.10
-- Toisto, täyte tai rönsyily: -0.05
-- Kontekstin huono hyödyntäminen: -0.10
+KRIITTISET VIRHEET (vähennä merkittävästi):
+- Virheellinen tai harhaanjohtava tieto
+- Kontekstin sivuuttaminen tai väärinymmärrys
+- Epäoleellinen sisältö tai rönsyily
 
 OSA 2 - PISTEET:
-Anna TARKKA desimaaliluku välillä 0.00-1.00 perustuen yllä oleviin kriteereihin.
+Anna TARKKA desimaaliluku välillä 0.00-1.00 perustuen kokonaisarvioon.
+
+HUOMIO PISTEITYKSESSÄ:
+- Arvioi vastaus kokonaisuutena, älä laske yksittäisiä prosentteja yhteen
+- Käytä koko asteikkoa 0.00-1.00, myös "outoja" desimaaleja (esim. 0.67, 0.73, 0.81)
+- Sama pistemäärä VAIN jos vastaukset ovat todella samantasoisia
+- Pienetkin erot ansaitsevat eri pistemäärän
 
 PISTEYTYSOHJEET:
 - 0.90-1.00: Lähes täydellinen vastaus, ei merkittäviä puutteita

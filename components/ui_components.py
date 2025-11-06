@@ -929,6 +929,45 @@ class UIManager:
         
         self.console.print(llm_table)
     
+    def display_retrieval_start(self, hit_target: int):
+        """
+        Display retrieval start message.
+        
+        Args:
+            hit_target: Target number of documents to retrieve
+        """
+        self.console.print()
+        self.console.print(f"[bold cyan]🔍 Starting dynamic retrieval...[/bold cyan] (target: {hit_target} documents)")
+    
+    def display_retrieval_complete(self, num_docs: int, threshold: float, time_taken: float):
+        """
+        Display retrieval completion message.
+        
+        Args:
+            num_docs: Number of documents retrieved
+            threshold: Final threshold used
+            time_taken: Time taken for retrieval
+        """
+        threshold_str = f"{threshold:.3f}" if threshold is not None else "N/A"
+        self.console.print(f"[green]✅ Retrieved {num_docs} documents[/green] (threshold: {threshold_str}, time: {time_taken:.2f}s)")
+        self.console.print()
+    
+    def display_threshold_attempt(self, threshold: float, hits: int, target: int):
+        """
+        Display each threshold attempt during dynamic retrieval.
+        
+        Args:
+            threshold: Current threshold being tested
+            hits: Number of documents found at this threshold
+            target: Target number of documents
+        """
+        status_icon = "✓" if hits >= target else "✗"
+        status_color = "green" if hits >= target else "yellow"
+        target_text = f" [bold green]Target reached![/bold green]" if hits >= target else ""
+        self.console.print(
+            f"[{status_color}]🔍 Threshold {threshold:.3f}: {hits} hits (target: {target}) {status_icon}{target_text}[/{status_color}]"
+        )
+    
     def display_llm_request(self, prompt: str, num_docs: int):
         """
         Display LLM request immediately when sent.

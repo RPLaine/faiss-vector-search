@@ -53,11 +53,15 @@ class FaissMode(BaseMode):
         """
         start_time = time.time()
         
+        # Get UI callback if provided
+        ui_callback = kwargs.get('ui_callback')
+        
         # Dynamic retrieval
         retrieval_result = self.retriever.retrieve(
             query=query,
             top_k=kwargs.get('top_k'),
-            hit_target=kwargs.get('hit_target')
+            hit_target=kwargs.get('hit_target'),
+            ui_callback=ui_callback
         )
         
         # Build prompt with context
@@ -69,7 +73,6 @@ class FaissMode(BaseMode):
         )
         
         # Display prompt if UI callback is provided
-        ui_callback = kwargs.get('ui_callback')
         if ui_callback:
             ui_callback.display_llm_request(prompt, len(retrieval_result['documents']))
         

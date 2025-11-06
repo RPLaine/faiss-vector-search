@@ -131,6 +131,7 @@ class ImprovementCoordinator:
             "action": "Initial"
         })
         
+        self.console.print(f"[dim]Debug: Added initial state to history (score: {current_score:.4f})[/dim]")
         self.console.print(f"[yellow]📊 Initial Score: {current_score:.2f}[/yellow]\n")
         
         # Check if already perfect
@@ -193,6 +194,8 @@ class ImprovementCoordinator:
                 is_improvement = score_change > 0.001  # Small threshold to avoid floating point issues
                 is_same = abs(score_change) <= 0.001  # No meaningful change
                 
+                self.console.print(f"[dim]Debug: current={current_score:.4f}, improved={improved_score:.4f}, change={score_change:+.4f}, is_improvement={is_improvement}, is_same={is_same}[/dim]")
+                
                 # Display result
                 if is_improvement:
                     self.console.print(f"[bold green]✅ Improvement! Score: {current_score:.2f} → {improved_score:.2f} (+{score_change:.2f})[/bold green]\n")
@@ -211,10 +214,12 @@ class ImprovementCoordinator:
                     "score_change": score_change
                 })
                 
+                self.console.print(f"[dim]Debug: Added iteration {iteration} to history (action: {'Improved' if is_improvement else ('No Change' if is_same else 'Degraded')}, score: {improved_score:.4f}, change: {score_change:+.4f})[/dim]")
+                
                 # Check stopping conditions
                 if is_same:
                     # No improvement - convergence reached
-                    self.console.print(f"[yellow]⚪ No improvement detected. Converged at score {current_score:.2f}[/yellow]\n")
+                    self.console.print(f"[yellow]⚪ No improvement detected. Converged at score {improved_score:.2f}[/yellow]\n")
                     stopped_reason = f"Convergence at iteration {iteration} (no improvement)"
                     break
                 
@@ -244,6 +249,8 @@ class ImprovementCoordinator:
                 # No need to advance progress since total=None (indeterminate)
         
         # Don't display table here - let the final summary handle it
+        iterations_count = len(history) - 1  # Exclude initial
+        self.console.print(f"\n[dim]Debug: History has {len(history)} entries, iterations_completed will be {iterations_count}[/dim]")
         
         return self._build_result(
             final_response=best_response,

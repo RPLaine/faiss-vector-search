@@ -55,12 +55,16 @@ class FullMode(BaseMode):
         start_time = time.time()
         pipeline_metadata = {}
         
+        # Get UI callback if provided
+        ui_callback = kwargs.get('ui_callback')
+        
         # Step 1: Dynamic Retrieval
         logger.info("Step 1/3: Dynamic retrieval")
         retrieval_result = self.retriever.retrieve(
             query=query,
             top_k=kwargs.get('top_k'),
-            hit_target=kwargs.get('hit_target')
+            hit_target=kwargs.get('hit_target'),
+            ui_callback=ui_callback
         )
         pipeline_metadata['retrieval'] = {
             'num_docs': len(retrieval_result['documents']),
@@ -101,7 +105,7 @@ class FullMode(BaseMode):
             context=context,
             initial_response=initial_response,
             initial_score=opt_result['best_score'],
-            initial_reasoning=None,
+            initial_reasoning=opt_result.get('best_reasoning'),
             temperature=best_temperature
         )
         

@@ -6,7 +6,7 @@ Extracted from RAGSystem for single responsibility.
 """
 
 import logging
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Callable
 import numpy as np
 
 from ..exceptions import SearchError
@@ -44,7 +44,8 @@ class SearchService:
         k: int,
         hit_target: int = 3,
         step: float = 0.05,
-        initial_threshold: float = 1.0
+        initial_threshold: float = 1.0,
+        progress_callback=None
     ) -> Tuple[np.ndarray, np.ndarray, Dict]:
         """
         Perform FAISS search with dynamic similarity threshold adjustment.
@@ -107,6 +108,10 @@ class SearchService:
                     "hits": result_count,
                     "target_reached": result_count >= hit_target
                 })
+                
+                # Display progress if callback provided
+                if progress_callback:
+                    progress_callback(current_threshold, result_count, hit_target)
                 
                 logger.debug(f"Threshold {current_threshold:.3f}: {result_count} documents")
                 
@@ -230,7 +235,8 @@ class SearchService:
         use_dynamic_threshold: bool = False,
         hit_target: Optional[int] = None,
         step: float = 0.05,
-        similarity_threshold: Optional[float] = None
+        similarity_threshold: Optional[float] = None,
+        progress_callback: Optional[Callable[[float, int, int], None]] = None
     ) -> Dict:
         """
         Search for similar documents with detailed information.
@@ -258,7 +264,7 @@ class SearchService:
             threshold_stats = None
             if use_dynamic_threshold and hit_target is not None:
                 distances, indices, threshold_stats = self.search_with_dynamic_threshold(
-                    query_vector, k, hit_target, step
+                    query_vector, k, hit_target, step, progress_callback=progress_callback
                 )
             else:
                 distances, indices = self.index_service.search(query_vector, k)

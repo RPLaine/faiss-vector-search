@@ -114,7 +114,13 @@ class OptimizationCoordinator:
             Returns:
                 Tuple of (response, context, score)
             """
+            # Display temperature test header
+            self.console.print()
+            self.console.print(f"[bold yellow]🌡️  Testing Temperature: {params.temperature}[/bold yellow]")
+            self.console.print()
+            
             # Generate response with these parameters
+            self.console.print(f"[dim]📤 Generating response with temperature {params.temperature}...[/dim]")
             result = self._generate_with_parameters(question, params)
             
             if not result or "response" not in result:
@@ -124,6 +130,21 @@ class OptimizationCoordinator:
             # Extract response and context
             response_text = result["response"]
             documents = result.get("documents", [])
+            metadata = result.get("metadata", {})
+            
+            # Display the generation prompt if available in metadata
+            if "prompt" in metadata:
+                self.console.print()
+                self.console.rule("[bold blue]📤 GENERATION REQUEST[/bold blue]", style="blue")
+                generation_panel = Panel(
+                    metadata["prompt"],
+                    title=f"[bold blue]Generation Prompt (T={params.temperature})[/bold blue]",
+                    border_style="blue",
+                    padding=(1, 2)
+                )
+                self.console.print(generation_panel)
+                self.console.rule(style="blue")
+                self.console.print()
             
             # Build context from documents (they are already strings from search_detailed)
             if documents and len(documents) > 0:
@@ -136,19 +157,29 @@ class OptimizationCoordinator:
             else:
                 context_used = ""
             
-            # Debug logging with Rich
-            self.console.print(f"[dim]📄 Documents found: {len(documents)}[/dim]")
-            self.console.print(f"[dim]📝 Context length: {len(context_used)} characters[/dim]")
-            self.console.print(f"[dim]💬 Response length: {len(response_text)} characters[/dim]")
+            # Display response immediately
+            response_panel = Panel(
+                response_text,
+                title=f"[bold green]🤖 Response (T={params.temperature})[/bold green]",
+                border_style="green",
+                padding=(1, 2)
+            )
+            self.console.print(response_panel)
+            
+            # Debug logging
+            self.console.print(f"[dim]� Documents: {len(documents)} | Context: {len(context_used)} chars | Response: {len(response_text)} chars[/dim]")
             
             # Evaluate the response
+            self.console.print(f"[dim]⏳ Evaluating response...[/dim]")
             score, eval_time, reasoning = self.evaluator.evaluate_response(
                 question=question,
                 context=context_used,
                 response=response_text
             )
             
-            self.console.print(f"[yellow]📊 Score: {score:.2f}[/yellow] [dim](evaluated in {eval_time:.2f}s)[/dim]")
+            self.console.print(f"[bold yellow]📊 Score: {score:.2f}[/bold yellow] [dim](evaluated in {eval_time:.2f}s)[/dim]")
+            if reasoning:
+                self.console.print(f"[dim]💭 Reasoning: {reasoning[:200]}...[/dim]" if len(reasoning) > 200 else f"[dim]💭 Reasoning: {reasoning}[/dim]")
             
             # Track all responses for comparison
             all_responses.append({
@@ -219,6 +250,7 @@ class OptimizationCoordinator:
             "best_parameters": best_params,
             "best_score": best_params.score,
             "best_response": best_response_text,
+            "best_reasoning": all_responses[-1].get("reasoning", "") if all_responses else "",
             "optimization_history": [p.to_dict() for p in history],
             "improvement_history": improvement_result.get("improvement_history", []) if improvement_result else [],
             "final_result": best_result_dict,

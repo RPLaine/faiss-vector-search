@@ -32,7 +32,8 @@ class DynamicRetriever:
         top_k: Optional[int] = None,
         hit_target: Optional[int] = None,
         min_threshold: float = 0.3,
-        max_threshold: float = 0.95
+        max_threshold: float = 0.95,
+        ui_callback=None
     ) -> Dict[str, Any]:
         """
         Retrieve relevant documents with dynamic thresholding.
@@ -59,12 +60,21 @@ class DynamicRetriever:
         
         logger.info(f"Retrieving documents with hit_target={hit_target}, top_k={top_k}")
         
+        # Display retrieval start if UI callback provided
+        if ui_callback:
+            ui_callback.display_retrieval_start(hit_target)
+        
+        # Create progress callback for threshold attempts
+        progress_callback = None
+        if ui_callback and hasattr(ui_callback, 'display_threshold_attempt'):
+            progress_callback = lambda threshold, hits, target: ui_callback.display_threshold_attempt(threshold, hits, target)
+        
         # Get documents from RAGSystem's search_detailed method
         # This will use search_service's search_with_dynamic_threshold which already:
         # 1. Starts from threshold=1.0
         # 2. Iteratively lowers it until hit_target is reached
         # 3. Generates proper threshold_stats with progression
-        raw_results = self.rag_system.search_detailed(query, k=top_k)
+        raw_results = self.rag_system.search_detailed(query, k=top_k, progress_callback=progress_callback)
         
         # Extract document list - already filtered by dynamic threshold
         documents_data = raw_results.get('documents', [])
@@ -99,6 +109,10 @@ class DynamicRetriever:
             f"Retrieved {len(filtered_docs)} documents "
             f"(threshold: {threshold_str}, time: {retrieval_time:.2f}s)"
         )
+        
+        # Display retrieval completion if UI callback provided
+        if ui_callback:
+            ui_callback.display_retrieval_complete(len(filtered_docs), final_threshold, retrieval_time)
         
         return {
             'documents': filtered_docs,

@@ -460,7 +460,7 @@ export function displayQueryStart(data) {
     }
     
     const box = document.createElement('div');
-    box.className = 'action-box query-lifecycle-box';
+    box.className = 'action-box query-start-box';
     const queryText = uiManager.escapeHtml(data.query || 'N/A');
     box.innerHTML = `
         <div class="action-header query-collapsible">❓ ${queryText}</div>
@@ -532,7 +532,7 @@ export function displayFinalResponse(result) {
     
     const { element } = createCollapsibleCard({
         title: '📊 Final Response',
-        className: 'response',
+        className: 'final-response',
         content,
         collapsed: false
     });

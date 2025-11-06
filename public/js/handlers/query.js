@@ -8,6 +8,7 @@ import { appState } from '../state.js';
 import { apiService } from '../services/api.js';
 import { uiManager } from '../ui/manager.js';
 import { displayResponse, showHelp } from '../ui/components.js';
+import { displayUserQuery } from '../ui/websocket-components.js';
 
 class QueryHandler {
     /**
@@ -33,10 +34,8 @@ class QueryHandler {
             return;
         }
 
-        // Display query with separator
-        uiManager.appendOutput(`\n${uiManager.createSeparator()}`, 'system');
-        uiManager.appendOutput(`Query: ${query}`, 'query');
-        uiManager.appendOutput(uiManager.createSeparator(), 'system');
+        // Display query in card format
+        displayUserQuery(query);
 
         // Get mode configuration
         const mode = uiManager.getSelectedMode();

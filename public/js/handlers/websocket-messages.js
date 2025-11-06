@@ -14,7 +14,14 @@ import {
     displayEvaluationStart,
     displayEvaluationComplete,
     displayTemperatureTest,
-    displayImprovementIteration
+    displayImprovementIteration,
+    displayThresholdAttempt,
+    displayTemperatureResponse,
+    displayTemperatureEvaluation,
+    displayImprovementResponse,
+    displayImprovementEvaluation,
+    displayQueryStart,
+    displayQueryComplete
 } from '../ui/websocket-components.js';
 
 class WebSocketMessageHandler {
@@ -30,19 +37,19 @@ class WebSocketMessageHandler {
         });
 
         // Query lifecycle
-        wsService.on('query_start', (data) => {
-            uiManager.appendOutput(`\n${'━'.repeat(60)}`, 'info');
-            uiManager.appendOutput(`⚡ Starting query processing...`, 'system');
-        });
+    wsService.on('query_start', (data) => {
+        displayQueryStart(data);
+    });
 
-        wsService.on('query_complete', (data) => {
-            uiManager.appendOutput(`✅ Query completed in ${data.processing_time?.toFixed(2)}s`, 'success');
-            uiManager.appendOutput(`${'━'.repeat(60)}\n`, 'info');
-        });
-
-        // Retrieval events
+    wsService.on('query_complete', (data) => {
+        displayQueryComplete(data);
+    });        // Retrieval events
         wsService.on('retrieval_start', (data) => {
             displayRetrievalStart(data.data);
+        });
+
+        wsService.on('threshold_attempt', (data) => {
+            displayThresholdAttempt(data.data);
         });
 
         wsService.on('retrieval_complete', (data) => {
@@ -72,9 +79,25 @@ class WebSocketMessageHandler {
             displayTemperatureTest(data.data);
         });
 
+        wsService.on('temperature_response', (data) => {
+            displayTemperatureResponse(data.data);
+        });
+
+        wsService.on('temperature_evaluation', (data) => {
+            displayTemperatureEvaluation(data.data);
+        });
+
         // Improvement events
         wsService.on('improvement_iteration', (data) => {
             displayImprovementIteration(data.data);
+        });
+
+        wsService.on('improvement_response', (data) => {
+            displayImprovementResponse(data.data);
+        });
+
+        wsService.on('improvement_evaluation', (data) => {
+            displayImprovementEvaluation(data.data);
         });
     }
 }

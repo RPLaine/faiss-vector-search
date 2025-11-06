@@ -247,14 +247,15 @@ class RAGSystem:
             step=step
         )
     
-    def search_detailed(self, query: str, k: Optional[int] = None, progress_callback=None) -> Dict:
+    def search_detailed(self, query: str, k: Optional[int] = None, progress_callback=None, json_callback=None) -> Dict:
         """
         Search for similar documents with detailed information.
         
         Args:
             query: Query text
             k: Number of documents to retrieve (defaults to config value)
-            progress_callback: Optional callback for threshold progression updates
+            progress_callback: Optional callback for threshold progression (CLI)
+            json_callback: Optional callback for JSON events (web UI)
             
         Returns:
             Dictionary containing search results, scores, and metadata
@@ -287,7 +288,8 @@ class RAGSystem:
             hit_target=hit_target,
             step=step,
             similarity_threshold=similarity_threshold,
-            progress_callback=progress_callback
+            progress_callback=progress_callback,
+            json_callback=json_callback
         )
     
     # ==================== Query Execution ====================

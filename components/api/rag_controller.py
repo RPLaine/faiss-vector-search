@@ -154,8 +154,11 @@ class RAGController:
                 "mode": request.mode or self._determine_mode_from_flags(request)
             })
             
+            logger.info(f"Query mode: {request.mode}, use_context: {request.use_context}, optimize: {request.optimize}")
+            
             # Use new mode-based architecture if mode is specified
             if request.mode is not None:
+                logger.info(f"Using mode-based query with mode: {request.mode}")
                 result = self._query_with_mode(request)
             else:
                 # Legacy path: use optimize and use_context flags
@@ -236,7 +239,8 @@ class RAGController:
             'template_name': request.template_name,
             'top_k': request.top_k,
             'hit_target': request.hit_target,
-            'temperature': request.temperature
+            'temperature': request.temperature,
+            'json_callback': self._emit_progress  # Pass JSON callback for web UI events
         }
         
         # Remove None values

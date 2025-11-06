@@ -30,26 +30,42 @@ class APIService {
      * Send query to the API
      */
     async sendQuery(query, modeConfig) {
+        const requestData = {
+            query: query,
+            ...modeConfig,
+            template_name: config.query.defaultTemplate
+        };
+        
+        console.log('📤 API Request:', {
+            url: `${this.baseUrl}${config.api.endpoints.query}`,
+            method: 'POST',
+            body: requestData
+        });
+        
         try {
             const response = await fetch(`${this.baseUrl}${config.api.endpoints.query}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    query: query,
-                    ...modeConfig,
-                    template_name: config.query.defaultTemplate
-                })
+                body: JSON.stringify(requestData)
             });
 
             if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ API Error Response:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    body: errorText
+                });
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
-            return await response.json();
+            const data = await response.json();
+            console.log('📥 API Response:', data);
+            return data;
         } catch (error) {
-            console.error('Query request failed:', error);
+            console.error('❌ Query request failed:', error);
             throw error;
         }
     }

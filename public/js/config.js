@@ -28,11 +28,11 @@ export const config = {
 
     // Query Configuration
     query: {
-        defaultMode: 'optimize',
+        defaultMode: 'full',
         modes: {
-            optimize: { use_context: true, optimize: true, improve: false },
-            faiss: { use_context: true, optimize: false, improve: false },
-            none: { use_context: false, optimize: false, improve: false }
+            full: { mode: 'full' },  // Complete pipeline: retrieval + optimization + improvement
+            faiss: { mode: 'faiss' }, // Retrieval + single LLM call
+            none: { mode: 'none' }   // Direct LLM, no context
         },
         defaultTemplate: 'base'
     }

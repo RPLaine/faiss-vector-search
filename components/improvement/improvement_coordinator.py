@@ -67,7 +67,8 @@ class ImprovementCoordinator:
         initial_response: str,
         initial_score: Optional[float] = None,
         initial_reasoning: Optional[str] = None,
-        temperature: Optional[float] = None
+        temperature: Optional[float] = None,
+        json_callback=None
     ) -> Dict[str, Any]:
         """
         Run iterative improvement until convergence or degradation.
@@ -79,6 +80,7 @@ class ImprovementCoordinator:
             initial_score: Initial score (if already evaluated)
             initial_reasoning: Initial reasoning (if already evaluated)
             temperature: Temperature to use for improvement (from optimization, if available)
+            json_callback: Optional callback for JSON event emission (web UI)
             
         Returns:
             Dictionary containing:
@@ -163,6 +165,16 @@ class ImprovementCoordinator:
                 
                 self.console.print(f"\n[bold cyan]🔄 Iteration {iteration}[/bold cyan]")
                 
+                # Emit iteration start event
+                if json_callback:
+                    json_callback({
+                        "type": "improvement_iteration",
+                        "data": {
+                            "iteration": iteration,
+                            "action": "improving"
+                        }
+                    })
+                
                 # Format evaluation feedback for improvement prompt
                 evaluation_feedback = f"Perustelut: {current_reasoning}\nPisteet: {current_score:.2f}"
                 
@@ -176,10 +188,32 @@ class ImprovementCoordinator:
                         evaluation_feedback=evaluation_feedback,
                         temperature=temperature  # Use optimized temperature if available
                     )
+                    
+                    # Emit response event
+                    if json_callback:
+                        json_callback({
+                            "type": "improvement_response",
+                            "data": {
+                                "iteration": iteration,
+                                "response": improved_response,
+                                "generation_time": improvement_time
+                            }
+                        })
+                        
                 except Exception as e:
                     logger.error(f"Improvement failed at iteration {iteration}: {e}")
                     stopped_reason = f"Improvement failed: {e}"
                     break
+                
+                # Emit evaluation start
+                if json_callback:
+                    json_callback({
+                        "type": "improvement_iteration",
+                        "data": {
+                            "iteration": iteration,
+                            "action": "evaluating"
+                        }
+                    })
                 
                 # Evaluate improved response
                 self.console.print("[cyan]📊 Evaluating improved response...[/cyan]\n")
@@ -193,6 +227,19 @@ class ImprovementCoordinator:
                 score_change = improved_score - current_score
                 is_improvement = score_change > 0.001  # Small threshold to avoid floating point issues
                 is_same = abs(score_change) <= 0.001  # No meaningful change
+                
+                # Emit evaluation result event
+                if json_callback:
+                    json_callback({
+                        "type": "improvement_evaluation",
+                        "data": {
+                            "iteration": iteration,
+                            "score": improved_score,
+                            "score_change": score_change,
+                            "reasoning": improved_reasoning,
+                            "is_improvement": is_improvement
+                        }
+                    })
                 
                 self.console.print(f"[dim]Debug: current={current_score:.4f}, improved={improved_score:.4f}, change={score_change:+.4f}, is_improvement={is_improvement}, is_same={is_same}[/dim]")
                 

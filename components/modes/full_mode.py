@@ -57,6 +57,7 @@ class FullMode(BaseMode):
         
         # Get UI callback if provided
         ui_callback = kwargs.get('ui_callback')
+        json_callback = kwargs.get('json_callback')
         
         # Step 1: Dynamic Retrieval
         logger.info("Step 1/3: Dynamic retrieval")
@@ -64,7 +65,8 @@ class FullMode(BaseMode):
             query=query,
             top_k=kwargs.get('top_k'),
             hit_target=kwargs.get('hit_target'),
-            ui_callback=ui_callback
+            ui_callback=ui_callback,
+            json_callback=json_callback
         )
         pipeline_metadata['retrieval'] = {
             'num_docs': len(retrieval_result['documents']),
@@ -77,7 +79,7 @@ class FullMode(BaseMode):
         logger.info("Step 2/3: Temperature optimization")
         
         # Run optimizer which internally generates responses with different temperatures
-        opt_result = self.optimizer.optimize_for_query(query=query)
+        opt_result = self.optimizer.optimize_for_query(query=query, json_callback=json_callback)
         
         pipeline_metadata['optimization'] = {
             'best_temperature': opt_result['best_parameters'].temperature,
@@ -123,7 +125,8 @@ class FullMode(BaseMode):
                 initial_response=initial_response,
                 initial_score=opt_result['best_score'],
                 initial_reasoning=opt_result.get('best_reasoning'),
-                temperature=best_temperature
+                temperature=best_temperature,
+                json_callback=json_callback
             )
         
         pipeline_metadata['improvement'] = {

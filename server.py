@@ -106,9 +106,9 @@ async def broadcast_progress(data: Dict[str, Any]):
 
 # Health & Status Endpoints
 
-@app.get("/")
-async def root():
-    """Root endpoint with API information."""
+@app.get("/api")
+async def api_info():
+    """API information endpoint."""
     return {
         "name": "RAG System API",
         "version": "2.0.0",
@@ -180,9 +180,11 @@ async def execute_query(request_data: Dict[str, Any]):
             template_name=request_data.get("template_name", "base"),
             optimize=request_data.get("optimize", False),
             improve=request_data.get("improve", False),
+            mode=request_data.get("mode"),  # Extract mode field
             temperature=request_data.get("temperature"),
             top_k=request_data.get("top_k"),
-            similarity_threshold=request_data.get("similarity_threshold")
+            similarity_threshold=request_data.get("similarity_threshold"),
+            hit_target=request_data.get("hit_target")
         )
         
         if not request.query:

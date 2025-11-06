@@ -6,6 +6,24 @@
 import { uiManager } from './manager.js';
 
 /**
+ * Display threshold attempt event
+ */
+export function displayThresholdAttempt(data) {
+    const box = document.createElement('div');
+    box.className = 'action-box threshold-attempt-box';
+    const icon = data.target_reached ? '✅' : '🔍';
+    const status = data.target_reached ? 'Target Reached' : 'Searching';
+    box.innerHTML = `
+        <div class="action-header">${icon} Threshold ${data.threshold.toFixed(3)}</div>
+        <div class="action-details">
+            <div class="detail-item"><span class="label">Hits:</span> ${data.hits} / ${data.target}</div>
+            <div class="detail-item"><span class="label">Status:</span> ${status}</div>
+        </div>
+    `;
+    uiManager.appendElement(box);
+}
+
+/**
  * Display retrieval start event
  */
 export function displayRetrievalStart(data) {
@@ -180,6 +198,71 @@ export function displayTemperatureTest(data) {
     const box = document.createElement('div');
     box.className = 'action-box temperature-test-box';
     box.innerHTML = `
+        <div class="action-header">🌡️ Testing Temperature: ${data.temperature.toFixed(2)}</div>
+        <div class="action-details">
+            <div class="detail-item"><span class="label">Test:</span> ${data.test_number} / ${data.total_tests}</div>
+        </div>
+    `;
+    uiManager.appendElement(box);
+}
+
+/**
+ * Display temperature response event
+ */
+export function displayTemperatureResponse(data) {
+    const box = document.createElement('div');
+    box.className = 'action-box temperature-response-box';
+    box.innerHTML = `
+        <div class="action-header">🤖 Response (T=${data.temperature.toFixed(2)})</div>
+        <div class="action-details">
+            <div class="detail-item"><span class="label">Generation Time:</span> ${data.generation_time.toFixed(2)}s</div>
+        </div>
+    `;
+    
+    // Add collapsible response section
+    const responseSection = createCollapsibleSection('💬 Full Response', 'response-section');
+    const responseContent = document.createElement('div');
+    responseContent.className = 'response-text-full';
+    responseContent.textContent = data.response;
+    responseSection.appendChild(responseContent);
+    box.appendChild(responseSection);
+    
+    uiManager.appendElement(box);
+}
+
+/**
+ * Display temperature evaluation event
+ */
+export function displayTemperatureEvaluation(data) {
+    const box = document.createElement('div');
+    box.className = 'action-box temperature-evaluation-box';
+    box.innerHTML = `
+        <div class="action-header">📊 Evaluation (T=${data.temperature.toFixed(2)})</div>
+        <div class="action-details">
+            <div class="detail-item"><span class="label">Score:</span> ${data.score.toFixed(2)}</div>
+            <div class="detail-item"><span class="label">Evaluation Time:</span> ${data.evaluation_time.toFixed(2)}s</div>
+        </div>
+    `;
+    
+    if (data.reasoning) {
+        const reasoningSection = createCollapsibleSection('💭 Reasoning', 'reasoning-section', true);
+        const reasoningContent = document.createElement('div');
+        reasoningContent.className = 'reasoning-text';
+        reasoningContent.textContent = data.reasoning;
+        reasoningSection.appendChild(reasoningContent);
+        box.appendChild(reasoningSection);
+    }
+    
+    uiManager.appendElement(box);
+}
+
+/**
+ * Display old temperature test event (deprecated - keep for compatibility)
+ */
+export function displayTemperatureTestOld(data) {
+    const box = document.createElement('div');
+    box.className = 'action-box temperature-test-box';
+    box.innerHTML = `
         <div class="action-header">🌡️ Temperature Test</div>
         <div class="action-details">
             <div class="detail-item"><span class="label">Iteration:</span> ${data.iteration}/${data.total}</div>
@@ -195,6 +278,75 @@ export function displayTemperatureTest(data) {
  * Display improvement iteration event
  */
 export function displayImprovementIteration(data) {
+    const box = document.createElement('div');
+    box.className = 'action-box improvement-iteration-box';
+    const action = data.action === 'improving' ? '🔧 Improving' : '📊 Evaluating';
+    box.innerHTML = `
+        <div class="action-header">🔄 Iteration ${data.iteration} - ${action}</div>
+        <div class="action-details">
+            <div class="detail-item"><span class="label">Action:</span> ${data.action}</div>
+        </div>
+    `;
+    uiManager.appendElement(box);
+}
+
+/**
+ * Display improvement response event
+ */
+export function displayImprovementResponse(data) {
+    const box = document.createElement('div');
+    box.className = 'action-box improvement-response-box';
+    box.innerHTML = `
+        <div class="action-header">🤖 Improved Response (Iteration ${data.iteration})</div>
+        <div class="action-details">
+            <div class="detail-item"><span class="label">Generation Time:</span> ${data.generation_time.toFixed(2)}s</div>
+        </div>
+    `;
+    
+    // Add collapsible response section
+    const responseSection = createCollapsibleSection('💬 Full Response', 'response-section');
+    const responseContent = document.createElement('div');
+    responseContent.className = 'response-text-full';
+    responseContent.textContent = data.response;
+    responseSection.appendChild(responseContent);
+    box.appendChild(responseSection);
+    
+    uiManager.appendElement(box);
+}
+
+/**
+ * Display improvement evaluation event
+ */
+export function displayImprovementEvaluation(data) {
+    const box = document.createElement('div');
+    box.className = 'action-box improvement-evaluation-box';
+    const changeIndicator = data.is_improvement ? '✅' : (data.score_change < 0 ? '⚠️' : '➖');
+    const changeClass = data.is_improvement ? 'positive' : (data.score_change < 0 ? 'negative' : 'neutral');
+    box.innerHTML = `
+        <div class="action-header">${changeIndicator} Evaluation (Iteration ${data.iteration})</div>
+        <div class="action-details">
+            <div class="detail-item"><span class="label">Score:</span> ${data.score.toFixed(2)}</div>
+            <div class="detail-item"><span class="label">Change:</span> <span class="${changeClass}">${data.score_change >= 0 ? '+' : ''}${data.score_change.toFixed(3)}</span></div>
+            <div class="detail-item"><span class="label">Status:</span> ${data.is_improvement ? 'Improved ✅' : 'No improvement'}</div>
+        </div>
+    `;
+    
+    if (data.reasoning) {
+        const reasoningSection = createCollapsibleSection('💭 Reasoning', 'reasoning-section', true);
+        const reasoningContent = document.createElement('div');
+        reasoningContent.className = 'reasoning-text';
+        reasoningContent.textContent = data.reasoning;
+        reasoningSection.appendChild(reasoningContent);
+        box.appendChild(reasoningSection);
+    }
+    
+    uiManager.appendElement(box);
+}
+
+/**
+ * Display old improvement iteration event (deprecated - keep for compatibility)
+ */
+export function displayImprovementIterationOld(data) {
     const box = document.createElement('div');
     box.className = 'action-box improvement-box';
     box.innerHTML = `
@@ -229,3 +381,82 @@ function createCollapsibleSection(title, className, collapsed = false) {
     section.appendChild(header);
     return section;
 }
+
+/**
+ * Display query start event
+ */
+export function displayQueryStart(data) {
+    const box = document.createElement('div');
+    box.className = 'action-box query-lifecycle-box';
+    box.innerHTML = `
+        <div class="action-header">⚡ Query Processing Started</div>
+        <div class="action-details">
+            <div class="detail-item"><span class="label">Mode:</span> ${data.mode || 'N/A'}</div>
+            <div class="detail-item"><span class="label">Status:</span> Processing...</div>
+        </div>
+    `;
+    uiManager.appendElement(box);
+}
+
+/**
+ * Display query complete event
+ */
+export function displayQueryComplete(data) {
+    const box = document.createElement('div');
+    box.className = 'action-box query-complete-box';
+    const processingTime = data.processing_time?.toFixed(2) || 'N/A';
+    box.innerHTML = `
+        <div class="action-header">✅ Query Completed</div>
+        <div class="action-details">
+            <div class="detail-item"><span class="label">Processing Time:</span> ${processingTime}s</div>
+            <div class="detail-item"><span class="label">Status:</span> Success</div>
+        </div>
+    `;
+    uiManager.appendElement(box);
+}
+
+/**
+ * Display user query
+ */
+export function displayUserQuery(query) {
+    const box = document.createElement('div');
+    box.className = 'action-box query-box';
+    box.innerHTML = `
+        <div class="action-header">❓ User Query</div>
+        <div class="action-details">
+            <div class="detail-item query-text">${uiManager.escapeHtml(query)}</div>
+        </div>
+    `;
+    uiManager.appendElement(box);
+}
+
+/**
+ * Display final response
+ */
+export function displayFinalResponse(result) {
+    const box = document.createElement('div');
+    box.className = 'action-box response-box';
+    
+    // Build metadata details
+    const metadata = [];
+    if (result.processing_time) {
+        metadata.push(`<div class="detail-item"><span class="label">⏱️ Processing Time:</span> ${result.processing_time.toFixed(2)}s</div>`);
+    }
+    if (result.num_docs_found !== undefined) {
+        metadata.push(`<div class="detail-item"><span class="label">📄 Documents Found:</span> ${result.num_docs_found}</div>`);
+    }
+    if (result.response) {
+        metadata.push(`<div class="detail-item"><span class="label">📝 Response Length:</span> ${result.response.length} characters</div>`);
+    }
+    
+    box.innerHTML = `
+        <div class="action-header">📊 Final Response</div>
+        <div class="action-details">
+            <div class="detail-item response-text">${uiManager.escapeHtml(result.response)}</div>
+            ${metadata.length > 0 ? `<div class="metadata-section">${metadata.join('')}</div>` : ''}
+        </div>
+    `;
+    uiManager.appendElement(box);
+}
+
+

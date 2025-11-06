@@ -69,12 +69,13 @@ class OptimizationCoordinator:
         
         self.console = Console()
         
-    def optimize_for_query(self, query: str) -> Dict[str, Any]:
+    def optimize_for_query(self, query: str, json_callback=None) -> Dict[str, Any]:
         """
         Run optimization for a specific query using the AdaptiveOptimizer.optimize() method.
         
         Args:
             query: User query to optimize for
+            json_callback: Optional callback for JSON event emission (web UI)
             
         Returns:
             Dictionary containing:
@@ -105,6 +106,7 @@ class OptimizationCoordinator:
         best_response_text = ""
         best_result_dict = None
         all_responses = []  # Track all responses for comparison display
+        test_number = 0  # Track current test number for JSON events
         
         # Define evaluation function that the optimizer will call
         def evaluate_fn(question: str, params: ParameterSet):
@@ -114,6 +116,20 @@ class OptimizationCoordinator:
             Returns:
                 Tuple of (response, context, score)
             """
+            nonlocal test_number
+            test_number += 1
+            
+            # Emit temperature test start event
+            if json_callback:
+                json_callback({
+                    "type": "temperature_test",
+                    "data": {
+                        "temperature": params.temperature,
+                        "test_number": test_number,
+                        "total_tests": len(self.optimizer.temperature_values)
+                    }
+                })
+            
             # Display temperature test header
             self.console.print()
             self.console.print(f"[bold yellow]🌡️  Testing Temperature: {params.temperature}[/bold yellow]")
@@ -121,7 +137,9 @@ class OptimizationCoordinator:
             
             # Generate response with these parameters
             self.console.print(f"[dim]📤 Generating response with temperature {params.temperature}...[/dim]")
+            gen_start = time.time()
             result = self._generate_with_parameters(question, params)
+            gen_time = time.time() - gen_start
             
             if not result or "response" not in result:
                 logger.warning(f"⚠️  No response generated")
@@ -131,6 +149,17 @@ class OptimizationCoordinator:
             response_text = result["response"]
             documents = result.get("documents", [])
             metadata = result.get("metadata", {})
+            
+            # Emit temperature response event
+            if json_callback:
+                json_callback({
+                    "type": "temperature_response",
+                    "data": {
+                        "temperature": params.temperature,
+                        "response": response_text,
+                        "generation_time": gen_time
+                    }
+                })
             
             # Display the generation prompt if available in metadata
             if "prompt" in metadata:
@@ -176,6 +205,18 @@ class OptimizationCoordinator:
                 context=context_used,
                 response=response_text
             )
+            
+            # Emit temperature evaluation event
+            if json_callback:
+                json_callback({
+                    "type": "temperature_evaluation",
+                    "data": {
+                        "temperature": params.temperature,
+                        "score": score,
+                        "reasoning": reasoning,
+                        "evaluation_time": eval_time
+                    }
+                })
             
             self.console.print(f"[bold yellow]📊 Score: {score:.2f}[/bold yellow] [dim](evaluated in {eval_time:.2f}s)[/dim]")
             if reasoning:
@@ -230,7 +271,8 @@ class OptimizationCoordinator:
                 best_response=best_response_text,
                 best_score=best_params.score,
                 best_reasoning=all_responses[-1].get("reasoning", "") if all_responses else "",
-                best_temperature=best_params.temperature  # Pass best temperature from optimization
+                best_temperature=best_params.temperature,  # Pass best temperature from optimization
+                json_callback=json_callback  # Pass JSON callback for web UI
             )
             
             # If improvement succeeded, update best response and result
@@ -300,7 +342,8 @@ class OptimizationCoordinator:
         best_response: str,
         best_score: float,
         best_reasoning: str,
-        best_temperature: float
+        best_temperature: float,
+        json_callback=None
     ) -> Optional[Dict[str, Any]]:
         """
         Run iterative improvement phase on the best optimized response.
@@ -312,6 +355,7 @@ class OptimizationCoordinator:
             best_score: Best score from optimization
             best_reasoning: Reasoning for best score
             best_temperature: Best temperature from optimization
+            json_callback: Optional callback for JSON event emission
             
         Returns:
             Improvement result dictionary or None if improvement fails
@@ -335,7 +379,8 @@ class OptimizationCoordinator:
                 initial_response=best_response,
                 initial_score=best_score,
                 initial_reasoning=best_reasoning,
-                temperature=best_temperature  # Pass best temperature to improvement
+                temperature=best_temperature,  # Pass best temperature to improvement
+                json_callback=json_callback  # Pass JSON callback for web UI
             )
             
             return improvement_result

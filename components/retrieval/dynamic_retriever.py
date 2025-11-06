@@ -33,7 +33,8 @@ class DynamicRetriever:
         hit_target: Optional[int] = None,
         min_threshold: float = 0.3,
         max_threshold: float = 0.95,
-        ui_callback=None
+        ui_callback=None,
+        json_callback=None
     ) -> Dict[str, Any]:
         """
         Retrieve relevant documents with dynamic thresholding.
@@ -44,6 +45,8 @@ class DynamicRetriever:
             hit_target: Desired number of documents after thresholding
             min_threshold: Minimum similarity threshold
             max_threshold: Maximum similarity threshold
+            ui_callback: Callback for CLI display
+            json_callback: Callback for JSON event emission (web UI)
             
         Returns:
             Dictionary with documents, threshold info, and timing
@@ -74,7 +77,12 @@ class DynamicRetriever:
         # 1. Starts from threshold=1.0
         # 2. Iteratively lowers it until hit_target is reached
         # 3. Generates proper threshold_stats with progression
-        raw_results = self.rag_system.search_detailed(query, k=top_k, progress_callback=progress_callback)
+        raw_results = self.rag_system.search_detailed(
+            query, 
+            k=top_k, 
+            progress_callback=progress_callback,
+            json_callback=json_callback
+        )
         
         # Extract document list - already filtered by dynamic threshold
         documents_data = raw_results.get('documents', [])

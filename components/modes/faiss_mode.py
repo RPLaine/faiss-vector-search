@@ -55,13 +55,15 @@ class FaissMode(BaseMode):
         
         # Get UI callback if provided
         ui_callback = kwargs.get('ui_callback')
+        json_callback = kwargs.get('json_callback')
         
         # Dynamic retrieval
         retrieval_result = self.retriever.retrieve(
             query=query,
             top_k=kwargs.get('top_k'),
             hit_target=kwargs.get('hit_target'),
-            ui_callback=ui_callback
+            ui_callback=ui_callback,
+            json_callback=json_callback
         )
         
         # Build prompt with context
@@ -82,9 +84,9 @@ class FaissMode(BaseMode):
         if ui_callback:
             # Use spinner while waiting for response
             with ui_callback.create_llm_spinner():
-                llm_response = self.llm_service.call(prompt, temperature)
+                llm_response = self.llm_service.call(prompt, temperature, action_callback=json_callback)
         else:
-            llm_response = self.llm_service.call(prompt, temperature)
+            llm_response = self.llm_service.call(prompt, temperature, action_callback=json_callback)
         
         # Display response immediately if UI callback is provided
         if ui_callback:

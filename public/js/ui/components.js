@@ -4,39 +4,14 @@
  */
 
 import { uiManager } from './manager.js';
+import { displayFinalResponse } from './websocket-components.js';
 
 /**
  * Display query response
  */
 export function displayResponse(result) {
-    // Add separator before response
-    uiManager.appendOutput(`\n${uiManager.createSeparator('─')}`, 'system');
-    uiManager.appendOutput(`📊 RESULTS`, 'system');
-    uiManager.appendOutput(`${uiManager.createSeparator('─')}\n`, 'system');
-    
-    // Main response
-    uiManager.appendOutput(`Response:\n${result.response}`, 'response');
-
-    // Build metadata array
-    const metadata = [];
-    
-    if (result.processing_time) {
-        metadata.push(`⏱️  Processing Time: ${result.processing_time.toFixed(2)}s`);
-    }
-    if (result.num_docs_found !== undefined) {
-        metadata.push(`📄 Documents Found: ${result.num_docs_found}`);
-    }
-    if (result.response) {
-        metadata.push(`📝 Response Length: ${result.response.length} characters`);
-    }
-    if (result.optimization_applied) {
-        metadata.push(`🎯 Optimization Score: ${result.optimization_score?.toFixed(2)}`);
-    }
-    if (result.improvement_applied) {
-        metadata.push(`🔄 Improvement Iterations: ${result.improvement_iterations}`);
-    }
-    
-    uiManager.appendMetadata(metadata);
+    // Display response in card format
+    displayFinalResponse(result);
     
     // Display additional sections
     if (result.config_params) {

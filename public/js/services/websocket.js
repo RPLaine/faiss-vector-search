@@ -50,7 +50,7 @@ class WebSocketService {
      * Handle WebSocket open event
      */
     handleOpen() {
-        console.log('WebSocket connected');
+        console.log('✅ WebSocket connected');
         this.reconnectAttempts = 0;
         appState.setState({ connected: true });
     }
@@ -61,18 +61,19 @@ class WebSocketService {
     handleMessage(event) {
         try {
             const data = JSON.parse(event.data);
-            console.log('WebSocket message received:', data.type || data.action, data);
+            const eventType = data.type || data.action;
+            
+            console.log(`📨 WebSocket [${eventType}]:`, data);
             
             // Route message to appropriate handler
-            const type = data.type || data.action;
-            const handlers = this.messageHandlers.get(type) || [];
+            const handlers = this.messageHandlers.get(eventType) || [];
             handlers.forEach(handler => handler(data));
             
             // Also notify wildcard handlers
             const wildcardHandlers = this.messageHandlers.get('*') || [];
             wildcardHandlers.forEach(handler => handler(data));
         } catch (error) {
-            console.error('Error parsing WebSocket message:', error);
+            console.error('❌ Error parsing WebSocket message:', error);
         }
     }
 
@@ -80,7 +81,7 @@ class WebSocketService {
      * Handle WebSocket close event
      */
     handleClose() {
-        console.log('WebSocket disconnected');
+        console.log('🔌 WebSocket disconnected');
         appState.setState({ connected: false });
         this.scheduleReconnect();
     }
@@ -89,7 +90,7 @@ class WebSocketService {
      * Handle WebSocket error event
      */
     handleError(error) {
-        console.error('WebSocket error:', error);
+        console.error('❌ WebSocket error:', error);
         appState.setState({ connected: false });
     }
 
@@ -98,12 +99,12 @@ class WebSocketService {
      */
     scheduleReconnect() {
         if (this.reconnectAttempts >= config.websocket.maxReconnectAttempts) {
-            console.error('Max reconnection attempts reached');
+            console.error('❌ Max reconnection attempts reached');
             return;
         }
 
         this.reconnectAttempts++;
-        console.log(`Reconnecting in ${config.websocket.reconnectDelay}ms (attempt ${this.reconnectAttempts})`);
+        console.log(`🔄 Reconnecting in ${config.websocket.reconnectDelay}ms (attempt ${this.reconnectAttempts}/${config.websocket.maxReconnectAttempts})`);
         
         this.reconnectTimer = setTimeout(() => {
             this.connect();

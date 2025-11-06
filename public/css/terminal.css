@@ -992,6 +992,20 @@ body::-webkit-scrollbar-thumb:hover {
     display: none;
 }
 
+/* Generic collapsible card styles - applies to all card types */
+[class*="-collapsible"] {
+    cursor: pointer;
+    user-select: none;
+}
+
+[class*="-collapsible"]:hover {
+    background: #3e3e42;
+}
+
+[class*="-content"].collapsed {
+    display: none;
+}
+
 .threshold-table {
     width: 100%;
     border-collapse: collapse;
@@ -1265,8 +1279,6 @@ body::-webkit-scrollbar-thumb:hover {
     color: #d4d4d4;
     line-height: 1.6;
     white-space: pre-wrap;
-    max-height: 400px;
-    overflow-y: auto;
 }
 
 .error-message {

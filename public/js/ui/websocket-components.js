@@ -5,6 +5,7 @@
 
 import { uiManager } from './manager.js';
 import { createAccumulatorTable } from './utils/table-builder.js';
+import { createCollapsibleCard } from './utils/card-builder.js';
 
 // Threshold attempts accumulator
 let thresholdTable = null;
@@ -62,32 +63,37 @@ export function displayThresholdAttempt(data) {
  * Display retrieval start event
  */
 export function displayRetrievalStart(data) {
-    const box = document.createElement('div');
-    box.className = 'action-box retrieval-box';
-    box.innerHTML = `
-        <div class="action-header">🔍 Dynamic Retrieval</div>
-        <div class="action-details">
-            <div class="detail-item"><span class="label">Query:</span> ${uiManager.escapeHtml(data.query)}</div>
-            <div class="detail-item"><span class="label">Top K:</span> ${data.top_k}</div>
-            <div class="detail-item"><span class="label">Threshold:</span> ${data.threshold}</div>
-        </div>
+    const content = `
+        <div class="detail-item"><span class="label">Query:</span> ${uiManager.escapeHtml(data.query)}</div>
+        <div class="detail-item"><span class="label">Top K:</span> ${data.top_k}</div>
+        <div class="detail-item"><span class="label">Threshold:</span> ${data.threshold}</div>
     `;
-    uiManager.appendElement(box);
+    
+    const { element } = createCollapsibleCard({
+        title: '🔍 Dynamic Retrieval',
+        className: 'retrieval',
+        content,
+        collapsed: true
+    });
+    
+    uiManager.appendElement(element);
 }
 
 /**
  * Display retrieval complete event
  */
 export function displayRetrievalComplete(data) {
-    const box = document.createElement('div');
-    box.className = 'action-box retrieval-result-box';
-    box.innerHTML = `
-        <div class="action-header">✅ Retrieval Complete</div>
-        <div class="action-details">
-            <div class="detail-item"><span class="label">Documents Found:</span> ${data.num_docs}</div>
-            <div class="detail-item"><span class="label">Time:</span> ${data.time.toFixed(2)}s</div>
-        </div>
+    let content = `
+        <div class="detail-item"><span class="label">Documents Found:</span> ${data.num_docs}</div>
+        <div class="detail-item"><span class="label">Time:</span> ${data.time.toFixed(2)}s</div>
     `;
+    
+    const { element, details } = createCollapsibleCard({
+        title: '✅ Retrieval Complete',
+        className: 'retrieval-result',
+        content,
+        collapsed: true
+    });
     
     if (data.documents && data.documents.length > 0) {
         const docsSection = createCollapsibleSection('📚 Retrieved Documents', 'docs-section');
@@ -95,7 +101,7 @@ export function displayRetrievalComplete(data) {
         docsContainer.className = 'docs-container';
         
         data.documents.forEach((doc, idx) => {
-            const content = typeof doc === 'string' ? doc : (doc.content || JSON.stringify(doc));
+            const docContent = typeof doc === 'string' ? doc : (doc.content || JSON.stringify(doc));
             const docItem = document.createElement('div');
             docItem.className = 'doc-item';
             
@@ -110,20 +116,20 @@ export function displayRetrievalComplete(data) {
                 docHeader.appendChild(scoreSpan);
             }
             
-            const docContent = document.createElement('div');
-            docContent.className = 'doc-item-content';
-            docContent.textContent = content;
+            const docContentDiv = document.createElement('div');
+            docContentDiv.className = 'doc-item-content';
+            docContentDiv.textContent = docContent;
             
             docItem.appendChild(docHeader);
-            docItem.appendChild(docContent);
+            docItem.appendChild(docContentDiv);
             docsContainer.appendChild(docItem);
         });
         
         docsSection.appendChild(docsContainer);
-        box.appendChild(docsSection);
+        details.appendChild(docsSection);
     }
     
-    uiManager.appendElement(box);
+    uiManager.appendElement(element);
 }
 
 /**
@@ -215,60 +221,65 @@ export function displayLLMResponse(data) {
  * Display evaluation start event
  */
 export function displayEvaluationStart(data) {
-    const box = document.createElement('div');
-    box.className = 'action-box evaluation-box';
-    box.innerHTML = `
-        <div class="action-header">🎯 Starting Evaluation</div>
-        <div class="action-details">
-            <div class="detail-item">${data.message || 'Evaluating response quality...'}</div>
-        </div>
-    `;
-    uiManager.appendElement(box);
+    const content = `<div class="detail-item">${data.message || 'Evaluating response quality...'}</div>`;
+    
+    const { element } = createCollapsibleCard({
+        title: '🎯 Starting Evaluation',
+        className: 'evaluation',
+        content,
+        collapsed: true
+    });
+    
+    uiManager.appendElement(element);
 }
 
 /**
  * Display evaluation complete event
  */
 export function displayEvaluationComplete(data) {
-    const box = document.createElement('div');
-    box.className = 'action-box evaluation-result-box';
-    box.innerHTML = `
-        <div class="action-header">✅ Evaluation Complete</div>
-        <div class="action-details">
-            <div class="detail-item"><span class="label">Score:</span> ${data.score.toFixed(2)}</div>
-            <div class="detail-item"><span class="label">Time:</span> ${data.time.toFixed(2)}s</div>
-        </div>
+    const content = `
+        <div class="detail-item"><span class="label">Score:</span> ${data.score.toFixed(2)}</div>
+        <div class="detail-item"><span class="label">Time:</span> ${data.time.toFixed(2)}s</div>
     `;
-    uiManager.appendElement(box);
+    
+    const { element } = createCollapsibleCard({
+        title: '✅ Evaluation Complete',
+        className: 'evaluation-result',
+        content,
+        collapsed: true
+    });
+    
+    uiManager.appendElement(element);
 }
 
 /**
  * Display temperature test event
  */
 export function displayTemperatureTest(data) {
-    const box = document.createElement('div');
-    box.className = 'action-box temperature-test-box';
-    box.innerHTML = `
-        <div class="action-header">🌡️ Testing Temperature: ${data.temperature.toFixed(2)}</div>
-        <div class="action-details">
-            <div class="detail-item"><span class="label">Test:</span> ${data.test_number} / ${data.total_tests}</div>
-        </div>
-    `;
-    uiManager.appendElement(box);
+    const content = `<div class="detail-item"><span class="label">Test:</span> ${data.test_number} / ${data.total_tests}</div>`;
+    
+    const { element } = createCollapsibleCard({
+        title: `🌡️ Testing Temperature: ${data.temperature.toFixed(2)}`,
+        className: 'temperature-test',
+        content,
+        collapsed: true
+    });
+    
+    uiManager.appendElement(element);
 }
 
 /**
  * Display temperature response event
  */
 export function displayTemperatureResponse(data) {
-    const box = document.createElement('div');
-    box.className = 'action-box temperature-response-box';
-    box.innerHTML = `
-        <div class="action-header">🤖 Response (T=${data.temperature.toFixed(2)})</div>
-        <div class="action-details">
-            <div class="detail-item"><span class="label">Generation Time:</span> ${data.generation_time.toFixed(2)}s</div>
-        </div>
-    `;
+    let content = `<div class="detail-item"><span class="label">Generation Time:</span> ${data.generation_time.toFixed(2)}s</div>`;
+    
+    const { element, details } = createCollapsibleCard({
+        title: `🤖 Response (T=${data.temperature.toFixed(2)})`,
+        className: 'temperature-response',
+        content,
+        collapsed: true
+    });
     
     // Add collapsible response section
     const responseSection = createCollapsibleSection('💬 Full Response', 'response-section');
@@ -276,24 +287,26 @@ export function displayTemperatureResponse(data) {
     responseContent.className = 'response-text-full';
     responseContent.textContent = data.response;
     responseSection.appendChild(responseContent);
-    box.appendChild(responseSection);
+    details.appendChild(responseSection);
     
-    uiManager.appendElement(box);
+    uiManager.appendElement(element);
 }
 
 /**
  * Display temperature evaluation event
  */
 export function displayTemperatureEvaluation(data) {
-    const box = document.createElement('div');
-    box.className = 'action-box temperature-evaluation-box';
-    box.innerHTML = `
-        <div class="action-header">📊 Evaluation (T=${data.temperature.toFixed(2)})</div>
-        <div class="action-details">
-            <div class="detail-item"><span class="label">Score:</span> ${data.score.toFixed(2)}</div>
-            <div class="detail-item"><span class="label">Evaluation Time:</span> ${data.evaluation_time.toFixed(2)}s</div>
-        </div>
+    let content = `
+        <div class="detail-item"><span class="label">Score:</span> ${data.score.toFixed(2)}</div>
+        <div class="detail-item"><span class="label">Evaluation Time:</span> ${data.evaluation_time.toFixed(2)}s</div>
     `;
+    
+    const { element, details } = createCollapsibleCard({
+        title: `📊 Evaluation (T=${data.temperature.toFixed(2)})`,
+        className: 'temperature-evaluation',
+        content,
+        collapsed: true
+    });
     
     if (data.reasoning) {
         const reasoningSection = createCollapsibleSection('💭 Reasoning', 'reasoning-section', true);
@@ -301,10 +314,10 @@ export function displayTemperatureEvaluation(data) {
         reasoningContent.className = 'reasoning-text';
         reasoningContent.textContent = data.reasoning;
         reasoningSection.appendChild(reasoningContent);
-        box.appendChild(reasoningSection);
+        details.appendChild(reasoningSection);
     }
     
-    uiManager.appendElement(box);
+    uiManager.appendElement(element);
 }
 
 /**
@@ -329,30 +342,31 @@ export function displayTemperatureTestOld(data) {
  * Display improvement iteration event
  */
 export function displayImprovementIteration(data) {
-    const box = document.createElement('div');
-    box.className = 'action-box improvement-iteration-box';
     const action = data.action === 'improving' ? '🔧 Improving' : '📊 Evaluating';
-    box.innerHTML = `
-        <div class="action-header">🔄 Iteration ${data.iteration} - ${action}</div>
-        <div class="action-details">
-            <div class="detail-item"><span class="label">Action:</span> ${data.action}</div>
-        </div>
-    `;
-    uiManager.appendElement(box);
+    const content = `<div class="detail-item"><span class="label">Action:</span> ${data.action}</div>`;
+    
+    const { element } = createCollapsibleCard({
+        title: `🔄 Iteration ${data.iteration} - ${action}`,
+        className: 'improvement-iteration',
+        content,
+        collapsed: true
+    });
+    
+    uiManager.appendElement(element);
 }
 
 /**
  * Display improvement response event
  */
 export function displayImprovementResponse(data) {
-    const box = document.createElement('div');
-    box.className = 'action-box improvement-response-box';
-    box.innerHTML = `
-        <div class="action-header">🤖 Improved Response (Iteration ${data.iteration})</div>
-        <div class="action-details">
-            <div class="detail-item"><span class="label">Generation Time:</span> ${data.generation_time.toFixed(2)}s</div>
-        </div>
-    `;
+    const content = `<div class="detail-item"><span class="label">Generation Time:</span> ${data.generation_time.toFixed(2)}s</div>`;
+    
+    const { element, details } = createCollapsibleCard({
+        title: `🤖 Improved Response (Iteration ${data.iteration})`,
+        className: 'improvement-response',
+        content,
+        collapsed: true
+    });
     
     // Add collapsible response section
     const responseSection = createCollapsibleSection('💬 Full Response', 'response-section');
@@ -360,27 +374,29 @@ export function displayImprovementResponse(data) {
     responseContent.className = 'response-text-full';
     responseContent.textContent = data.response;
     responseSection.appendChild(responseContent);
-    box.appendChild(responseSection);
+    details.appendChild(responseSection);
     
-    uiManager.appendElement(box);
+    uiManager.appendElement(element);
 }
 
 /**
  * Display improvement evaluation event
  */
 export function displayImprovementEvaluation(data) {
-    const box = document.createElement('div');
-    box.className = 'action-box improvement-evaluation-box';
     const changeIndicator = data.is_improvement ? '✅' : (data.score_change < 0 ? '⚠️' : '➖');
     const changeClass = data.is_improvement ? 'positive' : (data.score_change < 0 ? 'negative' : 'neutral');
-    box.innerHTML = `
-        <div class="action-header">${changeIndicator} Evaluation (Iteration ${data.iteration})</div>
-        <div class="action-details">
-            <div class="detail-item"><span class="label">Score:</span> ${data.score.toFixed(2)}</div>
-            <div class="detail-item"><span class="label">Change:</span> <span class="${changeClass}">${data.score_change >= 0 ? '+' : ''}${data.score_change.toFixed(3)}</span></div>
-            <div class="detail-item"><span class="label">Status:</span> ${data.is_improvement ? 'Improved ✅' : 'No improvement'}</div>
-        </div>
+    const content = `
+        <div class="detail-item"><span class="label">Score:</span> ${data.score.toFixed(2)}</div>
+        <div class="detail-item"><span class="label">Change:</span> <span class="${changeClass}">${data.score_change >= 0 ? '+' : ''}${data.score_change.toFixed(3)}</span></div>
+        <div class="detail-item"><span class="label">Status:</span> ${data.is_improvement ? 'Improved ✅' : 'No improvement'}</div>
     `;
+    
+    const { element, details } = createCollapsibleCard({
+        title: `${changeIndicator} Evaluation (Iteration ${data.iteration})`,
+        className: 'improvement-evaluation',
+        content,
+        collapsed: true
+    });
     
     if (data.reasoning) {
         const reasoningSection = createCollapsibleSection('💭 Reasoning', 'reasoning-section', true);
@@ -388,10 +404,10 @@ export function displayImprovementEvaluation(data) {
         reasoningContent.className = 'reasoning-text';
         reasoningContent.textContent = data.reasoning;
         reasoningSection.appendChild(reasoningContent);
-        box.appendChild(reasoningSection);
+        details.appendChild(reasoningSection);
     }
     
-    uiManager.appendElement(box);
+    uiManager.appendElement(element);
 }
 
 /**
@@ -469,17 +485,20 @@ export function displayQueryStart(data) {
  * Display query complete event
  */
 export function displayQueryComplete(data) {
-    const box = document.createElement('div');
-    box.className = 'action-box query-complete-box';
     const processingTime = data.processing_time?.toFixed(2) || 'N/A';
-    box.innerHTML = `
-        <div class="action-header">✅ Query Completed</div>
-        <div class="action-details">
-            <div class="detail-item"><span class="label">Processing Time:</span> ${processingTime}s</div>
-            <div class="detail-item"><span class="label">Status:</span> Success</div>
-        </div>
+    const content = `
+        <div class="detail-item"><span class="label">Processing Time:</span> ${processingTime}s</div>
+        <div class="detail-item"><span class="label">Status:</span> Success</div>
     `;
-    uiManager.appendElement(box);
+    
+    const { element } = createCollapsibleCard({
+        title: '✅ Query Completed',
+        className: 'query-complete',
+        content,
+        collapsed: true
+    });
+    
+    uiManager.appendElement(element);
 }
 
 /**
@@ -494,9 +513,6 @@ export function displayUserQuery(query) {
  * Display final response
  */
 export function displayFinalResponse(result) {
-    const box = document.createElement('div');
-    box.className = 'action-box response-box';
-    
     // Build metadata details
     const metadata = [];
     if (result.processing_time) {
@@ -509,14 +525,19 @@ export function displayFinalResponse(result) {
         metadata.push(`<div class="detail-item"><span class="label">📝 Response Length:</span> ${result.response.length} characters</div>`);
     }
     
-    box.innerHTML = `
-        <div class="action-header">📊 Final Response</div>
-        <div class="action-details">
-            <div class="detail-item response-text">${uiManager.escapeHtml(result.response)}</div>
-            ${metadata.length > 0 ? `<div class="metadata-section">${metadata.join('')}</div>` : ''}
-        </div>
+    const content = `
+        <div class="detail-item response-text">${uiManager.escapeHtml(result.response)}</div>
+        ${metadata.length > 0 ? `<div class="metadata-section">${metadata.join('')}</div>` : ''}
     `;
-    uiManager.appendElement(box);
+    
+    const { element } = createCollapsibleCard({
+        title: '📊 Final Response',
+        className: 'response',
+        content,
+        collapsed: false
+    });
+    
+    uiManager.appendElement(element);
 }
 
 

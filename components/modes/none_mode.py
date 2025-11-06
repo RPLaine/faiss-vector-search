@@ -59,11 +59,32 @@ class NoneMode(BaseMode):
         # Get temperature
         temperature = kwargs.get('temperature', self.config.get('external_llm', {}).get('temperature', 0.7))
         
-        # Call LLM
-        response = self.llm_service.generate(
-            prompt=prompt,
-            temperature=temperature
-        )
+        # Display prompt if UI callback is provided
+        ui_callback = kwargs.get('ui_callback')
+        if ui_callback:
+            ui_callback.display_llm_request(prompt, 0)  # 0 documents for none mode
+        
+        # Call LLM with spinner
+        llm_start = time.time()
+        
+        if ui_callback:
+            # Use spinner while waiting for response
+            with ui_callback.create_llm_spinner():
+                response = self.llm_service.generate(
+                    prompt=prompt,
+                    temperature=temperature
+                )
+        else:
+            response = self.llm_service.generate(
+                prompt=prompt,
+                temperature=temperature
+            )
+        
+        generation_time = time.time() - llm_start
+        
+        # Display response immediately if UI callback is provided
+        if ui_callback:
+            ui_callback.display_llm_response(response, generation_time)
         
         processing_time = time.time() - start_time
         
@@ -75,7 +96,9 @@ class NoneMode(BaseMode):
                 'template_name': template_name,
                 'temperature': temperature,
                 'prompt_length': len(prompt),
-                'response_length': len(response)
+                'response_length': len(response),
+                'generation_time': generation_time,
+                'prompt': prompt
             }
         )
     
@@ -97,4 +120,4 @@ class NoneMode(BaseMode):
         Returns:
             True if LLM configuration is present
         """
-        return 'external_llm' in config and 'api_url' in config['external_llm']
+        return 'external_llm' in config and 'url' in config['external_llm']

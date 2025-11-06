@@ -73,9 +73,15 @@ class FaissMode(BaseMode):
         if ui_callback:
             ui_callback.display_llm_request(prompt, len(retrieval_result['documents']))
         
-        # Generate response
+        # Generate response with spinner
         temperature = kwargs.get('temperature', self.config.get('external_llm', {}).get('temperature', 0.7))
-        llm_response = self.llm_service.call(prompt, temperature)
+        
+        if ui_callback:
+            # Use spinner while waiting for response
+            with ui_callback.create_llm_spinner():
+                llm_response = self.llm_service.call(prompt, temperature)
+        else:
+            llm_response = self.llm_service.call(prompt, temperature)
         
         # Display response immediately if UI callback is provided
         if ui_callback:

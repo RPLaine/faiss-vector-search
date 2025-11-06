@@ -203,14 +203,18 @@ class UIManager:
         if result.get('mode') == 'full' and 'pipeline' in metadata:
             # Pass metadata (which contains pipeline) to display function
             self._display_full_pipeline_tables(metadata)
-        else:
+        elif result.get('mode') == 'faiss':
             # Display dynamic threshold progression table if available (for FAISS mode)
             if 'threshold_stats' in metadata:
                 self._display_threshold_progression(metadata['threshold_stats'])
             
             # Display LLM generation details for FAISS mode
-            if result.get('mode') == 'faiss' and ('generation_time' in metadata or 'temperature' in metadata):
+            if 'generation_time' in metadata or 'temperature' in metadata:
                 self._display_llm_generation_info(metadata)
+        elif result.get('mode') == 'none':
+            # Display LLM generation details for None mode
+            if 'generation_time' in metadata or 'temperature' in metadata:
+                self._display_none_mode_info(metadata)
         
         # Display final response at the end (always last)
         if result.get('response'):
@@ -891,16 +895,53 @@ class UIManager:
         
         self.console.print(llm_table)
     
+    def _display_none_mode_info(self, metadata: dict):
+        """
+        Display LLM generation information for None mode.
+        
+        Args:
+            metadata: Query metadata containing generation details
+        """
+        self.console.print()
+        llm_table = Table(
+            title="🤖 LLM Generation Details",
+            box=box.ROUNDED,
+            show_header=True,
+            header_style="bold green"
+        )
+        llm_table.add_column("Metric", style="cyan", width=25)
+        llm_table.add_column("Value", style="white", justify="right")
+        
+        # Temperature used
+        if 'temperature' in metadata:
+            llm_table.add_row("Temperature", f"{metadata['temperature']:.2f}")
+        
+        # Generation time
+        if 'generation_time' in metadata:
+            llm_table.add_row("Generation Time", f"{metadata['generation_time']:.2f}s")
+        
+        # Prompt and response lengths
+        if 'prompt_length' in metadata:
+            llm_table.add_row("Prompt Length", f"{metadata['prompt_length']} chars")
+        
+        if 'response_length' in metadata:
+            llm_table.add_row("Response Length", f"{metadata['response_length']} chars")
+        
+        self.console.print(llm_table)
+    
     def display_llm_request(self, prompt: str, num_docs: int):
         """
         Display LLM request immediately when sent.
         
         Args:
             prompt: The prompt being sent to LLM
-            num_docs: Number of documents in context
+            num_docs: Number of documents in context (0 for none mode)
         """
         self.console.print()
-        self.console.print(f"[bold blue]📤 Sending request to LLM...[/bold blue] (with {num_docs} documents in context)")
+        if num_docs > 0:
+            self.console.print(f"[bold blue]📤 Sending request to LLM...[/bold blue] (with {num_docs} documents in context)")
+        else:
+            self.console.print(f"[bold blue]📤 Sending request to LLM...[/bold blue] (direct query, no context)")
         self.console.print()
         
         prompt_panel = Panel(
@@ -910,7 +951,22 @@ class UIManager:
             padding=(1, 2)
         )
         self.console.print(prompt_panel)
-        self.console.print("[dim]⏳ Waiting for response...[/dim]")
+    
+    def create_llm_spinner(self):
+        """
+        Create and return a spinner for LLM waiting.
+        
+        Returns:
+            Rich Status object that can be started/stopped
+        """
+        from rich.spinner import Spinner
+        from rich.status import Status
+        
+        return Status(
+            "[dim]⏳ Waiting for LLM response...[/dim]",
+            console=self.console,
+            spinner="dots"
+        )
     
     def display_llm_response(self, response: str, generation_time: float):
         """

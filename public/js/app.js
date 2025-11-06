@@ -93,15 +93,6 @@ class App {
      * Subscribe to state changes
      */
     subscribeToStateChanges() {
-        // Update UI when connection state changes
-        appState.subscribe('connected', (connected) => {
-            if (connected) {
-                uiManager.appendOutput('System: Connected to RAG server', 'system');
-            } else {
-                uiManager.appendOutput('System: Disconnected from server', 'error');
-            }
-        });
-
         // Update UI when processing state changes
         appState.subscribe('processing', (processing) => {
             uiManager.setLoading(processing);

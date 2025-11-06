@@ -752,6 +752,80 @@ body {
     color: #ce9178;
 }
 
+/* Threshold accumulator styles */
+.threshold-accumulator-box {
+    border-left-color: #4ec9b0;
+}
+
+.threshold-accumulator-box .action-header {
+    color: #4ec9b0;
+}
+
+.threshold-accumulator-box.threshold-complete {
+    border-left-color: #6a9955;
+}
+
+.threshold-collapsible {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.threshold-collapsible:hover {
+    background: #3e3e42;
+}
+
+.threshold-collapsible .toggle-btn {
+    font-size: 11px;
+    color: #858585;
+    margin-left: 10px;
+}
+
+.threshold-content.collapsed {
+    display: none;
+}
+
+.threshold-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+}
+
+.threshold-table thead {
+    background: #2d2d30;
+}
+
+.threshold-table th {
+    padding: 8px 12px;
+    text-align: left;
+    color: #9cdcfe;
+    font-weight: bold;
+    font-size: 12px;
+    border-bottom: 2px solid #3e3e42;
+}
+
+.threshold-table td {
+    padding: 6px 12px;
+    font-size: 12px;
+    color: #d4d4d4;
+    border-bottom: 1px solid #3e3e42;
+}
+
+.threshold-table tbody tr:hover {
+    background: #2d2d30;
+}
+
+.threshold-table .status-success {
+    color: #6a9955;
+    font-weight: bold;
+}
+
+.threshold-table .status-searching {
+    color: #4ec9b0;
+}
+
 /* Documents preview */
 .docs-preview {
     padding: 12px 15px;

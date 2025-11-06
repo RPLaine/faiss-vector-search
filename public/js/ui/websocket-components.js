@@ -5,22 +5,116 @@
 
 import { uiManager } from './manager.js';
 
+// Threshold attempts accumulator
+let thresholdAccumulatorCard = null;
+let thresholdAttemptsData = [];
+
 /**
  * Display threshold attempt event
  */
 export function displayThresholdAttempt(data) {
+    // Create accumulator card if it doesn't exist
+    if (!thresholdAccumulatorCard) {
+        thresholdAccumulatorCard = createThresholdAccumulatorCard();
+        uiManager.appendElement(thresholdAccumulatorCard);
+    }
+    
+    // Add new attempt to data
+    thresholdAttemptsData.push(data);
+    
+    // Update the table with new attempt
+    updateThresholdTable();
+    
+    // If target reached, finalize the card
+    if (data.target_reached) {
+        finalizeThresholdCard();
+        thresholdAccumulatorCard = null;
+        thresholdAttemptsData = [];
+    }
+}
+
+/**
+ * Create threshold accumulator card
+ */
+function createThresholdAccumulatorCard() {
     const box = document.createElement('div');
-    box.className = 'action-box threshold-attempt-box';
-    const icon = data.target_reached ? '✅' : '🔍';
-    const status = data.target_reached ? 'Target Reached' : 'Searching';
+    box.className = 'action-box threshold-accumulator-box';
     box.innerHTML = `
-        <div class="action-header">${icon} Threshold ${data.threshold.toFixed(3)}</div>
-        <div class="action-details">
-            <div class="detail-item"><span class="label">Hits:</span> ${data.hits} / ${data.target}</div>
-            <div class="detail-item"><span class="label">Status:</span> ${status}</div>
+        <div class="action-header threshold-collapsible">🔍 Similarity Threshold Attempts <span class="toggle-btn">[expand]</span></div>
+        <div class="action-details threshold-content collapsed">
+            <table class="threshold-table">
+                <thead>
+                    <tr>
+                        <th>Threshold</th>
+                        <th>Hits</th>
+                        <th>Target</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="threshold-table-body">
+                </tbody>
+            </table>
         </div>
     `;
-    uiManager.appendElement(box);
+    
+    // Add click handler for collapse/expand
+    const header = box.querySelector('.threshold-collapsible');
+    const content = box.querySelector('.threshold-content');
+    const toggleBtn = box.querySelector('.toggle-btn');
+    
+    header.onclick = () => {
+        content.classList.toggle('collapsed');
+        toggleBtn.textContent = content.classList.contains('collapsed') ? '[expand]' : '[collapse]';
+    };
+    
+    return box;
+}
+
+/**
+ * Update threshold table with accumulated attempts
+ */
+function updateThresholdTable() {
+    if (!thresholdAccumulatorCard) return;
+    
+    const tbody = thresholdAccumulatorCard.querySelector('#threshold-table-body');
+    if (!tbody) return;
+    
+    // Clear existing rows
+    tbody.innerHTML = '';
+    
+    // Add rows for all attempts
+    thresholdAttemptsData.forEach((attempt, index) => {
+        const row = document.createElement('tr');
+        const status = attempt.target_reached ? '✅ Target Reached' : '🔍 Searching';
+        const statusClass = attempt.target_reached ? 'status-success' : 'status-searching';
+        
+        row.innerHTML = `
+            <td>${attempt.threshold.toFixed(3)}</td>
+            <td>${attempt.hits}</td>
+            <td>${attempt.target}</td>
+            <td class="${statusClass}">${status}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+/**
+ * Finalize threshold card when target reached
+ */
+function finalizeThresholdCard() {
+    if (!thresholdAccumulatorCard) return;
+    
+    // Get the final threshold value that reached the target
+    const finalAttempt = thresholdAttemptsData[thresholdAttemptsData.length - 1];
+    const thresholdValue = finalAttempt ? finalAttempt.threshold.toFixed(3) : '';
+    
+    const header = thresholdAccumulatorCard.querySelector('.action-header');
+    if (header) {
+        header.innerHTML = `✅ Similarity Threshold - Target Reached (${thresholdValue})`;
+        header.style.color = '#6a9955';
+    }
+    
+    thresholdAccumulatorCard.classList.add('threshold-complete');
 }
 
 /**

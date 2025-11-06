@@ -6,6 +6,7 @@
 import { appState } from './state.js';
 import { apiService } from './services/api.js';
 import { wsService } from './services/websocket.js';
+import { domBuilder } from './ui/dom-builder.js';
 import { uiManager } from './ui/manager.js';
 import { eventManager } from './handlers/events.js';
 import { wsMessageHandler } from './handlers/websocket-messages.js';
@@ -26,6 +27,10 @@ class App {
 
         try {
             console.log('Initializing RAG Terminal Application...');
+
+            // Build DOM structure
+            domBuilder.buildStructure();
+            console.log('✓ DOM structure built');
 
             // Initialize UI
             uiManager.init();

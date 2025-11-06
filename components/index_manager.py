@@ -131,10 +131,12 @@ class IndexManager:
     
     def _save_processed_files_info(self, processed_files: List[str], total_documents: int):
         """Save processed files info for reference."""
+        from datetime import datetime
+        
         files_info = {
             "processed_files": processed_files,
             "total_documents": total_documents,
-            "created_at": "2025-09-30"  # Updated to current date
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         info_path = os.path.join(self.data_dir, "processed_files.json")
         with open(info_path, 'w', encoding='utf-8') as f:

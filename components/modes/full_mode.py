@@ -93,21 +93,38 @@ class FullMode(BaseMode):
         # Step 3: Response Improvement
         logger.info("Step 3/3: Response improvement")
         
-        # Build context string from documents
-        context_parts = []
-        for doc in retrieval_result['documents']:
-            text = doc.get('text', doc.get('content', ''))
-            context_parts.append(text)
-        context = "\n\n".join(context_parts)
+        # Check if optimizer already ran improvement internally
+        improvement_already_done = opt_result.get('improvement_iterations', 0) > 0
         
-        improvement_result = self.improver.improve_iteratively(
-            question=query,
-            context=context,
-            initial_response=initial_response,
-            initial_score=opt_result['best_score'],
-            initial_reasoning=opt_result.get('best_reasoning'),
-            temperature=best_temperature
-        )
+        if improvement_already_done:
+            # Optimizer already ran improvement, use its results
+            logger.info("Using improvement results from optimizer")
+            improvement_result = {
+                'final_response': initial_response,  # Already improved by optimizer
+                'final_score': opt_result['best_score'],
+                'iterations_completed': opt_result.get('improvement_iterations', 0),
+                'improvement_history': opt_result.get('improvement_history', []),
+                'stopped_reason': 'Completed within optimizer'
+            }
+        else:
+            # Run improvement separately
+            logger.info("Running improvement phase separately")
+            
+            # Build context string from documents
+            context_parts = []
+            for doc in retrieval_result['documents']:
+                text = doc.get('text', doc.get('content', ''))
+                context_parts.append(text)
+            context = "\n\n".join(context_parts)
+            
+            improvement_result = self.improver.improve_iteratively(
+                question=query,
+                context=context,
+                initial_response=initial_response,
+                initial_score=opt_result['best_score'],
+                initial_reasoning=opt_result.get('best_reasoning'),
+                temperature=best_temperature
+            )
         
         pipeline_metadata['improvement'] = {
             'iterations': improvement_result.get('iterations_completed'),

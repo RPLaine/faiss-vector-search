@@ -140,7 +140,7 @@ export function displayLLMRequest(data) {
     box.className = 'action-box llm-request-box';
     
     box.innerHTML = `
-        <div class="action-header llm-collapsible">🚀 LLM API Request</div>
+        <div class="action-header llm-collapsible">🚀 LLM Request</div>
         <div class="action-details llm-content collapsed">
             <div class="detail-item"><span class="label">Endpoint:</span> ${uiManager.escapeHtml(data.endpoint)}</div>
             <div class="detail-item"><span class="label">Model:</span> ${data.model}</div>

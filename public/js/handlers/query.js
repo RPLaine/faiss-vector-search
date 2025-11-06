@@ -28,6 +28,17 @@ class QueryHandler {
             return;
         }
 
+        // Handle mode selection commands
+        const lowerQuery = query.toLowerCase();
+        if (lowerQuery === 'full' || lowerQuery === 'faiss' || lowerQuery === 'none') {
+            if (uiManager.setMode(lowerQuery)) {
+                uiManager.appendOutput(`Mode set to: ${lowerQuery.toUpperCase()}`, 'success');
+            } else {
+                uiManager.appendOutput(`Failed to set mode: ${lowerQuery}`, 'error');
+            }
+            return;
+        }
+
         // Check if already processing
         if (appState.isProcessing()) {
             uiManager.appendOutput('System: Please wait for current query to complete', 'error');

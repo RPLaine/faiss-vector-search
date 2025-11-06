@@ -39,7 +39,6 @@ body {
     height: 8px;
     border-radius: 50%;
     background: #4ec9b0;
-    animation: pulse 2s infinite;
 }
 
 @keyframes pulse {
@@ -49,6 +48,7 @@ body {
 
 .status-indicator.disconnected {
     background: #f48771;
+    animation: pulse 2s infinite;
 }
 
 .terminal-info {

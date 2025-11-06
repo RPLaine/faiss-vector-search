@@ -94,7 +94,7 @@ class UIManager {
     clearContent() {
         this.elements.contentArea.innerHTML = `
             <div class="welcome-message">
-                <h3>🤖 RAG System Terminal</h3>
+                <h3>RAG System Terminal</h3>
                 <ul>
                     <li>Terminal cleared</li>
                     <li>Ready for new queries</li>
@@ -110,11 +110,11 @@ class UIManager {
     showWelcome() {
         this.elements.contentArea.innerHTML = `
             <div class="welcome-message">
-                <h3>🤖 RAG System Terminal</h3>
+                <h3>RAG System Terminal</h3>
                 <ul>
                     <li>Connected to RAG API server</li>
                     <li>Enter your query below and press Enter or click Execute</li>
-                    <li>Use options to enable optimization and improvement</li>
+                    <li>Select mode: full, faiss, or none (type mode name or use radio buttons)</li>
                     <li>Type 'clear' to clear the terminal</li>
                     <li>Type 'help' for available commands</li>
                 </ul>
@@ -156,6 +156,22 @@ class UIManager {
     getSelectedMode() {
         const selected = Array.from(this.elements.modeRadios).find(radio => radio.checked);
         return selected ? selected.value : config.query.defaultMode;
+    }
+
+    /**
+     * Set mode programmatically
+     */
+    setMode(mode) {
+        const validModes = ['full', 'faiss', 'none'];
+        if (!validModes.includes(mode)) {
+            return false;
+        }
+        const radio = Array.from(this.elements.modeRadios).find(r => r.value === mode);
+        if (radio) {
+            radio.checked = true;
+            return true;
+        }
+        return false;
     }
 
     /**

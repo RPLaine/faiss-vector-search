@@ -165,10 +165,13 @@ export function showHelp() {
     uiManager.appendOutput('Available commands:', 'system');
     uiManager.appendOutput('  clear    - Clear the terminal', 'info');
     uiManager.appendOutput('  help     - Show this help message', 'info');
+    uiManager.appendOutput('  full     - Set mode to Full (optimization + improvement)', 'info');
+    uiManager.appendOutput('  faiss    - Set mode to FAISS (standard retrieval)', 'info');
+    uiManager.appendOutput('  none     - Set mode to None (direct LLM, no retrieval)', 'info');
     uiManager.appendOutput('  [query]  - Ask a question to the RAG system', 'info');
     uiManager.appendOutput('', '');
     uiManager.appendOutput('Modes:', 'system');
-    uiManager.appendOutput('  Optimize - Use temperature optimization', 'info');
-    uiManager.appendOutput('  FAISS    - Standard FAISS retrieval (default)', 'info');
-    uiManager.appendOutput('  None     - Direct LLM query without context', 'info');
+    uiManager.appendOutput('  Full     - FAISS retrieval + temperature optimization + improvement', 'info');
+    uiManager.appendOutput('  FAISS    - Standard FAISS retrieval only (default)', 'info');
+    uiManager.appendOutput('  None     - Direct LLM query without retrieval or context', 'info');
 }

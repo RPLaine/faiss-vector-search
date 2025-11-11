@@ -856,7 +856,9 @@ body::-webkit-scrollbar-thumb:hover {
 .threshold-section.collapsed > *:not(.threshold-header),
 .reasoning-section.collapsed > *:not(.reasoning-header),
 .params-section.collapsed > *:not(.params-header),
-.metadata-section.collapsed > *:not(.metadata-header) {
+.metadata-section.collapsed > *:not(.metadata-header),
+.temp-section.collapsed > *:not(.temp-header),
+.iteration-section.collapsed > *:not(.iteration-header) {
     display: none;
 }
 
@@ -1048,6 +1050,14 @@ body::-webkit-scrollbar-thumb:hover {
     color: var(--color-accent-cyan);
 }
 
+.temp-header {
+    color: var(--color-accent-orange);
+}
+
+.iteration-header {
+    color: var(--color-accent-purple);
+}
+
 /* Collapsible section containers - card-like styling */
 .prompt-section,
 .payload-section,
@@ -1056,7 +1066,9 @@ body::-webkit-scrollbar-thumb:hover {
 .threshold-section,
 .reasoning-section,
 .params-section,
-.metadata-section {
+.metadata-section,
+.temp-section,
+.iteration-section {
     background: var(--color-bg-secondary);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
@@ -1158,6 +1170,18 @@ body::-webkit-scrollbar-thumb:hover {
     white-space: pre-wrap;
     overflow-x: auto;
     word-wrap: break-word;
+}
+
+/* Temperature test section (collapsible) */
+.temp-section .temp-container {
+    background: var(--color-bg-primary);
+    padding: var(--space-md) var(--space-lg);
+}
+
+/* Improvement iteration section (collapsible) */
+.iteration-section .iteration-container {
+    background: var(--color-bg-primary);
+    padding: var(--space-md) var(--space-lg);
 }
 
 /* Error message */

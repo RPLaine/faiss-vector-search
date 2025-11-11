@@ -11,11 +11,11 @@ import { formatMarkdown } from '../utils/markdown-formatter.js';
 // Threshold attempts accumulator
 let thresholdTable = null;
 
-// Temperature test tracking - maps temperature value to card element
-const temperatureTestCards = new Map();
+// Temperature test tracking - single card for entire optimization pipeline
+let temperatureOptimizationCard = null;
 
-// Improvement iteration tracking - maps iteration number to card element
-const improvementIterationCards = new Map();
+// Improvement iteration tracking - single card for entire improvement pipeline
+let improvementPipelineCard = null;
 
 // Current query mode tracking
 let currentQueryMode = null;
@@ -380,73 +380,131 @@ export function displayEvaluationComplete(data) {
  * Display temperature test event
  */
 export function displayTemperatureTest(data) {
-    const content = `<div class="detail-item"><span class="label">Test:</span> ${data.test_number} / ${data.total_tests}</div>`;
+    // Create the optimization card on first test
+    if (!temperatureOptimizationCard) {
+        const content = `<div class="detail-item"><span class="label">Status:</span> Testing temperatures...</div>`;
+        
+        const { element, details } = createCollapsibleCard({
+            title: '🌡️ Temperature Optimization',
+            className: 'temperature-optimization',
+            content,
+            collapsed: false
+        });
+        
+        temperatureOptimizationCard = { element, details, tests: new Map() };
+        uiManager.appendElement(element);
+    }
     
-    const { element, header, details } = createCollapsibleCard({
-        title: `🌡️ Testing Temperature: ${data.temperature.toFixed(2)}`,
-        className: 'temperature-test',
-        content,
-        collapsed: true
+    // Create a section for this temperature test
+    const testSection = createCollapsibleSection(
+        `Temperature ${data.temperature.toFixed(2)} (${data.test_number}/${data.total_tests})`,
+        `temp-section`,
+        true
+    );
+    
+    // Create a container for test content
+    const testContainer = document.createElement('div');
+    testContainer.className = 'temp-container';
+    testSection.appendChild(testContainer);
+    
+    // Store reference to this test's section and container
+    temperatureOptimizationCard.tests.set(data.temperature, { 
+        section: testSection, 
+        container: testContainer 
     });
     
-    // Store reference to card for later updates (response and evaluation)
-    temperatureTestCards.set(data.temperature, { element, header, details });
-    
-    uiManager.appendElement(element);
+    // Add to optimization card
+    temperatureOptimizationCard.details.appendChild(testSection);
 }
 
 /**
  * Display temperature response event
  */
 export function displayTemperatureResponse(data) {
-    // Skip displaying temperature responses - only final response is shown
-    // This keeps the UI clean and consistent across all modes
-    return;
+    // Find the test section in the optimization card
+    if (!temperatureOptimizationCard) {
+        console.warn('Temperature optimization card not found');
+        return;
+    }
+    
+    const testData = temperatureOptimizationCard.tests.get(data.temperature);
+    if (!testData) {
+        console.warn(`Temperature ${data.temperature} section not found in optimization card`);
+        return;
+    }
+    
+    // Add response content directly to the container (similar to faiss mode documents)
+    const responseDiv = document.createElement('div');
+    responseDiv.className = 'temp-response';
+    
+    const responseLabel = document.createElement('div');
+    responseLabel.className = 'detail-item';
+    responseLabel.innerHTML = `<span class="label">Response:</span>`;
+    responseDiv.appendChild(responseLabel);
+    
+    const responseContent = document.createElement('div');
+    responseContent.className = 'response-text markdown-content';
+    responseContent.innerHTML = formatMarkdown(data.response);
+    responseDiv.appendChild(responseContent);
+    
+    testData.container.appendChild(responseDiv);
+    
+    // Add generation time
+    const timeInfo = document.createElement('div');
+    timeInfo.className = 'detail-item';
+    timeInfo.innerHTML = `<span class="label">Generation Time:</span> ${data.generation_time.toFixed(2)}s`;
+    testData.container.appendChild(timeInfo);
 }
 
 /**
  * Display temperature evaluation event
  */
 export function displayTemperatureEvaluation(data) {
-    // Find the parent temperature test card
-    const testCard = temperatureTestCards.get(data.temperature);
-    if (!testCard) {
-        console.warn(`Temperature test card not found for temperature ${data.temperature}`);
+    // Find the test section in the optimization card
+    if (!temperatureOptimizationCard) {
+        console.warn('Temperature optimization card not found');
         return;
     }
     
-    // Update the header with score
-    if (testCard.header) {
-        const headerElement = testCard.header.querySelector('.action-header') || testCard.header;
-        if (headerElement) {
-            headerElement.innerHTML = `🌡️ Temperature: ${data.temperature.toFixed(2)} | 📊 Score: ${data.score.toFixed(2)}`;
-            
-            // Add color coding based on score
-            const scoreClass = data.score >= 0.8 ? 'score-high' : data.score >= 0.6 ? 'score-medium' : 'score-low';
-            headerElement.classList.add(scoreClass);
-        }
+    const testData = temperatureOptimizationCard.tests.get(data.temperature);
+    if (!testData) {
+        console.warn(`Temperature ${data.temperature} section not found in optimization card`);
+        return;
     }
     
-    // Add evaluation details to parent card
-    if (testCard.details) {
-        const evalInfo = document.createElement('div');
-        evalInfo.className = 'detail-item';
-        evalInfo.innerHTML = `<span class="label">Evaluation Time:</span> ${data.evaluation_time.toFixed(2)}s`;
-        testCard.details.appendChild(evalInfo);
+    // Update the section header with score
+    const sectionHeader = testData.section.querySelector('.collapsible-header');
+    if (sectionHeader) {
+        sectionHeader.textContent = `Temperature ${data.temperature.toFixed(2)} | Score: ${data.score.toFixed(2)}`;
         
-        // Add reasoning section if available
-        if (data.reasoning) {
-            const reasoningSection = createCollapsibleSection('� Evaluation Reasoning', 'reasoning-section');
-            const reasoningContent = document.createElement('div');
-            reasoningContent.className = 'reasoning-text';
-            reasoningContent.textContent = data.reasoning;
-            reasoningSection.appendChild(reasoningContent);
-            testCard.details.appendChild(reasoningSection);
-        }
+        // Add color coding based on score
+        const scoreClass = data.score >= 0.8 ? 'score-high' : data.score >= 0.6 ? 'score-medium' : 'score-low';
+        sectionHeader.classList.add(scoreClass);
     }
     
-    // Remove from tracking map
-    temperatureTestCards.delete(data.temperature);
+    // Add evaluation details to container
+    const evalInfo = document.createElement('div');
+    evalInfo.className = 'detail-item';
+    evalInfo.innerHTML = `<span class="label">Evaluation Time:</span> ${data.evaluation_time.toFixed(2)}s`;
+    testData.container.appendChild(evalInfo);
+    
+    const scoreInfo = document.createElement('div');
+    scoreInfo.className = 'detail-item';
+    scoreInfo.innerHTML = `<span class="label">Score:</span> ${data.score.toFixed(2)}`;
+    testData.container.appendChild(scoreInfo);
+    
+    // Add reasoning if available
+    if (data.reasoning) {
+        const reasoningDiv = document.createElement('div');
+        reasoningDiv.className = 'detail-item';
+        reasoningDiv.innerHTML = `<span class="label">Reasoning:</span>`;
+        testData.container.appendChild(reasoningDiv);
+        
+        const reasoningContent = document.createElement('div');
+        reasoningContent.className = 'reasoning-text';
+        reasoningContent.textContent = data.reasoning;
+        testData.container.appendChild(reasoningContent);
+    }
 }
 
 /**
@@ -471,87 +529,139 @@ export function displayTemperatureTestOld(data) {
  * Display improvement iteration event
  */
 export function displayImprovementIteration(data) {
-    const action = data.action === 'improving' ? '🔧 Improving' : '📊 Evaluating';
-    const content = `<div class="detail-item"><span class="label">Action:</span> ${data.action}</div>`;
+    // Create the pipeline card on first iteration
+    if (!improvementPipelineCard) {
+        const content = `<div class="detail-item"><span class="label">Status:</span> Processing iterations...</div>`;
+        
+        const { element, details } = createCollapsibleCard({
+            title: '🔄 Response Improvement Pipeline',
+            className: 'improvement-pipeline',
+            content,
+            collapsed: false
+        });
+        
+        improvementPipelineCard = { element, details, iterations: new Map() };
+        uiManager.appendElement(element);
+    }
     
-    const { element, header, details } = createCollapsibleCard({
-        title: `🔄 Iteration ${data.iteration} - ${action}`,
-        className: 'improvement-iteration',
-        content,
-        collapsed: true
+    // Create a section for this iteration
+    const iterationSection = createCollapsibleSection(
+        `Iteration ${data.iteration} - ${data.action === 'improving' ? '🔧 Improving' : '📊 Evaluating'}`,
+        `iteration-section`,
+        true
+    );
+    
+    // Create a container for iteration content
+    const iterationContainer = document.createElement('div');
+    iterationContainer.className = 'iteration-container';
+    iterationSection.appendChild(iterationContainer);
+    
+    // Store reference to this iteration's section and container
+    improvementPipelineCard.iterations.set(data.iteration, { 
+        section: iterationSection, 
+        container: iterationContainer 
     });
     
-    // Store reference to card for later updates (response and evaluation)
-    improvementIterationCards.set(data.iteration, { element, header, details });
-    
-    uiManager.appendElement(element);
+    // Add to pipeline card
+    improvementPipelineCard.details.appendChild(iterationSection);
 }
 
 /**
  * Display improvement response event
  */
 export function displayImprovementResponse(data) {
-    // Skip displaying improvement responses - only final response is shown
-    // This keeps the UI clean and consistent across all modes
-    return;
+    // Find the iteration section in the pipeline card
+    if (!improvementPipelineCard) {
+        console.warn('Improvement pipeline card not found');
+        return;
+    }
+    
+    const iterationData = improvementPipelineCard.iterations.get(data.iteration);
+    if (!iterationData) {
+        console.warn(`Iteration ${data.iteration} section not found in pipeline card`);
+        return;
+    }
+    
+    // Add response content directly to the container (similar to faiss mode documents)
+    const responseDiv = document.createElement('div');
+    responseDiv.className = 'improvement-response';
+    
+    const responseLabel = document.createElement('div');
+    responseLabel.className = 'detail-item';
+    responseLabel.innerHTML = `<span class="label">Response:</span>`;
+    responseDiv.appendChild(responseLabel);
+    
+    const responseContent = document.createElement('div');
+    responseContent.className = 'response-text markdown-content';
+    responseContent.innerHTML = formatMarkdown(data.response);
+    responseDiv.appendChild(responseContent);
+    
+    iterationData.container.appendChild(responseDiv);
+    
+    // Add generation time
+    const timeInfo = document.createElement('div');
+    timeInfo.className = 'detail-item';
+    timeInfo.innerHTML = `<span class="label">Generation Time:</span> ${data.generation_time.toFixed(2)}s`;
+    iterationData.container.appendChild(timeInfo);
 }
 
 /**
  * Display improvement evaluation event
  */
 export function displayImprovementEvaluation(data) {
-    // Find the parent improvement iteration card
-    const iterationCard = improvementIterationCards.get(data.iteration);
-    if (!iterationCard) {
-        console.warn(`Improvement iteration card not found for iteration ${data.iteration}`);
+    // Find the iteration section in the pipeline card
+    if (!improvementPipelineCard) {
+        console.warn('Improvement pipeline card not found');
         return;
     }
     
-    // Update the header with score
-    if (iterationCard.header) {
-        const headerElement = iterationCard.header.querySelector('.action-header') || iterationCard.header;
-        if (headerElement) {
-            const changeIndicator = data.is_improvement ? '✅' : (data.score_change < 0 ? '⚠️' : '➖');
-            const scoreChange = data.score_change >= 0 ? `+${data.score_change.toFixed(3)}` : data.score_change.toFixed(3);
-            headerElement.innerHTML = `🔄 Iteration ${data.iteration} | 📊 Score: ${data.score.toFixed(2)} (${scoreChange}) ${changeIndicator}`;
-            
-            // Add color coding based on improvement status
-            if (data.is_improvement) {
-                headerElement.classList.add('score-high');
-            } else if (data.score_change < 0) {
-                headerElement.classList.add('score-low');
-            } else {
-                headerElement.classList.add('score-medium');
-            }
+    const iterationData = improvementPipelineCard.iterations.get(data.iteration);
+    if (!iterationData) {
+        console.warn(`Iteration ${data.iteration} section not found in pipeline card`);
+        return;
+    }
+    
+    // Update the section header with score and status
+    const sectionHeader = iterationData.section.querySelector('.collapsible-header');
+    if (sectionHeader) {
+        const changeIndicator = data.is_improvement ? '✅' : (data.score_change < 0 ? '⚠️' : '➖');
+        const scoreChange = data.score_change >= 0 ? `+${data.score_change.toFixed(3)}` : data.score_change.toFixed(3);
+        sectionHeader.textContent = `Iteration ${data.iteration} | Score: ${data.score.toFixed(2)} (${scoreChange}) ${changeIndicator}`;
+        
+        // Add color coding based on improvement status
+        if (data.is_improvement) {
+            sectionHeader.classList.add('score-high');
+        } else if (data.score_change < 0) {
+            sectionHeader.classList.add('score-low');
+        } else {
+            sectionHeader.classList.add('score-medium');
         }
     }
     
-    // Add evaluation details to parent card
-    if (iterationCard.details) {
-        const changeClass = data.is_improvement ? 'positive' : (data.score_change < 0 ? 'negative' : 'neutral');
-        const changeInfo = document.createElement('div');
-        changeInfo.className = 'detail-item';
-        changeInfo.innerHTML = `<span class="label">Score Change:</span> <span class="${changeClass}">${data.score_change >= 0 ? '+' : ''}${data.score_change.toFixed(3)}</span>`;
-        iterationCard.details.appendChild(changeInfo);
-        
-        const statusInfo = document.createElement('div');
-        statusInfo.className = 'detail-item';
-        statusInfo.innerHTML = `<span class="label">Status:</span> ${data.is_improvement ? 'Improved ✅' : 'No improvement'}`;
-        iterationCard.details.appendChild(statusInfo);
-        
-        // Add reasoning section if available
-        if (data.reasoning) {
-            const reasoningSection = createCollapsibleSection('� Evaluation Reasoning', 'reasoning-section');
-            const reasoningContent = document.createElement('div');
-            reasoningContent.className = 'reasoning-text';
-            reasoningContent.textContent = data.reasoning;
-            reasoningSection.appendChild(reasoningContent);
-            iterationCard.details.appendChild(reasoningSection);
-        }
-    }
+    // Add evaluation details to container
+    const changeClass = data.is_improvement ? 'positive' : (data.score_change < 0 ? 'negative' : 'neutral');
+    const scoreChangeInfo = document.createElement('div');
+    scoreChangeInfo.className = 'detail-item';
+    scoreChangeInfo.innerHTML = `<span class="label">Score Change:</span> <span class="${changeClass}">${data.score_change >= 0 ? '+' : ''}${data.score_change.toFixed(3)}</span>`;
+    iterationData.container.appendChild(scoreChangeInfo);
     
-    // Remove from tracking map
-    improvementIterationCards.delete(data.iteration);
+    const statusInfo = document.createElement('div');
+    statusInfo.className = 'detail-item';
+    statusInfo.innerHTML = `<span class="label">Status:</span> ${data.is_improvement ? 'Improved ✅' : 'No improvement'}`;
+    iterationData.container.appendChild(statusInfo);
+    
+    // Add reasoning if available
+    if (data.reasoning) {
+        const reasoningDiv = document.createElement('div');
+        reasoningDiv.className = 'detail-item';
+        reasoningDiv.innerHTML = `<span class="label">Reasoning:</span>`;
+        iterationData.container.appendChild(reasoningDiv);
+        
+        const reasoningContent = document.createElement('div');
+        reasoningContent.className = 'reasoning-text';
+        reasoningContent.textContent = data.reasoning;
+        iterationData.container.appendChild(reasoningContent);
+    }
 }
 
 /**
@@ -607,6 +717,12 @@ export function displayQueryStart(data) {
     // Reset document count for new query
     retrievedDocumentCount = null;
     
+    // Reset temperature optimization card for new query
+    temperatureOptimizationCard = null;
+    
+    // Reset improvement pipeline card for new query
+    improvementPipelineCard = null;
+    
     const box = document.createElement('div');
     box.className = 'action-box query-start-box';
     const queryText = escapeHtml(data.query || 'N/A');
@@ -645,28 +761,9 @@ export function displayQueryComplete(data) {
         }
     }
     
-    // Skip creating separate card in 'none' and 'faiss' modes as it's redundant with final response
-    if (currentQueryMode === 'none' || currentQueryMode === 'faiss') {
-        return;
-    }
-    
-    const processingTime = data.processing_time?.toFixed(2) || 'N/A';
-    const numDocs = data.num_docs_found !== undefined ? data.num_docs_found : 'N/A';
-    
-    const content = `
-        <div class="detail-item"><span class="label">Processing Time:</span> ${processingTime}s</div>
-        <div class="detail-item"><span class="label">Documents Found:</span> ${numDocs}</div>
-        <div class="detail-item"><span class="label">Status:</span> Success</div>
-    `;
-    
-    const { element } = createCollapsibleCard({
-        title: '✅ Query Completed',
-        className: 'query-complete',
-        content,
-        collapsed: true
-    });
-    
-    uiManager.appendElement(element);
+    // Skip creating separate "Query Completed" card - it's redundant with final response
+    // Information is already shown in the query card status above
+    return;
 }
 
 /**

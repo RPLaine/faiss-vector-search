@@ -63,6 +63,18 @@ class DynamicRetriever:
         
         logger.info(f"Retrieving documents with hit_target={hit_target}, top_k={top_k}")
         
+        # Emit retrieval start event for web UI
+        if json_callback:
+            json_callback({
+                "type": "retrieval_start",
+                "data": {
+                    "query": query,
+                    "top_k": top_k,
+                    "threshold": "dynamic",
+                    "hit_target": hit_target
+                }
+            })
+        
         # Display retrieval start if UI callback provided
         if ui_callback:
             ui_callback.display_retrieval_start(hit_target)
@@ -121,6 +133,22 @@ class DynamicRetriever:
         # Display retrieval completion if UI callback provided
         if ui_callback:
             ui_callback.display_retrieval_complete(len(filtered_docs), final_threshold, retrieval_time)
+        
+        # Emit retrieval complete event for web UI
+        if json_callback:
+            json_callback({
+                "type": "retrieval_complete",
+                "data": {
+                    "num_docs": len(filtered_docs),
+                    "time": retrieval_time,
+                    "threshold_used": final_threshold,
+                    "documents": [{
+                        "filename": doc.get('filename', 'Unknown'),
+                        "score": doc.get('similarity', 0.0),
+                        "content": doc.get('text', '')[:200] + '...' if len(doc.get('text', '')) > 200 else doc.get('text', '')
+                    } for doc in filtered_docs[:5]]  # Only first 5 for UI
+                }
+            })
         
         return {
             'documents': filtered_docs,

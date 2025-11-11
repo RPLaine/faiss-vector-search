@@ -27,7 +27,73 @@ let currentQueryCard = null;
  * Display threshold attempt event
  */
 export function displayThresholdAttempt(data) {
-    // Create accumulator table if it doesn't exist
+    // Update the Vector Search card if it exists
+    if (currentRetrievalCard) {
+        const { details } = currentRetrievalCard;
+        
+        // Find or create threshold section
+        let thresholdSection = details.querySelector('.threshold-attempts');
+        if (!thresholdSection) {
+            thresholdSection = createCollapsibleSection('📊 Similarity Threshold', 'threshold-section', true);
+            thresholdSection.classList.add('threshold-attempts');
+            
+            // Create table structure
+            const tableContainer = document.createElement('div');
+            tableContainer.className = 'threshold-table-container';
+            
+            const table = document.createElement('table');
+            table.className = 'threshold-data-table';
+            
+            // Table header
+            const thead = document.createElement('thead');
+            thead.innerHTML = `
+                <tr>
+                    <th>Threshold</th>
+                    <th>Hits</th>
+                    <th>Target</th>
+                    <th>Status</th>
+                </tr>
+            `;
+            table.appendChild(thead);
+            
+            // Table body
+            const tbody = document.createElement('tbody');
+            table.appendChild(tbody);
+            
+            tableContainer.appendChild(table);
+            thresholdSection.appendChild(tableContainer);
+            
+            // Insert before documents section if it exists, otherwise append
+            const docsSection = details.querySelector('.docs-section');
+            if (docsSection) {
+                details.insertBefore(thresholdSection, docsSection);
+            } else {
+                details.appendChild(thresholdSection);
+            }
+        }
+        
+        // Add row to table
+        const tbody = thresholdSection.querySelector('tbody');
+        if (tbody) {
+            const row = document.createElement('tr');
+            row.className = data.target_reached ? 'target-reached' : '';
+            row.innerHTML = `
+                <td class="threshold-cell">${data.threshold.toFixed(3)}</td>
+                <td class="hits-cell">${data.hits}</td>
+                <td class="target-cell">${data.target}</td>
+                <td class="status-cell">
+                    <span class="status-badge ${data.target_reached ? 'success' : 'searching'}">
+                        ${data.target_reached ? '✅ Reached' : '🔍 Searching'}
+                    </span>
+                </td>
+            `;
+            tbody.appendChild(row);
+        }
+        
+        return;
+    }
+    
+    // Fallback to table view if no retrieval card (shouldn't happen in normal flow)
     if (!thresholdTable) {
         thresholdTable = createAccumulatorTable({
             title: '🔍 Similarity Threshold Attempts',
@@ -72,22 +138,28 @@ export function displayThresholdAttempt(data) {
     }
 }
 
+// Track current retrieval card for updates
+let currentRetrievalCard = null;
+
 /**
  * Display retrieval start event
  */
 export function displayRetrievalStart(data) {
     const content = `
-        <div class="detail-item"><span class="label">Query:</span> ${escapeHtml(data.query)}</div>
+        <div class="detail-item"><span class="label">Status:</span> Searching...</div>
         <div class="detail-item"><span class="label">Top K:</span> ${data.top_k}</div>
-        <div class="detail-item"><span class="label">Threshold:</span> ${data.threshold}</div>
+        <div class="detail-item"><span class="label">Target:</span> ${data.hit_target || 'N/A'} documents</div>
     `;
     
-    const { element } = createCollapsibleCard({
-        title: '🔍 Dynamic Retrieval',
+    const { element, details } = createCollapsibleCard({
+        title: '🔍 Vector Search',
         className: 'retrieval',
         content,
         collapsed: true
     });
+    
+    // Store reference for updating
+    currentRetrievalCard = { element, details };
     
     uiManager.appendElement(element);
 }
@@ -96,53 +168,116 @@ export function displayRetrievalStart(data) {
  * Display retrieval complete event
  */
 export function displayRetrievalComplete(data) {
-    let content = `
-        <div class="detail-item"><span class="label">Documents Found:</span> ${data.num_docs}</div>
-        <div class="detail-item"><span class="label">Time:</span> ${data.time.toFixed(2)}s</div>
-    `;
-    
-    const { element, details } = createCollapsibleCard({
-        title: '✅ Retrieval Complete',
-        className: 'retrieval-result',
-        content,
-        collapsed: true
-    });
-    
-    if (data.documents && data.documents.length > 0) {
-        const docsSection = createCollapsibleSection('📚 Retrieved Documents', 'docs-section');
-        const docsContainer = document.createElement('div');
-        docsContainer.className = 'docs-container';
+    // Update existing card instead of creating new one
+    if (currentRetrievalCard) {
+        const { element, details } = currentRetrievalCard;
         
-        data.documents.forEach((doc, idx) => {
-            const docContent = typeof doc === 'string' ? doc : (doc.content || JSON.stringify(doc));
-            const docItem = document.createElement('div');
-            docItem.className = 'doc-item';
+        // Update header
+        const header = element.querySelector('.card-header');
+        if (header) {
+            header.innerHTML = '✅ Vector Search';
+        }
+        
+        // Update content
+        const detailItems = details.querySelectorAll('.detail-item');
+        if (detailItems.length >= 1) {
+            detailItems[0].innerHTML = `<span class="label">Documents Found:</span> ${data.num_docs}`;
+        }
+        if (detailItems.length >= 2) {
+            detailItems[1].innerHTML = `<span class="label">Time:</span> ${data.time.toFixed(2)}s`;
+        }
+        if (detailItems.length >= 3) {
+            detailItems[2].innerHTML = `<span class="label">Threshold:</span> ${data.threshold_used ? data.threshold_used.toFixed(3) : 'N/A'}`;
+        }
+        
+        // Add documents section if available
+        if (data.documents && data.documents.length > 0) {
+            const docsSection = createCollapsibleSection('📚 Retrieved Documents', 'docs-section');
+            const docsContainer = document.createElement('div');
+            docsContainer.className = 'docs-container';
             
-            const docHeader = document.createElement('div');
-            docHeader.className = 'doc-item-header';
-            docHeader.textContent = doc.filename ? `${idx + 1}. ${doc.filename}` : `Document ${idx + 1}`;
+            data.documents.forEach((doc, idx) => {
+                const docContent = typeof doc === 'string' ? doc : (doc.content || JSON.stringify(doc));
+                const docItem = document.createElement('div');
+                docItem.className = 'doc-item';
+                
+                const docHeader = document.createElement('div');
+                docHeader.className = 'doc-item-header';
+                docHeader.textContent = doc.filename ? `${idx + 1}. ${doc.filename}` : `Document ${idx + 1}`;
+                
+                if (doc.score !== undefined) {
+                    const scoreSpan = document.createElement('span');
+                    scoreSpan.className = 'doc-score';
+                    scoreSpan.textContent = `Score: ${doc.score.toFixed(3)}`;
+                    docHeader.appendChild(scoreSpan);
+                }
+                
+                const docContentDiv = document.createElement('div');
+                docContentDiv.className = 'doc-item-content';
+                docContentDiv.textContent = docContent;
+                
+                docItem.appendChild(docHeader);
+                docItem.appendChild(docContentDiv);
+                docsContainer.appendChild(docItem);
+            });
             
-            if (doc.score !== undefined) {
-                const scoreSpan = document.createElement('span');
-                scoreSpan.className = 'doc-score';
-                scoreSpan.textContent = `Score: ${doc.score.toFixed(3)}`;
-                docHeader.appendChild(scoreSpan);
-            }
-            
-            const docContentDiv = document.createElement('div');
-            docContentDiv.className = 'doc-item-content';
-            docContentDiv.textContent = docContent;
-            
-            docItem.appendChild(docHeader);
-            docItem.appendChild(docContentDiv);
-            docsContainer.appendChild(docItem);
+            docsSection.appendChild(docsContainer);
+            details.appendChild(docsSection);
+        }
+        
+        // Clear reference
+        currentRetrievalCard = null;
+    } else {
+        // Fallback: create new card if no start event occurred
+        let content = `
+            <div class="detail-item"><span class="label">Documents Found:</span> ${data.num_docs}</div>
+            <div class="detail-item"><span class="label">Time:</span> ${data.time.toFixed(2)}s</div>
+            <div class="detail-item"><span class="label">Threshold:</span> ${data.threshold_used ? data.threshold_used.toFixed(3) : 'N/A'}</div>
+        `;
+        
+        const { element, details } = createCollapsibleCard({
+            title: '✅ Vector Search',
+            className: 'retrieval-result',
+            content,
+            collapsed: false
         });
         
-        docsSection.appendChild(docsContainer);
-        details.appendChild(docsSection);
+        if (data.documents && data.documents.length > 0) {
+            const docsSection = createCollapsibleSection('📚 Retrieved Documents', 'docs-section');
+            const docsContainer = document.createElement('div');
+            docsContainer.className = 'docs-container';
+            
+            data.documents.forEach((doc, idx) => {
+                const docContent = typeof doc === 'string' ? doc : (doc.content || JSON.stringify(doc));
+                const docItem = document.createElement('div');
+                docItem.className = 'doc-item';
+                
+                const docHeader = document.createElement('div');
+                docHeader.className = 'doc-item-header';
+                docHeader.textContent = doc.filename ? `${idx + 1}. ${doc.filename}` : `Document ${idx + 1}`;
+                
+                if (doc.score !== undefined) {
+                    const scoreSpan = document.createElement('span');
+                    scoreSpan.className = 'doc-score';
+                    scoreSpan.textContent = `Score: ${doc.score.toFixed(3)}`;
+                    docHeader.appendChild(scoreSpan);
+                }
+                
+                const docContentDiv = document.createElement('div');
+                docContentDiv.className = 'doc-item-content';
+                docContentDiv.textContent = docContent;
+                
+                docItem.appendChild(docHeader);
+                docItem.appendChild(docContentDiv);
+                docsContainer.appendChild(docItem);
+            });
+            
+            docsSection.appendChild(docsContainer);
+            details.appendChild(docsSection);
+        }
+        
+        uiManager.appendElement(element);
     }
-    
-    uiManager.appendElement(element);
 }
 
 /**
@@ -189,8 +324,8 @@ export function displayLLMRequest(data) {
  * Display LLM response event
  */
 export function displayLLMResponse(data) {
-    // Skip this card in 'none' mode as it's redundant with final response
-    if (currentQueryMode === 'none') {
+    // Skip this card in 'none' and 'faiss' modes as it's redundant with final response
+    if (currentQueryMode === 'none' || currentQueryMode === 'faiss') {
         return;
     }
     
@@ -566,8 +701,8 @@ export function displayQueryComplete(data) {
         }
     }
     
-    // Skip creating separate card in 'none' mode as it's redundant with final response
-    if (currentQueryMode === 'none') {
+    // Skip creating separate card in 'none' and 'faiss' modes as it's redundant with final response
+    if (currentQueryMode === 'none' || currentQueryMode === 'faiss') {
         return;
     }
     

@@ -50,6 +50,9 @@ class LLMService:
         self.timeout = llm_config.get("timeout", 300)
         self.headers = llm_config.get("headers", {"Content-Type": "application/json"})
         
+        # Cancellation checker (set externally before calls)
+        self.cancellation_checker: Optional[Callable[[], bool]] = None
+        
         # Statistics
         self.total_calls = 0
         self.total_time = 0.0
@@ -79,6 +82,11 @@ class LLMService:
             LLMResponse object with text and metadata
         """
         start_time = time.time()
+        
+        # Check for cancellation before making API call
+        if self.cancellation_checker and self.cancellation_checker():
+            from components.exceptions import QueryCancelledException
+            raise QueryCancelledException("Query was cancelled before LLM call")
         
         # Use config defaults if not overridden
         temp = temperature if temperature is not None else self.config.get("temperature", 0.7)

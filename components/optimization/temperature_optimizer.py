@@ -45,6 +45,9 @@ class TemperatureOptimizer:
         self.history: List[ParameterSet] = []
         self.best_params: ParameterSet | None = None
         self.best_score = 0.0
+        
+        # Cancellation checker (set externally)
+        self.cancellation_checker = None
     
     def optimize(
         self,
@@ -71,6 +74,11 @@ class TemperatureOptimizer:
         
         # Test each temperature value
         for idx, temp in enumerate(self.temperature_values, 1):
+            # Check for cancellation before each test
+            if self.cancellation_checker and self.cancellation_checker():
+                from components.exceptions import QueryCancelledException
+                raise QueryCancelledException("Optimization cancelled by user")
+            
             logger.info(f"📊 Test {idx}/{len(self.temperature_values)}: Temperature = {temp}")
             
             # Create parameter set with fixed retrieval params, varying temperature

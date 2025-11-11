@@ -48,3 +48,8 @@ class SessionError(RAGException):
 class DocumentProcessingError(RAGException):
     """Raised when document processing fails."""
     pass
+
+
+class QueryCancelledException(RAGException):
+    """Raised when a query is cancelled by user."""
+    pass

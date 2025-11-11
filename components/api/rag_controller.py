@@ -66,7 +66,8 @@ class RAGController:
         self, 
         config_path: str = "config.json",
         data_dir: str = "data",
-        progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None
+        progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+        cancellation_checker: Optional[Callable[[], bool]] = None
     ):
         """
         Initialize RAG controller.
@@ -75,9 +76,11 @@ class RAGController:
             config_path: Path to configuration file
             data_dir: Directory containing FAISS index
             progress_callback: Optional callback for progress updates (for GUI)
+            cancellation_checker: Optional callback to check if query should be cancelled
         """
         self.data_dir = data_dir
         self.progress_callback = progress_callback
+        self.cancellation_checker = cancellation_checker
         
         # Initialize configuration provider
         self.config_provider = ConfigurationProvider.from_file(config_path)
@@ -98,6 +101,12 @@ class RAGController:
         self._current_operation = None
         
         logger.info(f"RAG Controller initialized with data directory: {data_dir}")
+    
+    def _check_cancellation(self) -> None:
+        """Check if query has been cancelled and raise exception if so."""
+        if self.cancellation_checker and self.cancellation_checker():
+            from components.exceptions import QueryCancelledException
+            raise QueryCancelledException("Query was cancelled by user")
     
     def _emit_progress(self, progress_data: Dict[str, Any]) -> None:
         """Emit progress update to callback (for GUI)."""
@@ -139,6 +148,9 @@ class RAGController:
         if self._is_busy:
             raise RuntimeError(f"System is busy with operation: {self._current_operation}")
         
+        # Check cancellation before starting
+        self._check_cancellation()
+        
         self._is_busy = True
         self._current_operation = "query"
         
@@ -153,6 +165,13 @@ class RAGController:
                 "timestamp": timestamp,
                 "mode": request.mode or self._determine_mode_from_flags(request)
             })
+            
+            # Check cancellation after emit
+            self._check_cancellation()
+            
+            # Set cancellation checker on RAG system and LLM service
+            self.rag_system.cancellation_checker = self.cancellation_checker
+            self.llm_service.cancellation_checker = self.cancellation_checker
             
             logger.info(f"Query mode: {request.mode}, use_context: {request.use_context}, optimize: {request.optimize}")
             

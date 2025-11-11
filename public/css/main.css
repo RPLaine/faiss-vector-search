@@ -83,6 +83,11 @@
     box-sizing: border-box;
 }
 
+p {
+    margin: 0;
+    padding: 0;
+}
+
 body {
     font-family: var(--font-family-mono);
     background: var(--color-bg-primary);
@@ -493,27 +498,27 @@ body::-webkit-scrollbar-thumb:hover {
     background: transparent;
     border: none;
     color: var(--color-accent-red);
-    font-size: var(--font-size-2xl);
+    font-size: var(--font-size-lg);
     cursor: pointer;
-    padding: var(--space-xs) var(--space-sm);
+    padding: var(--space-xs);
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
     transition: all var(--transition-fast);
     line-height: 1;
-    width: 32px;
-    height: 32px;
+    width: 20px;
+    height: 20px;
     position: relative;
 }
 
 .stop-btn::before {
     content: '';
     position: absolute;
-    top: -4px;
-    left: -4px;
-    right: -4px;
-    bottom: -4px;
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
     border-radius: 50%;
     border: 2px solid transparent;
     border-top-color: var(--color-accent-red);
@@ -525,7 +530,6 @@ body::-webkit-scrollbar-thumb:hover {
 .stop-btn:hover {
     background: var(--color-bg-tertiary);
     color: var(--color-accent-red-light);
-    transform: scale(1.1);
 }
 
 .stop-btn:hover::before {

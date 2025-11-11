@@ -49,7 +49,6 @@ class WebSocketMessageHandler {
         // Reset UI state when query is cancelled
         appState.setState({ processing: false });
         uiManager.setLoading(false);
-        uiManager.appendOutput('\n⏹️ Query cancelled by user', 'info');
     });
     
         // Retrieval events

@@ -55,6 +55,11 @@ class FullMode(BaseMode):
         start_time = time.time()
         pipeline_metadata = {}
         
+        # Propagate cancellation checker to optimization and improvement components
+        if hasattr(self.rag_system, 'cancellation_checker') and self.rag_system.cancellation_checker:
+            self.optimizer.optimizer.cancellation_checker = self.rag_system.cancellation_checker
+            self.improver.cancellation_checker = self.rag_system.cancellation_checker
+        
         # Get UI callback if provided
         ui_callback = kwargs.get('ui_callback')
         json_callback = kwargs.get('json_callback')

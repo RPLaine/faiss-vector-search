@@ -85,7 +85,6 @@ class App {
             console.error('Failed to load initial status:', error);
             uiManager.updateStatus('Cannot connect to server', false);
             uiManager.appendOutput('Error: Cannot connect to RAG API server', 'error');
-            uiManager.appendOutput('Please ensure api_server.py is running on port 8000', 'info');
         }
     }
 
@@ -96,6 +95,24 @@ class App {
         // Update UI when processing state changes
         appState.subscribe('processing', (processing) => {
             uiManager.setLoading(processing);
+        });
+
+        // Update connection status UI when connected state changes
+        appState.subscribe('connected', (connected) => {
+            const statusElement = document.getElementById('connectionStatus');
+            const dotElement = document.getElementById('statusDot');
+            
+            if (statusElement && dotElement) {
+                if (connected) {
+                    statusElement.textContent = 'online';
+                    statusElement.className = 'connection-status online';
+                    dotElement.className = 'status-indicator';
+                } else {
+                    statusElement.textContent = 'offline';
+                    statusElement.className = 'connection-status offline';
+                    dotElement.className = 'status-indicator disconnected';
+                }
+            }
         });
     }
 

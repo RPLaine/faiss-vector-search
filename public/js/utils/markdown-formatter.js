@@ -15,11 +15,7 @@ export function formatMarkdown(text) {
     
     let html = text;
     
-    // Escape HTML special characters first (except for our markdown symbols)
-    // We'll handle this carefully to not break markdown parsing
-    
-    // Headers (h1-h6)
-    // Must be at start of line
+    // Headers (h1-h6) - must be at start of line
     html = html.replace(/^######\s+(.+)$/gm, '<h6 class="md-h6">$1</h6>');
     html = html.replace(/^#####\s+(.+)$/gm, '<h5 class="md-h5">$1</h5>');
     html = html.replace(/^####\s+(.+)$/gm, '<h4 class="md-h4">$1</h4>');
@@ -31,8 +27,7 @@ export function formatMarkdown(text) {
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong class="md-bold">$1</strong>');
     html = html.replace(/__(.+?)__/g, '<strong class="md-bold">$1</strong>');
     
-    // Italic (*text* or _text_)
-    // Must not be part of bold
+    // Italic (*text* or _text_) - must not be part of bold
     html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em class="md-italic">$1</em>');
     html = html.replace(/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g, '<em class="md-italic">$1</em>');
     
@@ -47,14 +42,12 @@ export function formatMarkdown(text) {
     
     // Unordered lists (* item or - item)
     html = html.replace(/^[\*\-]\s+(.+)$/gm, '<li class="md-list-item">$1</li>');
-    
-    // Wrap consecutive list items in ul
+    html = html.replace(/(<\/li>)\n+(<li class="md-list-item">)/g, '$1$2');
     html = html.replace(/(<li class="md-list-item">[\s\S]+?<\/li>)(?!\s*<li)/g, '<ul class="md-list">$1</ul>');
     
     // Ordered lists (1. item, 2. item, etc.)
     html = html.replace(/^\d+\.\s+(.+)$/gm, '<li class="md-list-item-ordered">$1</li>');
-    
-    // Wrap consecutive ordered list items in ol
+    html = html.replace(/(<\/li>)\n+(<li class="md-list-item-ordered">)/g, '$1$2');
     html = html.replace(/(<li class="md-list-item-ordered">[\s\S]+?<\/li>)(?!\s*<li)/g, '<ol class="md-list-ordered">$1</ol>');
     
     // Links ([text](url))
@@ -66,22 +59,40 @@ export function formatMarkdown(text) {
     // Horizontal rule (--- or ***)
     html = html.replace(/^(\-\-\-|\*\*\*)$/gm, '<hr class="md-hr">');
     
-    // Paragraphs - wrap text that's not already in tags
-    // Split by double newlines and wrap non-tagged content
-    html = html.split('\n\n').map(block => {
-        // Skip if already wrapped in HTML tag
-        if (block.trim().startsWith('<') && block.trim().endsWith('>')) {
-            return block;
-        }
-        // Skip empty blocks
-        if (!block.trim()) {
-            return '';
-        }
-        // Wrap in paragraph
-        return `<p class="md-paragraph">${block.trim()}</p>`;
-    }).join('\n');
+    // Remove newlines around block elements (headers, lists, blockquotes, hr, code blocks)
+    html = html.replace(/\n+(<(?:h[1-6]|ul|ol|blockquote|hr|pre))/g, '$1');
+    html = html.replace(/(<\/(?:h[1-6]|ul|ol|blockquote|hr|pre)>)\n+/g, '$1');
     
-    // Line breaks - convert single newlines to <br> within paragraphs
+    // Wrap any text not in block elements with md-paragraph
+    // Split by block elements and wrap loose text
+    const blockElementPattern = /<(?:h[1-6]|ul|ol|blockquote|hr|pre)[\s>].*?<\/(?:h[1-6]|ul|ol|blockquote|hr|pre)>|<hr[^>]*>/gs;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+    
+    // Create a regex that can be used with exec
+    const regex = new RegExp(blockElementPattern.source, blockElementPattern.flags);
+    
+    while ((match = regex.exec(html)) !== null) {
+        // Get text before this block element
+        const textBefore = html.substring(lastIndex, match.index).trim();
+        if (textBefore) {
+            parts.push(`<div class="md-paragraph">${textBefore}</div>`);
+        }
+        // Add the block element
+        parts.push(match[0]);
+        lastIndex = regex.lastIndex;
+    }
+    
+    // Get any remaining text after last block element
+    const textAfter = html.substring(lastIndex).trim();
+    if (textAfter) {
+        parts.push(`<div class="md-paragraph">${textAfter}</div>`);
+    }
+    
+    html = parts.join('');
+    
+    // Convert remaining single newlines to <br> (only within inline content)
     html = html.replace(/(?<!>)\n(?!<)/g, '<br>');
     
     return html;

@@ -5,7 +5,7 @@
     font-size: var(--font-size-2xl);
     font-weight: bold;
     color: var(--color-accent-teal);
-    margin: var(--space-md) 0 var(--space-xs) 0;
+    margin: 0 0 var(--space-md) 0;
     line-height: var(--line-height-tight);
     border-bottom: 2px solid var(--color-border);
     padding-bottom: var(--space-xs);
@@ -15,7 +15,7 @@
     font-size: var(--font-size-xl);
     font-weight: bold;
     color: var(--color-accent-cyan);
-    margin: var(--space-sm) 0 var(--space-xs) 0;
+    margin: 0 0 var(--space-sm) 0;
     line-height: var(--line-height-tight);
 }
 
@@ -23,7 +23,7 @@
     font-size: var(--font-size-lg);
     font-weight: bold;
     color: var(--color-accent-light-blue);
-    margin: var(--space-sm) 0 var(--space-xs) 0;
+    margin: 0 0 var(--space-sm) 0;
     line-height: var(--line-height-tight);
 }
 
@@ -31,7 +31,7 @@
     font-size: var(--font-size-base);
     font-weight: bold;
     color: var(--color-accent-blue);
-    margin: var(--space-xs) 0;
+    margin: 0 0 var(--space-xs) 0;
     line-height: var(--line-height-tight);
 }
 
@@ -40,7 +40,7 @@
     font-size: var(--font-size-sm);
     font-weight: bold;
     color: var(--color-text-primary);
-    margin: var(--space-xs) 0;
+    margin: 0 0 var(--space-xs) 0;
     line-height: var(--line-height-tight);
 }
 
@@ -76,7 +76,7 @@
     line-height: var(--line-height-tight);
     overflow-x: auto;
     border: var(--border-width) solid var(--color-border);
-    margin: var(--space-sm) 0;
+    margin: 0;
 }
 
 .md-code-block code {
@@ -89,9 +89,10 @@
 /* Lists */
 .md-list,
 .md-list-ordered {
-    margin: var(--space-sm) 0;
-    padding-left: var(--space-2xl);
-    line-height: var(--line-height-relaxed);
+    margin: 0;
+    padding: 0 0 0 var(--space-2xl);
+    line-height: var(--line-height-normal);
+    list-style-position: outside;
 }
 
 .md-list {
@@ -104,9 +105,11 @@
 
 .md-list-item,
 .md-list-item-ordered {
-    margin: 2px 0;
+    margin: 0 0 var(--space-xs) 0;
+    padding: 0 0 0 var(--space-xs);
     color: var(--color-text-primary);
-    padding-left: var(--space-sm);
+    line-height: var(--line-height-normal);
+    display: list-item;
 }
 
 .md-list-item::marker {
@@ -134,7 +137,7 @@
 .md-blockquote {
     border-left: 4px solid var(--color-accent-purple);
     padding-left: var(--space-lg);
-    margin: var(--space-sm) 0;
+    margin: 0;
     color: var(--color-text-muted);
     font-style: italic;
     background: var(--color-bg-secondary);
@@ -146,12 +149,12 @@
 .md-hr {
     border: none;
     border-top: 2px solid var(--color-border);
-    margin: var(--space-md) 0;
+    margin: 0;
 }
 
 /* Paragraphs */
 .md-paragraph {
-    margin: var(--space-xs) 0;
+    margin: 0 0 var(--space-sm) 0;
     line-height: var(--line-height-relaxed);
     color: var(--color-text-primary);
 }
@@ -173,7 +176,7 @@
 /* Nested lists */
 .md-list .md-list,
 .md-list-ordered .md-list-ordered {
-    margin: var(--space-xs) 0;
+    margin: 0;
 }
 
 .md-list .md-list {

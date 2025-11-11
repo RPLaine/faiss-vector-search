@@ -69,6 +69,9 @@ class RAGSystem:
         # Lazy-initialized query executor for mode-based architecture
         self._query_executor = None
         
+        # Cancellation checker (set by RAGController before each query)
+        self.cancellation_checker: Optional[Callable[[], bool]] = None
+        
         # Initialize core services
         self._init_services()
         
@@ -291,6 +294,14 @@ class RAGSystem:
             progress_callback=progress_callback,
             json_callback=json_callback
         )
+    
+    # ==================== Cancellation Check ====================
+    
+    def check_cancellation(self) -> None:
+        """Check if query has been cancelled and raise exception if so."""
+        if self.cancellation_checker and self.cancellation_checker():
+            from components.exceptions import QueryCancelledException
+            raise QueryCancelledException("Query was cancelled by user")
     
     # ==================== Query Execution ====================
     

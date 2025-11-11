@@ -60,6 +60,9 @@ class ImprovementCoordinator:
         self.target_score = improvement_config.get("target_score", 1.0)
         self.max_iterations = 50  # Safety limit to prevent infinite loops
         
+        # Cancellation checker (set externally)
+        self.cancellation_checker = None
+        
     def improve_iteratively(
         self,
         question: str,
@@ -161,6 +164,11 @@ class ImprovementCoordinator:
             )
             
             for iteration in range(1, self.max_iterations + 1):
+                # Check for cancellation before each iteration
+                if self.cancellation_checker and self.cancellation_checker():
+                    from components.exceptions import QueryCancelledException
+                    raise QueryCancelledException("Improvement cancelled by user")
+                
                 progress.update(task, description=f"Iteration {iteration} (Best: {best_score:.2f})")
                 
                 self.console.print(f"\n[bold cyan]🔄 Iteration {iteration}[/bold cyan]")

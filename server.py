@@ -73,7 +73,8 @@ async def lifespan(app: FastAPI):
         rag_controller = RAGController(
             config_path="config.json",
             data_dir="data",
-            progress_callback=progress_callback
+            progress_callback=progress_callback,
+            cancellation_checker=is_query_cancelled
         )
         logger.info("RAG system initialized successfully")
     except Exception as e:
@@ -232,11 +233,17 @@ async def execute_query(request_data: Dict[str, Any]):
     except asyncio.CancelledError:
         logger.info("Query was cancelled")
         raise HTTPException(status_code=499, detail="Query cancelled by user")
-    except RuntimeError as e:
-        raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
-        logger.error(f"Query execution failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
+        # Check if it's a QueryCancelledException
+        from components.exceptions import QueryCancelledException
+        if isinstance(e, QueryCancelledException):
+            logger.info("Query was cancelled by user")
+            raise HTTPException(status_code=499, detail="Query cancelled by user")
+        elif isinstance(e, RuntimeError):
+            raise HTTPException(status_code=409, detail=str(e))
+        else:
+            logger.error(f"Query execution failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
     finally:
         active_query_task = None
         query_cancelled = False

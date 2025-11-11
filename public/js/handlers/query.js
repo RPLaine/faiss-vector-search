@@ -30,11 +30,7 @@ class QueryHandler {
         // Handle mode selection commands
         const lowerQuery = query.toLowerCase();
         if (lowerQuery === 'full' || lowerQuery === 'faiss' || lowerQuery === 'none') {
-            if (uiManager.setMode(lowerQuery)) {
-                uiManager.appendOutput(`Mode set to: ${lowerQuery.toUpperCase()}`, 'success');
-            } else {
-                uiManager.appendOutput(`Failed to set mode: ${lowerQuery}`, 'error');
-            }
+            uiManager.setMode(lowerQuery);
             return;
         }
 
@@ -69,10 +65,6 @@ class QueryHandler {
                 console.log('Query cancelled, UI updated via WebSocket');
             } else {
                 uiManager.appendOutput(`\n❌ Error: ${error.message}`, 'error');
-                
-                if (error.message.includes('fetch') || error.message.includes('Failed')) {
-                    uiManager.appendOutput('Tip: Ensure api_server.py is running on port 8000', 'info');
-                }
             }
         } finally {
             appState.setState({ processing: false });

@@ -36,10 +36,11 @@ class UIManager {
      * Set up scroll event listener for smart autoscroll
      */
     setupScrollListener() {
-        if (!this.elements.contentArea) return;
-        
-        this.elements.contentArea.addEventListener('scroll', () => {
-            const { scrollTop, scrollHeight, clientHeight } = this.elements.contentArea;
+        // Monitor window/body scroll since that's where overflow occurs
+        window.addEventListener('scroll', () => {
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            const scrollHeight = document.documentElement.scrollHeight;
+            const clientHeight = window.innerHeight;
             const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
             
             // If user is within threshold pixels of bottom, enable autoscroll
@@ -156,7 +157,7 @@ class UIManager {
     scrollToBottom() {
         // Only autoscroll if enabled (user hasn't scrolled up)
         if (this.autoScrollEnabled) {
-            this.elements.contentArea.scrollTop = this.elements.contentArea.scrollHeight;
+            window.scrollTo(0, document.documentElement.scrollHeight);
         }
     }
     
@@ -165,7 +166,7 @@ class UIManager {
      * Used for explicit user actions like clearing terminal
      */
     forceScrollToBottom() {
-        this.elements.contentArea.scrollTop = this.elements.contentArea.scrollHeight;
+        window.scrollTo(0, document.documentElement.scrollHeight);
         this.autoScrollEnabled = true;
     }
 

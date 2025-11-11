@@ -23,6 +23,9 @@ let currentQueryMode = null;
 // Reference to current query card for status updates
 let currentQueryCard = null;
 
+// Track document count from retrieval for display in final response
+let retrievedDocumentCount = null;
+
 /**
  * Display threshold attempt event
  */
@@ -168,6 +171,9 @@ export function displayRetrievalStart(data) {
  * Display retrieval complete event
  */
 export function displayRetrievalComplete(data) {
+    // Store document count for final response display
+    retrievedDocumentCount = data.num_docs;
+    
     // Update existing card instead of creating new one
     if (currentRetrievalCard) {
         const { element, details } = currentRetrievalCard;
@@ -197,13 +203,16 @@ export function displayRetrievalComplete(data) {
             docsContainer.className = 'docs-container';
             
             data.documents.forEach((doc, idx) => {
-                const docContent = typeof doc === 'string' ? doc : (doc.content || JSON.stringify(doc));
+                // Get full content - prioritize 'text' field, then 'content', then stringify
+                const docContent = typeof doc === 'string' ? doc : (doc.text || doc.content || JSON.stringify(doc));
                 const docItem = document.createElement('div');
                 docItem.className = 'doc-item';
                 
                 const docHeader = document.createElement('div');
                 docHeader.className = 'doc-item-header';
-                docHeader.textContent = doc.filename ? `${idx + 1}. ${doc.filename}` : `Document ${idx + 1}`;
+                // Only show filename if it exists and is not "unknown"
+                const hasValidFilename = doc.filename && doc.filename.toLowerCase() !== 'unknown';
+                docHeader.textContent = hasValidFilename ? `${idx + 1}. ${doc.filename}` : `${idx + 1}.`;
                 
                 if (doc.score !== undefined) {
                     const scoreSpan = document.createElement('span');
@@ -248,13 +257,16 @@ export function displayRetrievalComplete(data) {
             docsContainer.className = 'docs-container';
             
             data.documents.forEach((doc, idx) => {
-                const docContent = typeof doc === 'string' ? doc : (doc.content || JSON.stringify(doc));
+                // Get full content - prioritize 'text' field, then 'content', then stringify
+                const docContent = typeof doc === 'string' ? doc : (doc.text || doc.content || JSON.stringify(doc));
                 const docItem = document.createElement('div');
                 docItem.className = 'doc-item';
                 
                 const docHeader = document.createElement('div');
                 docHeader.className = 'doc-item-header';
-                docHeader.textContent = doc.filename ? `${idx + 1}. ${doc.filename}` : `Document ${idx + 1}`;
+                // Only show filename if it exists and is not "unknown"
+                const hasValidFilename = doc.filename && doc.filename.toLowerCase() !== 'unknown';
+                docHeader.textContent = hasValidFilename ? `${idx + 1}. ${doc.filename}` : `${idx + 1}.`;
                 
                 if (doc.score !== undefined) {
                     const scoreSpan = document.createElement('span');
@@ -324,46 +336,9 @@ export function displayLLMRequest(data) {
  * Display LLM response event
  */
 export function displayLLMResponse(data) {
-    // Skip this card in 'none' and 'faiss' modes as it's redundant with final response
-    if (currentQueryMode === 'none' || currentQueryMode === 'faiss') {
-        return;
-    }
-    
-    const box = document.createElement('div');
-    box.className = data.success ? 'action-box llm-response-box' : 'action-box llm-error-box';
-    
-    if (data.success) {
-        box.innerHTML = `
-            <div class="action-header llm-collapsible">✅ LLM Response</div>
-            <div class="action-details llm-content collapsed">
-                <div class="detail-item"><span class="label">Generation Time:</span> ${data.generation_time.toFixed(2)}s</div>
-                <div class="detail-item"><span class="label">Response Length:</span> ${data.response_length} characters</div>
-            </div>
-        `;
-        
-        // Add click handler for main collapse/expand
-        const header = box.querySelector('.llm-collapsible');
-        const content = box.querySelector('.llm-content');
-        
-        header.onclick = () => {
-            content.classList.toggle('collapsed');
-        };
-        
-        // Add collapsible response section
-        const responseSection = createCollapsibleSection('💬 Full Response', 'response-section');
-        const responseContent = document.createElement('div');
-        responseContent.className = 'response-text-full';
-        responseContent.textContent = data.text;
-        responseSection.appendChild(responseContent);
-        content.appendChild(responseSection);
-    } else {
-        box.innerHTML = `
-            <div class="action-header">❌ LLM Error</div>
-            <div class="error-message">${escapeHtml(data.error)}</div>
-        `;
-    }
-    
-    uiManager.appendElement(box);
+    // Skip this card in all modes as it's redundant with final response
+    // Final response with markdown formatting is shown via displayFinalResponse()
+    return;
 }
 
 /**
@@ -424,26 +399,9 @@ export function displayTemperatureTest(data) {
  * Display temperature response event
  */
 export function displayTemperatureResponse(data) {
-    // Find the parent temperature test card
-    const testCard = temperatureTestCards.get(data.temperature);
-    if (!testCard || !testCard.details) {
-        console.warn(`Temperature test card not found for temperature ${data.temperature}`);
-        return;
-    }
-    
-    // Add generation time to parent card details
-    const timeInfo = document.createElement('div');
-    timeInfo.className = 'detail-item';
-    timeInfo.innerHTML = `<span class="label">Generation Time:</span> ${data.generation_time.toFixed(2)}s`;
-    testCard.details.appendChild(timeInfo);
-    
-    // Add collapsible response section to parent card
-    const responseSection = createCollapsibleSection('🤖 Response', 'response-section');
-    const responseContent = document.createElement('div');
-    responseContent.className = 'response-text-full';
-    responseContent.textContent = data.response;
-    responseSection.appendChild(responseContent);
-    testCard.details.appendChild(responseSection);
+    // Skip displaying temperature responses - only final response is shown
+    // This keeps the UI clean and consistent across all modes
+    return;
 }
 
 /**
@@ -533,26 +491,9 @@ export function displayImprovementIteration(data) {
  * Display improvement response event
  */
 export function displayImprovementResponse(data) {
-    // Find the parent improvement iteration card
-    const iterationCard = improvementIterationCards.get(data.iteration);
-    if (!iterationCard || !iterationCard.details) {
-        console.warn(`Improvement iteration card not found for iteration ${data.iteration}`);
-        return;
-    }
-    
-    // Add generation time to parent card details
-    const timeInfo = document.createElement('div');
-    timeInfo.className = 'detail-item';
-    timeInfo.innerHTML = `<span class="label">Generation Time:</span> ${data.generation_time.toFixed(2)}s`;
-    iterationCard.details.appendChild(timeInfo);
-    
-    // Add collapsible response section to parent card
-    const responseSection = createCollapsibleSection('🤖 Improved Response', 'response-section');
-    const responseContent = document.createElement('div');
-    responseContent.className = 'response-text-full';
-    responseContent.textContent = data.response;
-    responseSection.appendChild(responseContent);
-    iterationCard.details.appendChild(responseSection);
+    // Skip displaying improvement responses - only final response is shown
+    // This keeps the UI clean and consistent across all modes
+    return;
 }
 
 /**
@@ -663,6 +604,9 @@ export function displayQueryStart(data) {
     // Track the current query mode
     currentQueryMode = data.mode;
     
+    // Reset document count for new query
+    retrievedDocumentCount = null;
+    
     const box = document.createElement('div');
     box.className = 'action-box query-start-box';
     const queryText = escapeHtml(data.query || 'N/A');
@@ -760,8 +704,12 @@ export function displayFinalResponse(result) {
     }
     
     // Only show documents found if NOT in 'none' mode
-    if (currentQueryMode !== 'none' && result.num_docs_found !== undefined) {
-        metadataItems.push(`<div class="detail-item"><span class="label">📄 Documents Found:</span> ${result.num_docs_found}</div>`);
+    // Use retrievedDocumentCount from retrieval event if available, otherwise fall back to result.num_docs_found
+    if (currentQueryMode !== 'none') {
+        const docsFound = retrievedDocumentCount !== null ? retrievedDocumentCount : result.num_docs_found;
+        if (docsFound !== undefined) {
+            metadataItems.push(`<div class="detail-item"><span class="label">📄 Documents Found:</span> ${docsFound}</div>`);
+        }
     }
     
     if (result.response) {

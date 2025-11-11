@@ -145,8 +145,9 @@ class DynamicRetriever:
                     "documents": [{
                         "filename": doc.get('filename', 'Unknown'),
                         "score": doc.get('similarity', 0.0),
-                        "content": doc.get('text', '')[:200] + '...' if len(doc.get('text', '')) > 200 else doc.get('text', '')
-                    } for doc in filtered_docs[:5]]  # Only first 5 for UI
+                        "text": doc.get('text', ''),  # Full text without truncation
+                        "content": doc.get('text', '')  # Full content without truncation
+                    } for doc in filtered_docs]  # All documents, not just first 5
                 }
             })
         

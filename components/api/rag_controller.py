@@ -209,7 +209,7 @@ class RAGController:
                     "type": "documents_retrieved",
                     "message": f"📚 Retrieved {len(formatted_docs)} source documents",
                     "num_docs": len(formatted_docs),
-                    "documents": formatted_docs[:3] if len(formatted_docs) > 3 else formatted_docs
+                    "documents": formatted_docs  # Send all documents, not just first 3
                 })
             
             processing_time = time.time() - start_time

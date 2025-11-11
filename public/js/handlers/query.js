@@ -63,10 +63,16 @@ class QueryHandler {
             displayResponse(result);
 
         } catch (error) {
-            uiManager.appendOutput(`\n❌ Error: ${error.message}`, 'error');
-            
-            if (error.message.includes('fetch') || error.message.includes('Failed')) {
-                uiManager.appendOutput('Tip: Ensure api_server.py is running on port 8000', 'info');
+            // Check if query was cancelled
+            if (error.message.includes('cancel')) {
+                // Cancellation is handled by WebSocket event, no need to show error
+                console.log('Query cancelled, UI updated via WebSocket');
+            } else {
+                uiManager.appendOutput(`\n❌ Error: ${error.message}`, 'error');
+                
+                if (error.message.includes('fetch') || error.message.includes('Failed')) {
+                    uiManager.appendOutput('Tip: Ensure api_server.py is running on port 8000', 'info');
+                }
             }
         } finally {
             appState.setState({ processing: false });
@@ -81,6 +87,17 @@ class QueryHandler {
         const query = uiManager.getQueryInput();
         uiManager.clearQueryInput();
         await this.execute(query);
+    }
+
+    /**
+     * Stop current query processing
+     */
+    stop() {
+        const aborted = apiService.abort();
+        if (aborted) {
+            console.log('⏹️ Query cancellation requested');
+            // State reset and UI feedback will be handled by WebSocket 'query_cancelled' event
+        }
     }
 }
 

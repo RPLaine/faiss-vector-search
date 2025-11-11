@@ -139,6 +139,10 @@ class DOMBuilder {
         menuModal.className = 'menu-modal';
         menuModal.id = 'menuModal';
         menuModal.innerHTML = `
+            <button type="button" class="menu-item" id="vectorStoreBtn">
+                <span class="menu-icon">📦</span>
+                <span class="menu-label">Vector Store</span>
+            </button>
             <button type="button" class="menu-item" id="clearBtn">
                 <span class="menu-icon">🗑️</span>
                 <span class="menu-label">Clear</span>
@@ -171,6 +175,14 @@ class DOMBuilder {
         input.placeholder = 'Enter your query...';
         input.autocomplete = 'off';
         
+        // Stop button (hidden by default)
+        const stopBtn = document.createElement('button');
+        stopBtn.type = 'button';
+        stopBtn.className = 'stop-btn hidden';
+        stopBtn.id = 'stopBtn';
+        stopBtn.innerHTML = '⏹';
+        stopBtn.title = 'Stop processing';
+        
         // Send button inside input
         const sendBtn = document.createElement('button');
         sendBtn.type = 'button';
@@ -180,6 +192,7 @@ class DOMBuilder {
         sendBtn.title = 'Send query';
         
         inputWrapper.appendChild(input);
+        inputWrapper.appendChild(stopBtn);
         inputWrapper.appendChild(sendBtn);
         
         queryRow.appendChild(prefix);

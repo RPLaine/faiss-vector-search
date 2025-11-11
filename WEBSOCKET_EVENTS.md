@@ -34,6 +34,7 @@ All events follow this structure:
   "timestamp": "...",
   "data": {
     "processing_time": 5.23,
+    "num_docs_found": 3,
     "response": "Final answer text"
   }
 }

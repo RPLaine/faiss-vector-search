@@ -1,0 +1,185 @@
+/* Markdown Formatting Styles */
+
+/* Headings */
+.md-h1 {
+    font-size: var(--font-size-2xl);
+    font-weight: bold;
+    color: var(--color-accent-teal);
+    margin: var(--space-md) 0 var(--space-xs) 0;
+    line-height: var(--line-height-tight);
+    border-bottom: 2px solid var(--color-border);
+    padding-bottom: var(--space-xs);
+}
+
+.md-h2 {
+    font-size: var(--font-size-xl);
+    font-weight: bold;
+    color: var(--color-accent-cyan);
+    margin: var(--space-sm) 0 var(--space-xs) 0;
+    line-height: var(--line-height-tight);
+}
+
+.md-h3 {
+    font-size: var(--font-size-lg);
+    font-weight: bold;
+    color: var(--color-accent-light-blue);
+    margin: var(--space-sm) 0 var(--space-xs) 0;
+    line-height: var(--line-height-tight);
+}
+
+.md-h4 {
+    font-size: var(--font-size-base);
+    font-weight: bold;
+    color: var(--color-accent-blue);
+    margin: var(--space-xs) 0;
+    line-height: var(--line-height-tight);
+}
+
+.md-h5,
+.md-h6 {
+    font-size: var(--font-size-sm);
+    font-weight: bold;
+    color: var(--color-text-primary);
+    margin: var(--space-xs) 0;
+    line-height: var(--line-height-tight);
+}
+
+/* Text formatting */
+.md-bold {
+    font-weight: bold;
+    color: var(--color-accent-yellow);
+}
+
+.md-italic {
+    font-style: italic;
+    color: var(--color-text-primary);
+}
+
+/* Code */
+.md-code-inline {
+    background: var(--color-bg-tertiary);
+    color: var(--color-accent-orange);
+    padding: 2px 6px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-family-mono);
+    font-size: 0.9em;
+    border: var(--border-width) solid var(--color-border);
+}
+
+.md-code-block {
+    background: var(--color-bg-tertiary);
+    color: var(--color-accent-orange);
+    padding: var(--space-md);
+    border-radius: var(--border-radius-md);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-tight);
+    overflow-x: auto;
+    border: var(--border-width) solid var(--color-border);
+    margin: var(--space-sm) 0;
+}
+
+.md-code-block code {
+    background: none;
+    padding: 0;
+    border: none;
+    color: inherit;
+}
+
+/* Lists */
+.md-list,
+.md-list-ordered {
+    margin: var(--space-sm) 0;
+    padding-left: var(--space-2xl);
+    line-height: var(--line-height-relaxed);
+}
+
+.md-list {
+    list-style-type: disc;
+}
+
+.md-list-ordered {
+    list-style-type: decimal;
+}
+
+.md-list-item,
+.md-list-item-ordered {
+    margin: 2px 0;
+    color: var(--color-text-primary);
+    padding-left: var(--space-sm);
+}
+
+.md-list-item::marker {
+    color: var(--color-accent-teal);
+}
+
+.md-list-item-ordered::marker {
+    color: var(--color-accent-cyan);
+    font-weight: bold;
+}
+
+/* Links */
+.md-link {
+    color: var(--color-accent-blue);
+    text-decoration: underline;
+    transition: color 0.2s ease;
+}
+
+.md-link:hover {
+    color: var(--color-accent-light-blue);
+    text-decoration: none;
+}
+
+/* Blockquotes */
+.md-blockquote {
+    border-left: 4px solid var(--color-accent-purple);
+    padding-left: var(--space-lg);
+    margin: var(--space-sm) 0;
+    color: var(--color-text-muted);
+    font-style: italic;
+    background: var(--color-bg-secondary);
+    padding: var(--space-md) var(--space-lg);
+    border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0;
+}
+
+/* Horizontal rule */
+.md-hr {
+    border: none;
+    border-top: 2px solid var(--color-border);
+    margin: var(--space-md) 0;
+}
+
+/* Paragraphs */
+.md-paragraph {
+    margin: var(--space-xs) 0;
+    line-height: var(--line-height-relaxed);
+    color: var(--color-text-primary);
+}
+
+.md-paragraph:first-child {
+    margin-top: 0;
+}
+
+.md-paragraph:last-child {
+    margin-bottom: 0;
+}
+
+/* Container for markdown content */
+.markdown-content {
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-relaxed);
+}
+
+/* Nested lists */
+.md-list .md-list,
+.md-list-ordered .md-list-ordered {
+    margin: var(--space-xs) 0;
+}
+
+.md-list .md-list {
+    list-style-type: circle;
+}
+
+.md-list .md-list .md-list {
+    list-style-type: square;
+}

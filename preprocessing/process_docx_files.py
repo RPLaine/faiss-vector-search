@@ -1,7 +1,7 @@
 """
 DOCX File Processor with Markdown Conversion
 
-This script processes all DOCX files in the 'docx-files' directory,
+This script processes all DOCX files in the 'unprocessed' directory,
 extracts their content while preserving formatting, and converts
 it to Markdown format before saving as text files in the 'txt-files' directory.
 
@@ -9,7 +9,7 @@ Usage:
     python process_docx_files.py
 
 The script will:
-1. Scan the 'docx-files' directory for all .docx files
+1. Scan the 'unprocessed' directory for all .docx files
 2. Extract text content and formatting from each DOCX file
 3. Convert formatting to Markdown (headers, bold, italic, lists, etc.)
 4. Save as .txt files in the 'txt-files' directory with Markdown formatting
@@ -159,12 +159,12 @@ def convert_docx_to_markdown(docx_path):
 
 def process_docx_files():
     """
-    Process all DOCX files in the docx-files directory and save them as markdown text files
+    Process all DOCX files in the unprocessed directory and save them as markdown text files
     in the txt-files directory.
     """
     # Define directories relative to project root
     script_dir = Path(__file__).parent.parent  # Go up to project root
-    docx_dir = script_dir / "docx-files"
+    docx_dir = script_dir / "unprocessed"
     output_dir = script_dir / "txt-files"
     
     # Create output directory if it doesn't exist
@@ -173,7 +173,7 @@ def process_docx_files():
     # Clear existing files from output directory
     clear_directory(output_dir)
     
-    # Check if docx-files directory exists
+    # Check if unprocessed directory exists
     if not docx_dir.exists():
         print(f"Error: Directory '{docx_dir}' does not exist!")
         return

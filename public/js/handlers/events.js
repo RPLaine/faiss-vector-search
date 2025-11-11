@@ -5,6 +5,7 @@
 
 import { queryHandler } from './query.js';
 import { uiManager } from '../ui/manager.js';
+import { vectorStoreModal } from '../ui/vector-store-modal.js';
 
 class EventManager {
     /**
@@ -14,6 +15,7 @@ class EventManager {
         this.registerQueryInputEvents();
         this.registerButtonEvents();
         this.registerMenuEvents();
+        this.registerModeSelectionEvents();
         this.registerKeyboardShortcuts();
     }
 
@@ -35,15 +37,28 @@ class EventManager {
      */
     registerButtonEvents() {
         const executeBtn = document.getElementById('executeBtn');
+        const stopBtn = document.getElementById('stopBtn');
         const clearBtn = document.getElementById('clearBtn');
+        const vectorStoreBtn = document.getElementById('vectorStoreBtn');
         
         executeBtn.addEventListener('click', () => {
             queryHandler.executeFromInput();
         });
         
+        stopBtn.addEventListener('click', () => {
+            queryHandler.stop();
+        });
+        
         if (clearBtn) {
             clearBtn.addEventListener('click', () => {
                 uiManager.clearContent();
+                this.closeMenu();
+            });
+        }
+        
+        if (vectorStoreBtn) {
+            vectorStoreBtn.addEventListener('click', () => {
+                vectorStoreModal.show();
                 this.closeMenu();
             });
         }
@@ -80,6 +95,20 @@ class EventManager {
         if (menuModal) {
             menuModal.classList.remove('active');
         }
+    }
+
+    /**
+     * Register mode selection events
+     */
+    registerModeSelectionEvents() {
+        const modeRadios = document.querySelectorAll('input[name="queryMode"]');
+        
+        modeRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                // Return focus to query input when mode changes
+                uiManager.focusQueryInput();
+            });
+        });
     }
 
     /**

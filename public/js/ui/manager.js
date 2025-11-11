@@ -4,10 +4,13 @@
  */
 
 import config from '../config.js';
+import { escapeHtml } from '../utils/html-utils.js';
 
 class UIManager {
     constructor() {
         this.elements = {};
+        this.autoScrollEnabled = true;
+        this.scrollCheckThreshold = 100; // pixels from bottom to consider "at bottom"
     }
 
     /**
@@ -18,11 +21,31 @@ class UIManager {
             contentArea: document.getElementById('contentArea'),
             queryInput: document.getElementById('query-input'),
             executeBtn: document.getElementById('executeBtn'),
+            stopBtn: document.getElementById('stopBtn'),
             statusDot: document.getElementById('statusDot'),
             connectionStatus: document.getElementById('connectionStatus'),
             terminalInfo: document.getElementById('terminalInfo'),
             modeRadios: document.querySelectorAll('input[name="queryMode"]')
         };
+        
+        // Set up scroll listener for smart autoscroll
+        this.setupScrollListener();
+    }
+    
+    /**
+     * Set up scroll event listener for smart autoscroll
+     */
+    setupScrollListener() {
+        if (!this.elements.contentArea) return;
+        
+        this.elements.contentArea.addEventListener('scroll', () => {
+            const { scrollTop, scrollHeight, clientHeight } = this.elements.contentArea;
+            const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+            
+            // If user is within threshold pixels of bottom, enable autoscroll
+            // Otherwise, disable it (user has scrolled up to read)
+            this.autoScrollEnabled = distanceFromBottom <= this.scrollCheckThreshold;
+        });
     }
 
     /**
@@ -52,11 +75,15 @@ class UIManager {
         this.elements.queryInput.disabled = loading;
         
         if (loading) {
-            this.elements.executeBtn.classList.add('loading');
-            this.elements.executeBtn.innerHTML = '<span class="spinner">⟳</span>';
+            // Show stop button, hide send button
+            this.elements.stopBtn.classList.remove('hidden');
+            this.elements.executeBtn.classList.add('hidden');
         } else {
-            this.elements.executeBtn.classList.remove('loading');
-            this.elements.executeBtn.innerHTML = '➤';
+            // Hide stop button, show send button
+            this.elements.stopBtn.classList.add('hidden');
+            this.elements.executeBtn.classList.remove('hidden');
+            // Return focus to query input when re-enabled
+            this.focusQueryInput();
         }
     }
 
@@ -100,16 +127,7 @@ class UIManager {
      * Clear terminal content
      */
     clearContent() {
-        this.elements.contentArea.innerHTML = `
-            <div class="welcome-message">
-                <h3>RAG System Terminal</h3>
-                <ul>
-                    <li>Terminal cleared</li>
-                    <li>Ready for new queries</li>
-                    <li>Type 'help' for available commands</li>
-                </ul>
-            </div>
-        `;
+        this.elements.contentArea.innerHTML = '';
     }
 
     /**
@@ -136,7 +154,19 @@ class UIManager {
      * Scroll to bottom of content area
      */
     scrollToBottom() {
+        // Only autoscroll if enabled (user hasn't scrolled up)
+        if (this.autoScrollEnabled) {
+            this.elements.contentArea.scrollTop = this.elements.contentArea.scrollHeight;
+        }
+    }
+    
+    /**
+     * Force scroll to bottom (ignores autoscroll state)
+     * Used for explicit user actions like clearing terminal
+     */
+    forceScrollToBottom() {
         this.elements.contentArea.scrollTop = this.elements.contentArea.scrollHeight;
+        this.autoScrollEnabled = true;
     }
 
     /**
@@ -190,17 +220,9 @@ class UIManager {
     createSeparator(char = '═') {
         return char.repeat(config.ui.separatorLength);
     }
-
-    /**
-     * Escape HTML
-     */
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
 }
 
 // Export singleton instance
 export const uiManager = new UIManager();
+export { escapeHtml };
 export default uiManager;

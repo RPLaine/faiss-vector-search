@@ -3,12 +3,25 @@
  * Renders WebSocket real-time updates
  */
 
-import { uiManager } from './manager.js';
+import { uiManager, escapeHtml } from './manager.js';
 import { createAccumulatorTable } from './utils/table-builder.js';
 import { createCollapsibleCard } from './utils/card-builder.js';
+import { formatMarkdown } from '../utils/markdown-formatter.js';
 
 // Threshold attempts accumulator
 let thresholdTable = null;
+
+// Temperature test tracking - maps temperature value to card element
+const temperatureTestCards = new Map();
+
+// Improvement iteration tracking - maps iteration number to card element
+const improvementIterationCards = new Map();
+
+// Current query mode tracking
+let currentQueryMode = null;
+
+// Reference to current query card for status updates
+let currentQueryCard = null;
 
 /**
  * Display threshold attempt event
@@ -64,7 +77,7 @@ export function displayThresholdAttempt(data) {
  */
 export function displayRetrievalStart(data) {
     const content = `
-        <div class="detail-item"><span class="label">Query:</span> ${uiManager.escapeHtml(data.query)}</div>
+        <div class="detail-item"><span class="label">Query:</span> ${escapeHtml(data.query)}</div>
         <div class="detail-item"><span class="label">Top K:</span> ${data.top_k}</div>
         <div class="detail-item"><span class="label">Threshold:</span> ${data.threshold}</div>
     `;
@@ -136,50 +149,51 @@ export function displayRetrievalComplete(data) {
  * Display LLM request event
  */
 export function displayLLMRequest(data) {
-    const box = document.createElement('div');
-    box.className = 'action-box llm-request-box';
-    
-    box.innerHTML = `
-        <div class="action-header llm-collapsible">🚀 LLM Request</div>
-        <div class="action-details llm-content collapsed">
-            <div class="detail-item"><span class="label">Endpoint:</span> ${uiManager.escapeHtml(data.endpoint)}</div>
-            <div class="detail-item"><span class="label">Model:</span> ${data.model}</div>
-            <div class="detail-item"><span class="label">Temperature:</span> ${data.temperature}</div>
-            <div class="detail-item"><span class="label">Max Tokens:</span> ${data.max_tokens}</div>
-        </div>
-    `;
-    
-    // Add click handler for main collapse/expand
-    const header = box.querySelector('.llm-collapsible');
-    const content = box.querySelector('.llm-content');
-    
-    header.onclick = () => {
-        content.classList.toggle('collapsed');
-    };
-    
-    // Add collapsible prompt section
-    const promptSection = createCollapsibleSection('📝 Prompt', 'prompt-section');
-    const promptContent = document.createElement('pre');
-    promptContent.className = 'prompt-content';
-    promptContent.textContent = data.prompt;
-    promptSection.appendChild(promptContent);
-    content.appendChild(promptSection);
-    
-    // Add collapsible payload section (collapsed by default)
-    const payloadSection = createCollapsibleSection('🔧 Raw Payload', 'payload-section');
-    const payloadContent = document.createElement('pre');
-    payloadContent.className = 'payload-content';
-    payloadContent.textContent = JSON.stringify(data.payload, null, 2);
-    payloadSection.appendChild(payloadContent);
-    content.appendChild(payloadSection);
-    
-    uiManager.appendElement(box);
+    // Add LLM request details to the query card instead of creating a separate card
+    if (currentQueryCard) {
+        const queryContent = currentQueryCard.querySelector('.query-content');
+        if (queryContent) {
+            // Add request parameters section
+            const paramsSection = createCollapsibleSection('🚀 Request Parameters', 'params-section');
+            const paramsContent = document.createElement('div');
+            paramsContent.className = 'params-content';
+            paramsContent.innerHTML = `
+                <div class="detail-item"><span class="label">Endpoint:</span> ${escapeHtml(data.endpoint)}</div>
+                <div class="detail-item"><span class="label">Model:</span> ${data.model}</div>
+                <div class="detail-item"><span class="label">Temperature:</span> ${data.temperature}</div>
+                <div class="detail-item"><span class="label">Max Tokens:</span> ${data.max_tokens}</div>
+            `;
+            paramsSection.appendChild(paramsContent);
+            queryContent.appendChild(paramsSection);
+            
+            // Add prompt section
+            const promptSection = createCollapsibleSection('📝 Prompt', 'prompt-section');
+            const promptContent = document.createElement('pre');
+            promptContent.className = 'prompt-content';
+            promptContent.textContent = data.prompt;
+            promptSection.appendChild(promptContent);
+            queryContent.appendChild(promptSection);
+            
+            // Add payload section
+            const payloadSection = createCollapsibleSection('🔧 Raw Payload', 'payload-section');
+            const payloadContent = document.createElement('pre');
+            payloadContent.className = 'payload-content';
+            payloadContent.textContent = JSON.stringify(data.payload, null, 2);
+            payloadSection.appendChild(payloadContent);
+            queryContent.appendChild(payloadSection);
+        }
+    }
 }
 
 /**
  * Display LLM response event
  */
 export function displayLLMResponse(data) {
+    // Skip this card in 'none' mode as it's redundant with final response
+    if (currentQueryMode === 'none') {
+        return;
+    }
+    
     const box = document.createElement('div');
     box.className = data.success ? 'action-box llm-response-box' : 'action-box llm-error-box';
     
@@ -210,7 +224,7 @@ export function displayLLMResponse(data) {
     } else {
         box.innerHTML = `
             <div class="action-header">❌ LLM Error</div>
-            <div class="error-message">${uiManager.escapeHtml(data.error)}</div>
+            <div class="error-message">${escapeHtml(data.error)}</div>
         `;
     }
     
@@ -258,12 +272,15 @@ export function displayEvaluationComplete(data) {
 export function displayTemperatureTest(data) {
     const content = `<div class="detail-item"><span class="label">Test:</span> ${data.test_number} / ${data.total_tests}</div>`;
     
-    const { element } = createCollapsibleCard({
+    const { element, header, details } = createCollapsibleCard({
         title: `🌡️ Testing Temperature: ${data.temperature.toFixed(2)}`,
         className: 'temperature-test',
         content,
         collapsed: true
     });
+    
+    // Store reference to card for later updates (response and evaluation)
+    temperatureTestCards.set(data.temperature, { element, header, details });
     
     uiManager.appendElement(element);
 }
@@ -272,52 +289,71 @@ export function displayTemperatureTest(data) {
  * Display temperature response event
  */
 export function displayTemperatureResponse(data) {
-    let content = `<div class="detail-item"><span class="label">Generation Time:</span> ${data.generation_time.toFixed(2)}s</div>`;
+    // Find the parent temperature test card
+    const testCard = temperatureTestCards.get(data.temperature);
+    if (!testCard || !testCard.details) {
+        console.warn(`Temperature test card not found for temperature ${data.temperature}`);
+        return;
+    }
     
-    const { element, details } = createCollapsibleCard({
-        title: `🤖 Response (T=${data.temperature.toFixed(2)})`,
-        className: 'temperature-response',
-        content,
-        collapsed: true
-    });
+    // Add generation time to parent card details
+    const timeInfo = document.createElement('div');
+    timeInfo.className = 'detail-item';
+    timeInfo.innerHTML = `<span class="label">Generation Time:</span> ${data.generation_time.toFixed(2)}s`;
+    testCard.details.appendChild(timeInfo);
     
-    // Add collapsible response section
-    const responseSection = createCollapsibleSection('💬 Full Response', 'response-section');
+    // Add collapsible response section to parent card
+    const responseSection = createCollapsibleSection('🤖 Response', 'response-section');
     const responseContent = document.createElement('div');
     responseContent.className = 'response-text-full';
     responseContent.textContent = data.response;
     responseSection.appendChild(responseContent);
-    details.appendChild(responseSection);
-    
-    uiManager.appendElement(element);
+    testCard.details.appendChild(responseSection);
 }
 
 /**
  * Display temperature evaluation event
  */
 export function displayTemperatureEvaluation(data) {
-    let content = `
-        <div class="detail-item"><span class="label">Score:</span> ${data.score.toFixed(2)}</div>
-        <div class="detail-item"><span class="label">Evaluation Time:</span> ${data.evaluation_time.toFixed(2)}s</div>
-    `;
-    
-    const { element, details } = createCollapsibleCard({
-        title: `📊 Evaluation (T=${data.temperature.toFixed(2)})`,
-        className: 'temperature-evaluation',
-        content,
-        collapsed: true
-    });
-    
-    if (data.reasoning) {
-        const reasoningSection = createCollapsibleSection('💭 Reasoning', 'reasoning-section');
-        const reasoningContent = document.createElement('div');
-        reasoningContent.className = 'reasoning-text';
-        reasoningContent.textContent = data.reasoning;
-        reasoningSection.appendChild(reasoningContent);
-        details.appendChild(reasoningSection);
+    // Find the parent temperature test card
+    const testCard = temperatureTestCards.get(data.temperature);
+    if (!testCard) {
+        console.warn(`Temperature test card not found for temperature ${data.temperature}`);
+        return;
     }
     
-    uiManager.appendElement(element);
+    // Update the header with score
+    if (testCard.header) {
+        const headerElement = testCard.header.querySelector('.action-header') || testCard.header;
+        if (headerElement) {
+            headerElement.innerHTML = `🌡️ Temperature: ${data.temperature.toFixed(2)} | 📊 Score: ${data.score.toFixed(2)}`;
+            
+            // Add color coding based on score
+            const scoreClass = data.score >= 0.8 ? 'score-high' : data.score >= 0.6 ? 'score-medium' : 'score-low';
+            headerElement.classList.add(scoreClass);
+        }
+    }
+    
+    // Add evaluation details to parent card
+    if (testCard.details) {
+        const evalInfo = document.createElement('div');
+        evalInfo.className = 'detail-item';
+        evalInfo.innerHTML = `<span class="label">Evaluation Time:</span> ${data.evaluation_time.toFixed(2)}s`;
+        testCard.details.appendChild(evalInfo);
+        
+        // Add reasoning section if available
+        if (data.reasoning) {
+            const reasoningSection = createCollapsibleSection('� Evaluation Reasoning', 'reasoning-section');
+            const reasoningContent = document.createElement('div');
+            reasoningContent.className = 'reasoning-text';
+            reasoningContent.textContent = data.reasoning;
+            reasoningSection.appendChild(reasoningContent);
+            testCard.details.appendChild(reasoningSection);
+        }
+    }
+    
+    // Remove from tracking map
+    temperatureTestCards.delete(data.temperature);
 }
 
 /**
@@ -345,12 +381,15 @@ export function displayImprovementIteration(data) {
     const action = data.action === 'improving' ? '🔧 Improving' : '📊 Evaluating';
     const content = `<div class="detail-item"><span class="label">Action:</span> ${data.action}</div>`;
     
-    const { element } = createCollapsibleCard({
+    const { element, header, details } = createCollapsibleCard({
         title: `🔄 Iteration ${data.iteration} - ${action}`,
         className: 'improvement-iteration',
         content,
         collapsed: true
     });
+    
+    // Store reference to card for later updates (response and evaluation)
+    improvementIterationCards.set(data.iteration, { element, header, details });
     
     uiManager.appendElement(element);
 }
@@ -359,55 +398,84 @@ export function displayImprovementIteration(data) {
  * Display improvement response event
  */
 export function displayImprovementResponse(data) {
-    const content = `<div class="detail-item"><span class="label">Generation Time:</span> ${data.generation_time.toFixed(2)}s</div>`;
+    // Find the parent improvement iteration card
+    const iterationCard = improvementIterationCards.get(data.iteration);
+    if (!iterationCard || !iterationCard.details) {
+        console.warn(`Improvement iteration card not found for iteration ${data.iteration}`);
+        return;
+    }
     
-    const { element, details } = createCollapsibleCard({
-        title: `🤖 Improved Response (Iteration ${data.iteration})`,
-        className: 'improvement-response',
-        content,
-        collapsed: true
-    });
+    // Add generation time to parent card details
+    const timeInfo = document.createElement('div');
+    timeInfo.className = 'detail-item';
+    timeInfo.innerHTML = `<span class="label">Generation Time:</span> ${data.generation_time.toFixed(2)}s`;
+    iterationCard.details.appendChild(timeInfo);
     
-    // Add collapsible response section
-    const responseSection = createCollapsibleSection('💬 Full Response', 'response-section');
+    // Add collapsible response section to parent card
+    const responseSection = createCollapsibleSection('🤖 Improved Response', 'response-section');
     const responseContent = document.createElement('div');
     responseContent.className = 'response-text-full';
     responseContent.textContent = data.response;
     responseSection.appendChild(responseContent);
-    details.appendChild(responseSection);
-    
-    uiManager.appendElement(element);
+    iterationCard.details.appendChild(responseSection);
 }
 
 /**
  * Display improvement evaluation event
  */
 export function displayImprovementEvaluation(data) {
-    const changeIndicator = data.is_improvement ? '✅' : (data.score_change < 0 ? '⚠️' : '➖');
-    const changeClass = data.is_improvement ? 'positive' : (data.score_change < 0 ? 'negative' : 'neutral');
-    const content = `
-        <div class="detail-item"><span class="label">Score:</span> ${data.score.toFixed(2)}</div>
-        <div class="detail-item"><span class="label">Change:</span> <span class="${changeClass}">${data.score_change >= 0 ? '+' : ''}${data.score_change.toFixed(3)}</span></div>
-        <div class="detail-item"><span class="label">Status:</span> ${data.is_improvement ? 'Improved ✅' : 'No improvement'}</div>
-    `;
-    
-    const { element, details } = createCollapsibleCard({
-        title: `${changeIndicator} Evaluation (Iteration ${data.iteration})`,
-        className: 'improvement-evaluation',
-        content,
-        collapsed: true
-    });
-    
-    if (data.reasoning) {
-        const reasoningSection = createCollapsibleSection('💭 Reasoning', 'reasoning-section');
-        const reasoningContent = document.createElement('div');
-        reasoningContent.className = 'reasoning-text';
-        reasoningContent.textContent = data.reasoning;
-        reasoningSection.appendChild(reasoningContent);
-        details.appendChild(reasoningSection);
+    // Find the parent improvement iteration card
+    const iterationCard = improvementIterationCards.get(data.iteration);
+    if (!iterationCard) {
+        console.warn(`Improvement iteration card not found for iteration ${data.iteration}`);
+        return;
     }
     
-    uiManager.appendElement(element);
+    // Update the header with score
+    if (iterationCard.header) {
+        const headerElement = iterationCard.header.querySelector('.action-header') || iterationCard.header;
+        if (headerElement) {
+            const changeIndicator = data.is_improvement ? '✅' : (data.score_change < 0 ? '⚠️' : '➖');
+            const scoreChange = data.score_change >= 0 ? `+${data.score_change.toFixed(3)}` : data.score_change.toFixed(3);
+            headerElement.innerHTML = `🔄 Iteration ${data.iteration} | 📊 Score: ${data.score.toFixed(2)} (${scoreChange}) ${changeIndicator}`;
+            
+            // Add color coding based on improvement status
+            if (data.is_improvement) {
+                headerElement.classList.add('score-high');
+            } else if (data.score_change < 0) {
+                headerElement.classList.add('score-low');
+            } else {
+                headerElement.classList.add('score-medium');
+            }
+        }
+    }
+    
+    // Add evaluation details to parent card
+    if (iterationCard.details) {
+        const changeClass = data.is_improvement ? 'positive' : (data.score_change < 0 ? 'negative' : 'neutral');
+        const changeInfo = document.createElement('div');
+        changeInfo.className = 'detail-item';
+        changeInfo.innerHTML = `<span class="label">Score Change:</span> <span class="${changeClass}">${data.score_change >= 0 ? '+' : ''}${data.score_change.toFixed(3)}</span>`;
+        iterationCard.details.appendChild(changeInfo);
+        
+        const statusInfo = document.createElement('div');
+        statusInfo.className = 'detail-item';
+        statusInfo.innerHTML = `<span class="label">Status:</span> ${data.is_improvement ? 'Improved ✅' : 'No improvement'}`;
+        iterationCard.details.appendChild(statusInfo);
+        
+        // Add reasoning section if available
+        if (data.reasoning) {
+            const reasoningSection = createCollapsibleSection('� Evaluation Reasoning', 'reasoning-section');
+            const reasoningContent = document.createElement('div');
+            reasoningContent.className = 'reasoning-text';
+            reasoningContent.textContent = data.reasoning;
+            reasoningSection.appendChild(reasoningContent);
+            iterationCard.details.appendChild(reasoningSection);
+        }
+    }
+    
+    // Remove from tracking map
+    improvementIterationCards.delete(data.iteration);
 }
 
 /**
@@ -457,14 +525,17 @@ export function displayQueryStart(data) {
         welcomeMessage.remove();
     }
     
+    // Track the current query mode
+    currentQueryMode = data.mode;
+    
     const box = document.createElement('div');
     box.className = 'action-box query-start-box';
-    const queryText = uiManager.escapeHtml(data.query || 'N/A');
+    const queryText = escapeHtml(data.query || 'N/A');
     box.innerHTML = `
         <div class="action-header query-collapsible">❓ ${queryText}</div>
         <div class="action-details query-content collapsed">
             <div class="detail-item"><span class="label">Mode:</span> ${data.mode || 'N/A'}</div>
-            <div class="detail-item"><span class="label">Status:</span> Processing...</div>
+            <div class="detail-item query-status"><span class="label">Status:</span> Processing...</div>
         </div>
     `;
     
@@ -476,6 +547,9 @@ export function displayQueryStart(data) {
         content.classList.toggle('collapsed');
     };
     
+    // Store reference to query card for status updates
+    currentQueryCard = box;
+    
     uiManager.appendElement(box);
 }
 
@@ -483,9 +557,26 @@ export function displayQueryStart(data) {
  * Display query complete event
  */
 export function displayQueryComplete(data) {
+    // Update the query card status to "Completed"
+    if (currentQueryCard) {
+        const statusElement = currentQueryCard.querySelector('.query-status');
+        if (statusElement) {
+            const processingTime = data.processing_time?.toFixed(2) || 'N/A';
+            statusElement.innerHTML = `<span class="label">Status:</span> Completed (${processingTime}s)`;
+        }
+    }
+    
+    // Skip creating separate card in 'none' mode as it's redundant with final response
+    if (currentQueryMode === 'none') {
+        return;
+    }
+    
     const processingTime = data.processing_time?.toFixed(2) || 'N/A';
+    const numDocs = data.num_docs_found !== undefined ? data.num_docs_found : 'N/A';
+    
     const content = `
         <div class="detail-item"><span class="label">Processing Time:</span> ${processingTime}s</div>
+        <div class="detail-item"><span class="label">Documents Found:</span> ${numDocs}</div>
         <div class="detail-item"><span class="label">Status:</span> Success</div>
     `;
     
@@ -511,29 +602,46 @@ export function displayUserQuery(query) {
  * Display final response
  */
 export function displayFinalResponse(result) {
-    // Build metadata details
-    const metadata = [];
-    if (result.processing_time) {
-        metadata.push(`<div class="detail-item"><span class="label">⏱️ Processing Time:</span> ${result.processing_time.toFixed(2)}s</div>`);
-    }
-    if (result.num_docs_found !== undefined) {
-        metadata.push(`<div class="detail-item"><span class="label">📄 Documents Found:</span> ${result.num_docs_found}</div>`);
-    }
-    if (result.response) {
-        metadata.push(`<div class="detail-item"><span class="label">📝 Response Length:</span> ${result.response.length} characters</div>`);
-    }
+    // Format the response text with markdown
+    const formattedResponse = formatMarkdown(result.response);
     
+    // Create the main response content
     const content = `
-        <div class="detail-item response-text">${uiManager.escapeHtml(result.response)}</div>
-        ${metadata.length > 0 ? `<div class="metadata-section">${metadata.join('')}</div>` : ''}
+        <div class="detail-item response-text markdown-content">${formattedResponse}</div>
     `;
     
-    const { element } = createCollapsibleCard({
+    const { element, details } = createCollapsibleCard({
         title: '📊 Final Response',
         className: 'final-response',
         content,
         collapsed: false
     });
+    
+    // Add metadata section with query statistics
+    const metadataItems = [];
+    
+    if (result.processing_time) {
+        metadataItems.push(`<div class="detail-item"><span class="label">⏱️ Processing Time:</span> ${result.processing_time.toFixed(2)}s</div>`);
+    }
+    
+    // Only show documents found if NOT in 'none' mode
+    if (currentQueryMode !== 'none' && result.num_docs_found !== undefined) {
+        metadataItems.push(`<div class="detail-item"><span class="label">📄 Documents Found:</span> ${result.num_docs_found}</div>`);
+    }
+    
+    if (result.response) {
+        metadataItems.push(`<div class="detail-item"><span class="label">📝 Response Length:</span> ${result.response.length} characters</div>`);
+    }
+    
+    // Add metadata as a collapsible section if there are any items
+    if (metadataItems.length > 0) {
+        const metadataSection = createCollapsibleSection('📊 Statistics', 'metadata-section', true);
+        const metadataContent = document.createElement('div');
+        metadataContent.className = 'metadata-content';
+        metadataContent.innerHTML = metadataItems.join('');
+        metadataSection.appendChild(metadataContent);
+        details.appendChild(metadataSection);
+    }
     
     uiManager.appendElement(element);
 }

@@ -199,6 +199,8 @@ class RAGController:
             self._emit_progress({
                 "type": "query_complete",
                 "processing_time": processing_time,
+                "num_docs_found": result.get("num_docs_found", 0),
+                "response": result.get("response", ""),
                 "timestamp": datetime.now().isoformat()
             })
             
@@ -517,6 +519,131 @@ class RAGController:
         """
         results = self.rag_system.search_detailed(query, k=top_k)
         return self._format_documents(results.get("documents", []))
+    
+    def add_documents(self, documents: list) -> Dict[str, Any]:
+        """
+        Add documents to the vector store.
+        
+        Args:
+            documents: List of document content strings
+            
+        Returns:
+            Dictionary with result information
+        """
+        try:
+            # Progress tracking via callback
+            def progress_callback(current, total, message):
+                if self.progress_callback:
+                    self.progress_callback({
+                        "type": "document_add_progress",
+                        "current": current,
+                        "total": total,
+                        "message": message,
+                        "timestamp": datetime.now().isoformat()
+                    })
+            
+            # Add documents to RAG system
+            self.rag_system.add_documents(
+                documents=documents,
+                save=True,
+                progress_callback=progress_callback
+            )
+            
+            # Get updated stats
+            stats = self.rag_system.get_stats()
+            
+            return {
+                "success": True,
+                "documents_added": len(documents),
+                "total_documents": stats.get("total_documents", 0),
+                "timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to add documents: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    def regenerate_vector_store(self) -> Dict[str, Any]:
+        """
+        Regenerate the vector store from files directory.
+        
+        Returns:
+            Dictionary with result information
+        """
+        try:
+            logger.info("Starting vector store regeneration...")
+            
+            # Progress tracking via callback
+            def progress_callback(current, total, message):
+                if self.progress_callback:
+                    self.progress_callback({
+                        "type": "vector_store_regeneration",
+                        "current": current,
+                        "total": total,
+                        "message": message,
+                        "timestamp": datetime.now().isoformat()
+                    })
+            
+            # Clear existing index
+            logger.info("Clearing existing index...")
+            self.rag_system.clear_index()
+            
+            # Process documents from files directory
+            from pathlib import Path
+            files_dir = Path("files")
+            
+            if not files_dir.exists():
+                raise FileNotFoundError("Files directory 'files' not found")
+            
+            # Read all text files
+            text_extensions = ["*.txt", "*.md", "*.text"]
+            document_contents = []
+            
+            for pattern in text_extensions:
+                for file_path in files_dir.glob(pattern):
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            content = f.read().strip()
+                            if content:
+                                document_contents.append(content)
+                    except Exception as e:
+                        logger.warning(f"Failed to read {file_path}: {e}")
+            
+            if not document_contents:
+                raise ValueError("No readable text files found in 'files' directory")
+            
+            logger.info(f"Found {len(document_contents)} documents to process")
+            
+            # Add documents to new index
+            self.rag_system.add_documents(
+                documents=document_contents,
+                save=True,
+                progress_callback=progress_callback
+            )
+            
+            # Get updated stats
+            stats = self.rag_system.get_stats()
+            
+            logger.info(f"Vector store regeneration complete: {stats.get('total_documents', 0)} documents")
+            
+            return {
+                "success": True,
+                "documents_processed": len(document_contents),
+                "total_documents": stats.get("total_documents", 0),
+                "timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to regenerate vector store: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
     
     def get_document_count(self) -> int:
         """Get total document count."""

@@ -380,9 +380,10 @@ async def redo_phase(agent_id: str, request_data: Dict[str, Any]):
     # Get current phase to redo
     current_phase = agent.get("current_phase", 0)
     
-    # Reset continue flag and set status to running
-    agent["continue"] = True
+    # Set the phase to redo (workflow will check this and re-execute that phase)
     agent["redo_phase"] = current_phase
+    
+    # Update status to running
     agent_manager.update_agent_status(agent_id, "running")
     
     # Broadcast redo event
@@ -394,6 +395,9 @@ async def redo_phase(agent_id: str, request_data: Dict[str, Any]):
             "phase": current_phase
         }
     })
+    
+    # Restart the workflow to redo the phase
+    asyncio.create_task(run_agent(agent_id))
     
     return {"success": True, "agent_id": agent_id, "phase": current_phase}
 

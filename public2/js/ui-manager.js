@@ -92,8 +92,11 @@ export class UIManager {
         this.observeContentChanges(agent.id, node);
         
         // Apply status-specific UI changes (important for restored agents)
+        // Defer to avoid blocking the main thread during initial render
         if (agent.status && agent.status !== 'created') {
-            this.updateAgentStatus(agent.id, agent.status);
+            requestAnimationFrame(() => {
+                this.updateAgentStatus(agent.id, agent.status);
+            });
         }
     }
     
@@ -410,33 +413,33 @@ export class UIManager {
             }
         }
         
-        // Wait for CSS transition to complete, then recenter
-        setTimeout(() => {
-            this.canvasManager.recenterAgent(agentId);
-        }, 50);
-        
-        // Update frontend agent state
+        // Update frontend agent state immediately
         const agent = window.app.agentManager.getAgent(agentId);
         if (agent) {
             agent.expanded = enabled;
         }
         
-        // Update backend agent state (without broadcasting to avoid re-render)
-        try {
-            const response = await fetch(`/api/agents/${agentId}/expand`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ expanded: enabled })
-            });
-            
+        // Wait for CSS transition to complete, then recenter
+        // Use requestAnimationFrame to avoid blocking
+        requestAnimationFrame(() => {
+            setTimeout(() => {
+                this.canvasManager.recenterAgent(agentId);
+            }, 50);
+        });
+        
+        // Update backend agent state asynchronously (without blocking UI)
+        fetch(`/api/agents/${agentId}/expand`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ expanded: enabled })
+        }).then(response => {
             if (!response.ok) {
                 console.warn(`Failed to update expand state on server: ${response.status}`);
             }
-            
             console.log(`Agent ${agentId} expand:`, enabled);
-        } catch (error) {
+        }).catch(error => {
             console.error('Failed to update expand state:', error);
-        }
+        });
     }
     
     updateAgentStatus(agentId, status) {

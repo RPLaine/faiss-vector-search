@@ -107,6 +107,16 @@ class WorkflowExecutor:
         try:
             # Get the current phase (for resuming after halt)
             current_phase = agent.get("current_phase", -1)
+            
+            # Check if we're redoing a phase
+            redo_phase = agent.get("redo_phase")
+            if redo_phase is not None:
+                # Set current_phase to one less so we re-execute the redo phase
+                current_phase = redo_phase - 1
+                # Clear the redo flag
+                agent["redo_phase"] = None
+                logger.info(f"Agent {agent_id} redoing phase {redo_phase}, current_phase set to {current_phase}")
+            
             subject = agent.get("phase_0_response", "")
             
             # Phase 0: Invent Subject

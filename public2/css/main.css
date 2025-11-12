@@ -55,9 +55,10 @@ body {
 }
 
 .app-container {
-    min-height: 100vh;
+    height: 100vh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 /* Header */
@@ -192,312 +193,351 @@ body {
     background: var(--color-bg-hover);
 }
 
+.btn-danger {
+    background: var(--color-accent-danger);
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+}
+
 .btn-icon {
     font-size: 16px;
 }
 
 /* Agent Grid */
 .agents-grid {
+    flex: 1;
     max-width: 100%;
     margin: 0;
-    padding: var(--space-xl);
+    padding: 0;
     display: flex;
     flex-direction: column;
-    gap: var(--space-2xl);
     width: 100%;
+    overflow: hidden;
+    position: relative;
+    
+    /* Grid texture background */
+    background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 20px 20px;
+    background-position: 0 0;
 }
 
-/* Agent Card - Now a workflow container */
-.agent-card {
+#agentCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+#agentNodesContainer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* Canvas-based Agent Node */
+.agent-node {
+    position: absolute;
     background: var(--color-bg-secondary);
-    border: 1px solid var(--color-border);
+    border: 2px solid var(--color-border);
     border-radius: var(--border-radius-lg);
-    padding: var(--space-xl);
+    padding: var(--space-lg);
+    min-width: 320px;
+    max-width: 320px;
+    pointer-events: auto;
     transition: all var(--transition-normal);
-    display: flex;
-    flex-direction: column;
-    width: 100%;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-.agent-card.active {
+.agent-node.active {
     border-color: var(--color-accent-primary);
     box-shadow: 0 0 20px rgba(37, 99, 235, 0.3);
 }
 
-.agent-card.completed {
+.agent-node.halted {
+    border-color: var(--color-accent-success);
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+}
+
+.agent-node.completed {
     border-color: var(--color-accent-success);
 }
 
-.agent-card.failed {
+.agent-node.failed {
     border-color: var(--color-accent-danger);
 }
 
-.agent-header {
+.agent-node-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: var(--space-xl);
-    padding-bottom: var(--space-lg);
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-md);
     border-bottom: 1px solid var(--color-border);
 }
 
-.agent-info h3 {
-    font-size: 18px;
+.agent-node-info h3 {
+    font-size: 16px;
     font-weight: 700;
     color: var(--color-text-primary);
     margin-bottom: var(--space-xs);
 }
 
-.agent-topic {
-    font-size: 13px;
+.agent-node-context {
+    font-size: 12px;
     color: var(--color-text-muted);
     font-style: italic;
+    margin-bottom: var(--space-sm);
 }
 
-.agent-status {
-    padding: var(--space-xs) var(--space-md);
-    border-radius: 999px;
+.agent-node-meta {
+    display: flex;
+    gap: var(--space-md);
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-md);
+}
+
+.agent-node-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--space-sm);
+    align-items: center;
+    margin-bottom: var(--space-md);
+}
+
+.agent-node-controls .btn {
+    justify-content: center;
+    padding: var(--space-sm) var(--space-md);
     font-size: 12px;
+    white-space: nowrap;
+}
+
+.agent-node-controls .auto-control {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    padding: var(--space-sm);
+    cursor: pointer;
+    user-select: none;
+    background: var(--color-bg-primary);
+    border-radius: var(--border-radius);
+    transition: background var(--transition-fast);
+}
+
+.agent-node-controls .auto-control:hover {
+    background: var(--color-bg-tertiary);
+}
+
+.agent-node-controls input[type="checkbox"] {
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+}
+
+.agent-node-content {
+    padding: var(--space-md);
+    background: var(--color-bg-primary);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--color-border);
+    transition: all var(--transition-normal);
+}
+
+.agent-node-content .content-text {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--color-text-primary);
+    max-height: 80px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    transition: max-height var(--transition-normal);
+}
+
+.agent-node-content.expanded .content-text {
+    max-height: 400px;
+}
+
+.agent-node-content .content-text::-webkit-scrollbar {
+    width: 4px;
+}
+
+.agent-node-content .content-text::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.agent-node-content .content-text::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 2px;
+}
+
+/* Tasklist Styling */
+.tasklist {
+    padding: var(--space-sm);
+}
+
+.tasklist-goal {
+    margin-bottom: var(--space-md);
+    padding: var(--space-sm);
+    background: rgba(37, 99, 235, 0.1);
+    border-left: 3px solid var(--color-accent-primary);
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.tasklist-header {
     font-weight: 600;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-sm);
+    font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
-.agent-status.created {
+.tasklist-items {
+    list-style: none;
+    counter-reset: task-counter;
+}
+
+.task-item {
+    margin-bottom: var(--space-md);
+    padding: var(--space-sm);
+    background: var(--color-bg-tertiary);
+    border-radius: 4px;
+    counter-increment: task-counter;
+    position: relative;
+    padding-left: 32px;
+}
+
+.task-item::before {
+    content: counter(task-counter);
+    position: absolute;
+    left: var(--space-sm);
+    top: var(--space-sm);
+    width: 20px;
+    height: 20px;
+    background: var(--color-accent-primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.task-name {
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-xs);
+    font-size: 13px;
+}
+
+.task-description {
+    color: var(--color-text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+    margin-bottom: var(--space-xs);
+}
+
+.task-output {
+    color: var(--color-text-muted);
+    font-size: 11px;
+    font-style: italic;
+}
+
+.agent-node-status {
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: center;
+}
+
+.agent-node-status.created {
     background: var(--color-bg-tertiary);
     color: var(--color-text-muted);
 }
 
-.agent-status.running {
+.agent-node-status.running {
     background: rgba(37, 99, 235, 0.2);
     color: var(--color-accent-primary);
     animation: pulse 2s infinite;
 }
 
-.agent-status.completed {
+.agent-node-status.halted {
+    background: var(--color-accent-success);
+    color: white;
+}
+
+.agent-node-status.completed {
     background: rgba(16, 185, 129, 0.2);
     color: var(--color-accent-success);
 }
 
-.agent-status.failed {
+.agent-node-status.failed {
     background: rgba(239, 68, 68, 0.2);
     color: var(--color-accent-danger);
 }
 
-/* Workflow Track - Horizontal scrolling container */
-.workflow-track {
-    display: flex;
-    gap: var(--space-xl);
-    overflow-x: auto;
-    padding: var(--space-xl) 0;
-    margin: 0 calc(-1 * var(--space-xl));
-    padding-left: var(--space-xl);
-    padding-right: var(--space-xl);
-}
-
-.workflow-track::-webkit-scrollbar {
-    height: 8px;
-}
-
-.workflow-track::-webkit-scrollbar-track {
-    background: var(--color-bg-tertiary);
-    border-radius: 4px;
-}
-
-.workflow-track::-webkit-scrollbar-thumb {
-    background: var(--color-border);
-    border-radius: 4px;
-}
-
-.workflow-track::-webkit-scrollbar-thumb:hover {
-    background: var(--color-border-light);
-}
-
-/* Phase Node Card */
-.phase-node {
-    min-width: 320px;
-    max-width: 320px;
-    background: var(--color-bg-primary);
-    border: 2px solid var(--color-border);
-    border-radius: var(--border-radius-lg);
-    padding: var(--space-lg);
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    transition: all var(--transition-normal);
-}
-
-.phase-node.pending {
-    border-color: var(--color-border);
-    opacity: 0.6;
-}
-
-.phase-node.active {
-    border-color: var(--color-accent-primary);
-    box-shadow: 0 0 20px rgba(37, 99, 235, 0.3);
-    opacity: 1;
-}
-
-.phase-node.completed {
-    border-color: var(--color-accent-success);
-    opacity: 0.8;
-}
-
-/* Connection Arrow between nodes */
-.phase-node::after {
-    content: '→';
-    position: absolute;
-    right: -28px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 24px;
-    color: var(--color-border);
-    z-index: 1;
-}
-
-.phase-node:last-child::after {
-    display: none;
-}
-
-.phase-node.completed::after {
-    color: var(--color-accent-primary);
-}
-
-.phase-node-header {
-    display: flex;
-    align-items: center;
-    gap: var(--space-md);
-    margin-bottom: var(--space-md);
-    padding-bottom: var(--space-md);
-    border-bottom: 1px solid var(--color-border-light);
-}
-
-.phase-node-icon {
-    font-size: 28px;
-}
-
-.phase-node-info {
-    flex: 1;
-}
-
-.phase-node-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--color-text-primary);
-    margin-bottom: 2px;
-}
-
-.phase-node-subtitle {
-    font-size: 11px;
-    color: var(--color-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.phase-node-content {
-    flex: 1;
-    font-size: 13px;
-    line-height: 1.6;
-    color: var(--color-text-secondary);
-    min-height: 80px;
-    max-height: 200px;
-    overflow-y: auto;
-}
-
-.phase-node-content::-webkit-scrollbar {
-    width: 4px;
-}
-
-.phase-node-content::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.phase-node-content::-webkit-scrollbar-thumb {
-    background: var(--color-border);
-    border-radius: 2px;
-}
-
-.phase-node.active .phase-node-icon {
-    animation: pulse 2s infinite;
-}
-
-.phase-node.pending .phase-node-content {
-    color: var(--color-text-muted);
-    font-style: italic;
-}
-
-/* Agent meta at bottom */
-.agent-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: var(--space-lg);
-    margin-top: var(--space-lg);
-    border-top: 1px solid var(--color-border);
-}
-
-.agent-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: var(--space-lg);
-    margin-top: var(--space-lg);
-    border-top: 1px solid var(--color-border);
-}
-
-.agent-stats-meta {
-    display: flex;
-    gap: var(--space-lg);
-    font-size: 12px;
-    color: var(--color-text-muted);
-}
-
-.agent-actions {
-    display: flex;
+.agent-node-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: var(--space-sm);
-}
-
-.btn-small {
-    padding: var(--space-xs) var(--space-md);
-    font-size: 12px;
-}
-
-/* Empty State */
-.empty-state {
-    display: none;
-    flex: 1;
-    justify-content: center;
     align-items: center;
-    padding: var(--space-2xl);
-}
-
-.empty-state.visible {
-    display: flex;
-}
-
-.empty-state-content {
-    text-align: center;
-    max-width: 400px;
-}
-
-.empty-state-icon {
-    font-size: 64px;
-    margin-bottom: var(--space-lg);
-}
-
-.empty-state-title {
-    font-size: 24px;
-    font-weight: 700;
     margin-bottom: var(--space-md);
-    color: var(--color-text-primary);
 }
 
-.empty-state-text {
-    font-size: 14px;
-    color: var(--color-text-muted);
-    margin-bottom: var(--space-xl);
-    line-height: 1.6;
+.agent-node-controls .btn {
+    justify-content: center;
+    padding: var(--space-sm) var(--space-md);
+    font-size: 12px;
+    white-space: nowrap;
 }
+
+.agent-node-controls .auto-control {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    padding: var(--space-sm);
+    cursor: pointer;
+    user-select: none;
+    background: var(--color-bg-primary);
+    border-radius: var(--border-radius);
+    transition: background var(--transition-fast);
+}
+
+.agent-node-controls .auto-control:hover {
+    background: var(--color-bg-tertiary);
+}
+
+.agent-node-controls input[type="checkbox"] {
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+}
+
+/* Old agent card styles removed - using canvas-based nodes now */
+
+/* Removed empty state - grid always visible with texture */
 
 /* Modal */
 .modal {

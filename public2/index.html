@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Journalist Agents - Live Demo</title>
     <link rel="stylesheet" href="/css/main.css">
-    <script src="https://cdn.jsdelivr.net/npm/marked@11.0.0/marked.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -50,19 +49,9 @@
 
         <!-- Agent Grid -->
         <div class="agents-grid" id="agentsGrid">
-            <!-- Agent cards will be dynamically added here -->
-        </div>
-
-        <!-- Empty State -->
-        <div class="empty-state" id="emptyState">
-            <div class="empty-state-content">
-                <div class="empty-state-icon">📰</div>
-                <h2 class="empty-state-title">No Agents Yet</h2>
-                <p class="empty-state-text">Create your first AI journalist agent to start generating articles</p>
-                <button class="btn btn-primary" onclick="document.getElementById('addAgentBtn').click()">
-                    Create Agent
-                </button>
-            </div>
+            <canvas id="agentCanvas"></canvas>
+            <!-- Agent detail cards will overlay on canvas -->
+            <div id="agentNodesContainer"></div>
         </div>
     </div>
 
@@ -97,17 +86,6 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="agentStyle" class="form-label">Writing Style</label>
-                    <select id="agentStyle" class="form-select">
-                        <option value="professional journalism">Professional Journalism</option>
-                        <option value="investigative reporting">Investigative Reporting</option>
-                        <option value="opinion editorial">Opinion Editorial</option>
-                        <option value="feature writing">Feature Writing</option>
-                        <option value="technical writing">Technical Writing</option>
-                        <option value="creative storytelling">Creative Storytelling</option>
-                    </select>
-                </div>
-                <div class="form-group">
                     <label for="agentTemperature" class="form-label">
                         Creativity (Temperature: <span id="tempValue">0.3</span>)
                     </label>
@@ -128,7 +106,64 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeCreateAgentModal()">Cancel</button>
-                <button class="btn btn-primary" id="createAgentSubmit">Create & Start</button>
+                <button class="btn btn-primary" id="createAgentSubmit">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Agent Modal -->
+    <div class="modal" id="editAgentModal">
+        <div class="modal-overlay" onclick="closeEditAgentModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Edit AI Journalist Agent</h2>
+                <button class="modal-close" onclick="closeEditAgentModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editAgentId">
+                <div class="form-group">
+                    <label for="editAgentName" class="form-label">Agent Name</label>
+                    <input 
+                        type="text" 
+                        id="editAgentName" 
+                        class="form-input" 
+                        placeholder="e.g., Tech Reporter, Sports Columnist"
+                    >
+                </div>
+                <div class="form-group">
+                    <label for="editAgentContext" class="form-label">Additional Context (Optional)</label>
+                    <textarea 
+                        id="editAgentContext" 
+                        class="form-textarea" 
+                        rows="3" 
+                        placeholder="e.g., Focus on recent developments, Interview tech experts, Use data from Q4 2024"
+                    ></textarea>
+                    <div class="form-hint">
+                        Provide guidance or constraints for the journalist.
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="editAgentTemperature" class="form-label">
+                        Creativity (Temperature: <span id="editTempValue">0.3</span>)
+                    </label>
+                    <input 
+                        type="range" 
+                        id="editAgentTemperature" 
+                        class="form-range" 
+                        min="0" 
+                        max="1" 
+                        step="0.1" 
+                        value="0.3"
+                        oninput="document.getElementById('editTempValue').textContent = this.value"
+                    >
+                    <div class="form-hint">
+                        Lower values = more focused, Higher values = more creative
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeEditAgentModal()">Cancel</button>
+                <button class="btn btn-primary" id="editAgentSubmit">Save Changes</button>
             </div>
         </div>
     </div>

@@ -7,6 +7,8 @@ AI Journalist demo system.
 
 import logging
 import uuid
+import json
+from pathlib import Path
 from typing import Dict, Any, List, Optional, Callable
 from datetime import datetime
 import asyncio
@@ -20,16 +22,65 @@ class AgentManager:
     and lifecycle operations.
     """
     
-    def __init__(self):
+    def __init__(self, state_file: str = "agent_state.json"):
         """Initialize the agent manager."""
         self._agents: Dict[str, Dict[str, Any]] = {}
+        self.state_file = Path(state_file)
+        self._load_state()
+    
+    def _load_state(self):
+        """Load agent state from file."""
+        if self.state_file.exists():
+            try:
+                with open(self.state_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    self._agents = data.get("agents", {})
+                    
+                # Reset running agents to created status and restore id field
+                for agent_id, agent in self._agents.items():
+                    agent["id"] = agent_id  # Restore id from dict key
+                    if agent.get("status") == "running":
+                        agent["status"] = "created"
+                        agent.pop("task", None)  # Remove task reference
+                        agent.pop("continue", None)
+                        agent.pop("cancelled", None)
+                
+                logger.info(f"Loaded {len(self._agents)} agents from state file")
+            except Exception as e:
+                logger.error(f"Failed to load agent state: {e}")
+                self._agents = {}
+        else:
+            logger.info("No existing agent state file found")
+    
+    def _save_state(self):
+        """Save agent state to file."""
+        try:
+            # Create a serializable copy (remove non-serializable objects and redundant id)
+            serializable_agents = {}
+            for agent_id, agent in self._agents.items():
+                agent_copy = agent.copy()
+                agent_copy.pop("task", None)  # Remove asyncio task
+                agent_copy.pop("id", None)  # Remove redundant id (already in dict key)
+                serializable_agents[agent_id] = agent_copy
+            
+            data = {
+                "agents": serializable_agents,
+                "last_updated": datetime.now().isoformat()
+            }
+            
+            with open(self.state_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+                
+            logger.debug(f"Saved {len(self._agents)} agents to state file")
+        except Exception as e:
+            logger.error(f"Failed to save agent state: {e}")
     
     def create_agent(
         self,
         name: Optional[str] = None,
         context: str = "",
-        style: str = "professional journalism",
-        temperature: float = 0.7
+        temperature: float = 0.7,
+        auto: bool = False
     ) -> Dict[str, Any]:
         """
         Create a new AI journalist agent.
@@ -37,21 +88,21 @@ class AgentManager:
         Args:
             name: Agent name (auto-generated if not provided)
             context: Additional context/guidance for the agent
-            style: Writing style preference
             temperature: LLM temperature setting
+            auto: Whether to auto-restart after completion
             
         Returns:
             Agent record dictionary
         """
         agent_id = str(uuid.uuid4())
-        agent_name = name or f"Agent {len(self._agents) + 1}"
+        agent_name = name or "Journalist"
         
         agent = {
             "id": agent_id,
             "name": agent_name,
             "context": context,
-            "style": style,
             "temperature": temperature,
+            "auto": auto,
             "status": "created",
             "created_at": datetime.now().isoformat()
         }
@@ -59,6 +110,7 @@ class AgentManager:
         self._agents[agent_id] = agent
         logger.info(f"Created agent: {agent_name} (ID: {agent_id})")
         
+        self._save_state()
         return agent
     
     def get_agent(self, agent_id: str) -> Optional[Dict[str, Any]]:
@@ -117,6 +169,35 @@ class AgentManager:
             agent[key] = value
         
         logger.info(f"Updated agent {agent_id} status to: {status}")
+        self._save_state()
+        return agent
+    
+    def update_agent(
+        self,
+        agent_id: str,
+        **kwargs
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Update agent fields without changing status.
+        
+        Args:
+            agent_id: The agent ID
+            **kwargs: Fields to update
+            
+        Returns:
+            Updated agent record or None if not found
+        """
+        agent = self._agents.get(agent_id)
+        if not agent:
+            logger.warning(f"Agent not found: {agent_id}")
+            return None
+        
+        # Update fields
+        for key, value in kwargs.items():
+            agent[key] = value
+        
+        logger.info(f"Updated agent {agent_id} fields: {list(kwargs.keys())}")
+        self._save_state()
         return agent
     
     def set_agent_task(self, agent_id: str, task: asyncio.Task) -> bool:
@@ -159,6 +240,8 @@ class AgentManager:
         
         del self._agents[agent_id]
         logger.info(f"Deleted agent: {agent_id}")
+        
+        self._save_state()
         return True
     
     def clear_completed_agents(self) -> int:
@@ -178,6 +261,7 @@ class AgentManager:
         count = len(cleared)
         if count > 0:
             logger.info(f"Cleared {count} completed/failed agents")
+            self._save_state()
         
         return count
     

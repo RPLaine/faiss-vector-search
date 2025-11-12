@@ -275,6 +275,13 @@ class LLMService:
         
         # Iterate over response chunks as they arrive
         for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
+            # Check for cancellation
+            if self.cancellation_checker and self.cancellation_checker():
+                logger.info("LLM streaming cancelled by user")
+                response.close()  # Close the HTTP connection
+                from components.exceptions import QueryCancelledException
+                raise QueryCancelledException("LLM streaming was cancelled")
+            
             if chunk:
                 chunk_count += 1
                 # Add chunk to full text

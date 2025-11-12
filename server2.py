@@ -31,6 +31,15 @@ from components2 import AgentManager, WorkflowExecutor
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Suppress uvicorn access logs for specific endpoints
+class EndpointFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Suppress Chrome DevTools well-known endpoint
+        return "/.well-known/appspecific/com.chrome.devtools.json" not in record.getMessage()
+
+# Apply filter to uvicorn access logger
+logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
+
 # Thread pool for running LLM operations
 executor = ThreadPoolExecutor(max_workers=8)  # Support multiple concurrent agents
 
@@ -147,7 +156,6 @@ async def create_agent(agent_data: Dict[str, Any]):
         {
             "name": "Agent Name",
             "context": "Additional context/guidance (optional)",
-            "style": "writing style (optional)",
             "temperature": 0.7 (optional)
         }
     """
@@ -159,8 +167,8 @@ async def create_agent(agent_data: Dict[str, Any]):
         agent = agent_manager.create_agent(
             name=agent_data.get("name"),
             context=agent_data.get("context", ""),
-            style=agent_data.get("style", "professional journalism"),
-            temperature=agent_data.get("temperature", 0.7)
+            temperature=agent_data.get("temperature", 0.7),
+            auto=agent_data.get("auto", False)
         )
         
         # Broadcast agent creation
@@ -179,7 +187,7 @@ async def create_agent(agent_data: Dict[str, Any]):
 
 
 @app.post("/api/agents/{agent_id}/start")
-async def start_agent(agent_id: str):
+async def start_agent(agent_id: str, request_data: Optional[Dict[str, Any]] = None):
     """Start an agent's article writing process."""
     if not agent_manager:
         raise HTTPException(status_code=503, detail="Agent manager not initialized")
@@ -194,6 +202,12 @@ async def start_agent(agent_id: str):
     if agent.get("status") == "running":
         raise HTTPException(status_code=409, detail="Agent is already running")
     
+    # Get halt setting from request
+    request_data = request_data or {}
+    halt = request_data.get("halt", False)
+    agent["halt"] = halt
+    agent["current_phase"] = -1  # Not started yet
+    
     # Update status
     agent_manager.update_agent_status(agent_id, "running")
     
@@ -202,7 +216,8 @@ async def start_agent(agent_id: str):
         "type": "agent_started",
         "data": {
             "agent_id": agent_id,
-            "name": agent["name"]
+            "name": agent["name"],
+            "halt": halt
         }
     })
     
@@ -211,7 +226,175 @@ async def start_agent(agent_id: str):
     task = loop.create_task(run_agent(agent_id))
     agent_manager.set_agent_task(agent_id, task)
     
+    return {"success": True, "agent_id": agent_id, "halt": halt}
+
+
+@app.post("/api/agents/{agent_id}/continue")
+async def continue_agent(agent_id: str):
+    """Continue a halted agent to the next phase."""
+    if not agent_manager:
+        raise HTTPException(status_code=503, detail="Agent manager not initialized")
+    
+    agent = agent_manager.get_agent(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    if agent.get("status") != "halted":
+        raise HTTPException(status_code=409, detail="Agent is not halted")
+    
+    # Clear the halt flag to continue execution
+    agent["continue"] = True
+    
+    # Update status back to running
+    agent_manager.update_agent_status(agent_id, "running")
+    
+    # Broadcast continue event
+    await broadcast_event({
+        "type": "agent_continued",
+        "data": {
+            "agent_id": agent_id,
+            "name": agent["name"]
+        }
+    })
+    
     return {"success": True, "agent_id": agent_id}
+
+
+@app.post("/api/agents/{agent_id}/halt")
+async def update_halt_state(agent_id: str, request_data: Dict[str, Any]):
+    """Update the halt state of an agent (can be toggled during execution)."""
+    if not agent_manager:
+        raise HTTPException(status_code=503, detail="Agent manager not initialized")
+    
+    agent = agent_manager.get_agent(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    # Update halt state
+    halt = request_data.get("halt", False)
+    agent["halt"] = halt
+    
+    # Save to persistent store
+    agent_manager._save_state()
+    
+    logger.info(f"Agent {agent_id} halt state updated to: {halt}")
+    
+    return {"success": True, "agent_id": agent_id, "halt": halt}
+
+
+@app.post("/api/agents/{agent_id}/auto")
+async def update_auto_state(agent_id: str, request_data: Dict[str, Any]):
+    """Update the auto-restart state of an agent without broadcasting."""
+    if not agent_manager:
+        raise HTTPException(status_code=503, detail="Agent manager not initialized")
+    
+    agent = agent_manager.get_agent(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    # Update auto state
+    auto = request_data.get("auto", False)
+    agent["auto"] = auto
+    
+    # Save to persistent store
+    agent_manager._save_state()
+    
+    logger.info(f"Agent {agent_id} auto state updated to: {auto}")
+    
+    return {"success": True, "agent_id": agent_id, "auto": auto}
+
+
+@app.post("/api/agents/{agent_id}/expand")
+async def update_expand_state(agent_id: str, request_data: Dict[str, Any]):
+    """Update the expand state of an agent without broadcasting."""
+    if not agent_manager:
+        raise HTTPException(status_code=503, detail="Agent manager not initialized")
+    
+    agent = agent_manager.get_agent(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    # Update expand state
+    expanded = request_data.get("expanded", False)
+    agent["expanded"] = expanded
+    
+    # Save to persistent store
+    agent_manager._save_state()
+    
+    logger.info(f"Agent {agent_id} expand state updated to: {expanded}")
+    
+    return {"success": True, "agent_id": agent_id, "expanded": expanded}
+
+
+@app.post("/api/agents/{agent_id}/stop")
+async def stop_agent(agent_id: str):
+    """Stop a running agent."""
+    if not agent_manager:
+        raise HTTPException(status_code=503, detail="Agent manager not initialized")
+    
+    agent = agent_manager.get_agent(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    if agent.get("status") != "running":
+        raise HTTPException(status_code=409, detail="Agent is not running")
+    
+    # Set cancellation flag (checked by LLM service)
+    agent["cancelled"] = True
+    
+    # Cancel the task
+    task = agent.get("task")
+    if task and not task.done():
+        task.cancel()
+        logger.info(f"Cancelled task for agent {agent_id}")
+    
+    # Update status
+    agent_manager.update_agent_status(agent_id, "created")
+    
+    # Broadcast stop event
+    await broadcast_event({
+        "type": "agent_stopped",
+        "data": {
+            "agent_id": agent_id,
+            "name": agent["name"]
+        }
+    })
+    
+    return {"success": True, "agent_id": agent_id}
+
+
+@app.post("/api/agents/{agent_id}/redo")
+async def redo_phase(agent_id: str, request_data: Dict[str, Any]):
+    """Redo the current phase of a halted agent."""
+    if not agent_manager:
+        raise HTTPException(status_code=503, detail="Agent manager not initialized")
+    
+    agent = agent_manager.get_agent(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    if agent.get("status") != "halted":
+        raise HTTPException(status_code=409, detail="Agent is not halted")
+    
+    # Get current phase to redo
+    current_phase = agent.get("current_phase", 0)
+    
+    # Reset continue flag and set status to running
+    agent["continue"] = True
+    agent["redo_phase"] = current_phase
+    agent_manager.update_agent_status(agent_id, "running")
+    
+    # Broadcast redo event
+    await broadcast_event({
+        "type": "agent_redo",
+        "data": {
+            "agent_id": agent_id,
+            "name": agent["name"],
+            "phase": current_phase
+        }
+    })
+    
+    return {"success": True, "agent_id": agent_id, "phase": current_phase}
 
 
 async def run_agent(agent_id: str):
@@ -271,6 +454,20 @@ async def run_agent(agent_id: str):
             action_callback=action_callback
         )
         
+        # Check if halted
+        if result.get("halted"):
+            agent_manager.update_agent_status(agent_id, "halted")
+            
+            await broadcast_event({
+                "type": "agent_halted",
+                "data": {
+                    "agent_id": agent_id,
+                    "name": agent["name"],
+                    "phase": result.get("phase", -1)
+                }
+            })
+            return
+        
         # Update agent with results
         agent_manager.update_agent_status(
             agent_id,
@@ -293,18 +490,54 @@ async def run_agent(agent_id: str):
             }
         })
         
-    except Exception as e:
-        logger.error(f"Agent {agent_id} failed: {e}")
-        agent_manager.update_agent_status(agent_id, "failed", error=str(e))
+        # Check if auto-restart is enabled
+        if agent.get("auto", False):
+            # Small delay before restarting
+            await asyncio.sleep(2)
+            
+            # Reset agent state for restart
+            agent["halt"] = agent.get("halt", False)
+            agent["current_phase"] = -1
+            agent["continue"] = False
+            
+            # Update status to running
+            agent_manager.update_agent_status(agent_id, "running")
+            
+            # Broadcast auto-restart event
+            await broadcast_event({
+                "type": "agent_auto_restart",
+                "data": {
+                    "agent_id": agent_id,
+                    "name": agent["name"]
+                }
+            })
+            
+            # Restart the agent
+            await run_agent(agent_id)
         
-        await broadcast_event({
-            "type": "agent_failed",
-            "data": {
-                "agent_id": agent_id,
-                "name": agent["name"],
-                "error": str(e)
-            }
-        })
+    except asyncio.CancelledError:
+        logger.info(f"Agent {agent_id} was cancelled")
+        agent_manager.update_agent_status(agent_id, "created")
+        # Don't broadcast - already handled by stop endpoint
+        
+    except Exception as e:
+        # Check if it's a cancellation exception
+        if "cancelled" in str(e).lower() or agent.get("cancelled", False):
+            logger.info(f"Agent {agent_id} was cancelled during LLM call")
+            agent_manager.update_agent_status(agent_id, "created")
+            # Don't broadcast - already handled by stop endpoint
+        else:
+            logger.error(f"Agent {agent_id} failed: {e}")
+            agent_manager.update_agent_status(agent_id, "failed", error=str(e))
+            
+            await broadcast_event({
+                "type": "agent_failed",
+                "data": {
+                    "agent_id": agent_id,
+                    "name": agent["name"],
+                    "error": str(e)
+                }
+            })
 
 
 @app.get("/api/agents")
@@ -331,6 +564,56 @@ async def get_agent(agent_id: str):
         raise HTTPException(status_code=404, detail="Agent not found")
     
     return agent
+
+
+@app.put("/api/agents/{agent_id}")
+async def update_agent(agent_id: str, agent_data: Dict[str, Any]):
+    """
+    Update an agent's configuration.
+    
+    Request body:
+        {
+            "name": "Agent Name (optional)",
+            "context": "Additional context (optional)",
+            "temperature": 0.7 (optional)
+        }
+    """
+    if not agent_manager:
+        raise HTTPException(status_code=503, detail="Agent manager not initialized")
+    
+    agent = agent_manager.get_agent(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    # Don't allow editing running agents
+    if agent.get("status") == "running":
+        raise HTTPException(status_code=409, detail="Cannot edit running agent")
+    
+    try:
+        # Update agent fields
+        if "name" in agent_data:
+            agent["name"] = agent_data["name"] or "Journalist"
+        if "context" in agent_data:
+            agent["context"] = agent_data["context"]
+        if "temperature" in agent_data:
+            agent["temperature"] = agent_data["temperature"]
+        if "auto" in agent_data:
+            agent["auto"] = agent_data["auto"]
+        
+        # Save to persistent store
+        agent_manager._save_state()
+        
+        # Broadcast agent update
+        await broadcast_event({
+            "type": "agent_updated",
+            "data": agent
+        })
+        
+        return agent
+        
+    except Exception as e:
+        logger.error(f"Failed to update agent: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.delete("/api/agents/{agent_id}")

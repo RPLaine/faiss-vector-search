@@ -1,0 +1,37 @@
+You are creating a tasklist for an AI agent to accomplish its goal.
+
+Agent Name: {agent_name}
+Agent Context: {agent_context}
+Writing Style: {agent_style}
+
+Your task is to analyze the agent's name and context, then generate a comprehensive tasklist that breaks down the work into logical phases.
+
+IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text before or after the JSON object.
+
+Generate a JSON object with the following structure:
+{{
+  "goal": "A clear one-sentence description of what the agent will accomplish",
+  "tasks": [
+    {{
+      "id": 1,
+      "name": "Task Name",
+      "description": "Detailed description of what this task involves",
+      "expected_output": "What should be produced in this phase"
+    }}
+  ]
+}}
+
+Guidelines:
+- Create 3-7 tasks (phases) that logically flow from one to another
+- Each task should build upon the previous one
+- The final task should produce the ultimate deliverable
+- Be specific about what each task accomplishes
+- Consider the agent's specialty (indicated by name) and any constraints (in context)
+- Tasks should be actionable and have clear outputs
+
+Examples of good task sequences:
+- Research → Outline → Draft → Review → Finalize
+- Gather Data → Analyze → Generate Insights → Create Visualizations → Write Report
+- Identify Topic → Find Sources → Extract Information → Synthesize → Produce Content
+
+Return the JSON now:

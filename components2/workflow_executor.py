@@ -7,6 +7,8 @@ including subject generation, research phases, and article composition.
 
 import logging
 import asyncio
+import json
+from pathlib import Path
 from typing import Dict, Any, Optional, Callable
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
@@ -47,6 +49,24 @@ class WorkflowExecutor:
         self.llm_service = llm_service
         self.executor = executor
         self.event_loop = event_loop
+        
+        # Load prompts
+        self.prompts_dir = Path("prompts2")
+        self.hidden_context = self._load_prompt("hidden_context.txt")
+        self.phase_0_prompt = self._load_prompt("phase_0_planning.txt")
+    
+    def _load_prompt(self, filename: str) -> str:
+        """Load a prompt file from prompts2 directory."""
+        try:
+            prompt_path = self.prompts_dir / filename
+            if prompt_path.exists():
+                return prompt_path.read_text(encoding="utf-8")
+            else:
+                logger.warning(f"Prompt file not found: {filename}")
+                return ""
+        except Exception as e:
+            logger.error(f"Failed to load prompt {filename}: {e}")
+            return ""
     
     async def execute_workflow(
         self,
@@ -75,18 +95,57 @@ class WorkflowExecutor:
         """
         agent_id = agent["id"]
         
+        # Clear cancellation flag
+        agent["cancelled"] = False
+        
+        # Set up cancellation checker for LLM service
+        def check_cancelled():
+            return agent.get("cancelled", False)
+        
+        self.llm_service.cancellation_checker = check_cancelled
+        
         try:
             # Phase 0: Invent Subject
             subject = await self._phase_invent_subject(
                 agent, phase_callback, chunk_callback
             )
             
+            # Check halt dynamically before proceeding
+            if agent.get("halt", False):
+                agent["current_phase"] = 0
+                if not await self._wait_for_continue(agent):
+                    return {"halted": True, "phase": 0}
+            
             # Phase 1-5: Research phases (simulated)
             await self._phase_get_sources(agent_id, phase_callback)
+            if agent.get("halt", False):
+                agent["current_phase"] = 1
+                if not await self._wait_for_continue(agent):
+                    return {"halted": True, "phase": 1}
+            
             await self._phase_extract_data(agent_id, phase_callback)
+            if agent.get("halt", False):
+                agent["current_phase"] = 2
+                if not await self._wait_for_continue(agent):
+                    return {"halted": True, "phase": 2}
+            
             await self._phase_find_names(agent_id, phase_callback)
+            if agent.get("halt", False):
+                agent["current_phase"] = 3
+                if not await self._wait_for_continue(agent):
+                    return {"halted": True, "phase": 3}
+            
             await self._phase_send_contacts(agent_id, phase_callback)
+            if agent.get("halt", False):
+                agent["current_phase"] = 4
+                if not await self._wait_for_continue(agent):
+                    return {"halted": True, "phase": 4}
+            
             await self._phase_receive_info(agent_id, phase_callback)
+            if agent.get("halt", False):
+                agent["current_phase"] = 5
+                if not await self._wait_for_continue(agent):
+                    return {"halted": True, "phase": 5}
             
             # Phase 6: Write Article
             article = await self._phase_write_article(
@@ -109,32 +168,55 @@ class WorkflowExecutor:
             logger.error(f"Workflow failed for agent {agent_id}: {e}")
             raise
     
+    async def _wait_for_continue(self, agent: Dict[str, Any]) -> bool:
+        """
+        Wait for user to click continue button.
+        
+        Returns:
+            True if user clicked continue, False if cancelled/timeout
+        """
+        agent["continue"] = False
+        
+        # Wait up to 5 minutes for continue signal
+        for _ in range(300):  # 300 seconds = 5 minutes
+            if agent.get("continue"):
+                agent["continue"] = False
+                return True
+            await asyncio.sleep(1)
+        
+        # Timeout
+        logger.warning(f"Agent {agent['id']} halt timeout")
+        return False
+    
     async def _phase_invent_subject(
         self,
         agent: Dict[str, Any],
         phase_callback: Optional[Callable],
         chunk_callback: Optional[Callable]
     ) -> str:
-        """Execute Phase 0: Invent Subject."""
+        """Execute Phase 0: Generate Tasklist."""
         agent_id = agent["id"]
         
         if phase_callback:
             await phase_callback(
-                0, "active", "Thinking of a compelling article subject..."
+                0, "active", "Creating tasklist based on agent profile..."
             )
         
-        context_guidance = (
-            f"\n\nAdditional context: {agent['context']}"
-            if agent.get('context') else ""
+        # Build prompt from template
+        prompt = self.phase_0_prompt.format(
+            agent_name=agent["name"],
+            agent_context=agent.get("context", "No additional context provided"),
+            agent_style=agent.get("style", "professional")
         )
         
-        subject_prompt = f"""You are a {agent['style']} journalist. Invent a compelling article subject/topic.{context_guidance}
-
-Return ONLY the topic/headline, nothing else. Make it specific and newsworthy."""
+        # Add hidden context
+        full_prompt = f"{self.hidden_context}\n\n{prompt}"
         
-        # Callback for streaming
+        # Collect chunks and stream to UI
+        collected_chunks = []
         def stream_callback(chunk: str):
-            """Forward chunks to phase callback."""
+            """Collect chunks and stream to UI."""
+            collected_chunks.append(chunk)
             if chunk_callback:
                 chunk_callback(0, chunk)
         
@@ -143,20 +225,64 @@ Return ONLY the topic/headline, nothing else. Make it specific and newsworthy.""
         response = await loop.run_in_executor(
             self.executor,
             lambda: self.llm_service.call(
-                prompt=subject_prompt,
+                prompt=full_prompt,
                 temperature=agent["temperature"],
                 stream=True,
                 progress_callback=stream_callback
             )
         )
         
-        subject = response.text.strip()
+        tasklist_json = response.text.strip()
         
-        if phase_callback:
-            await phase_callback(0, "completed", f"Subject: {subject}")
-        
-        logger.info(f"Agent {agent_id} generated subject: {subject}")
-        return subject
+        # Parse JSON tasklist
+        try:
+            # Extract JSON - try multiple strategies
+            extracted_json = tasklist_json
+            
+            # Strategy 1: Remove markdown code blocks
+            if "```json" in extracted_json:
+                start = extracted_json.find("```json") + 7
+                end = extracted_json.find("```", start)
+                extracted_json = extracted_json[start:end].strip()
+            elif "```" in extracted_json:
+                start = extracted_json.find("```") + 3
+                end = extracted_json.find("```", start)
+                extracted_json = extracted_json[start:end].strip()
+            
+            # Strategy 2: Find JSON object boundaries
+            if not extracted_json.startswith("{"):
+                # Look for the first { and last }
+                start_idx = extracted_json.find("{")
+                end_idx = extracted_json.rfind("}")
+                if start_idx != -1 and end_idx != -1:
+                    extracted_json = extracted_json[start_idx:end_idx + 1]
+            
+            tasklist = json.loads(extracted_json)
+            
+            # Store tasklist in agent state
+            agent["tasklist"] = tasklist
+            agent["goal"] = tasklist.get("goal", "Complete assigned tasks")
+            
+            if phase_callback:
+                await phase_callback(
+                    0, "completed",
+                    f"Created tasklist with {len(tasklist.get('tasks', []))} tasks"
+                )
+            
+            logger.info(f"Agent {agent_id} generated tasklist: {tasklist.get('goal')}")
+            return tasklist.get("goal", "Task planning complete")
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse tasklist JSON for agent {agent_id}: {e}")
+            logger.error(f"Raw response: {tasklist_json[:500]}...")  # Log first 500 chars
+            
+            # Fallback: store raw text
+            agent["tasklist"] = {"goal": "Task planning", "tasks": [], "raw": tasklist_json}
+            
+            if phase_callback:
+                await phase_callback(0, "completed", "Tasklist created (parsing failed)")
+            
+            return "Task planning complete"
     
     async def _phase_get_sources(
         self,

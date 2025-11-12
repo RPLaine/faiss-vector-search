@@ -99,9 +99,13 @@ class App {
             // phase: 0-6 (index), status: 'active' or 'completed'
             this.uiManager.updateWorkflowPhase(agent_id, phase, status);
             
-            // Clear content and show initial message when phase becomes active (before streaming)
-            if (status === 'active' && content) {
+            // Clear content when phase becomes active (before streaming starts)
+            if (status === 'active') {
                 this.uiManager.clearAgentContent(agent_id);
+            }
+            
+            // Show final content when phase completes
+            if (status === 'completed' && content) {
                 this.uiManager.updatePhaseContent(agent_id, phase, content, false);
             }
         });
@@ -238,7 +242,6 @@ class App {
     async createAgent() {
         const name = document.getElementById('agentName').value.trim();
         const context = document.getElementById('agentContext').value.trim();
-        const style = document.getElementById('agentStyle').value;
         const temperature = parseFloat(document.getElementById('agentTemperature').value);
         
         // Name is optional - backend will default to "Journalist" if not provided
@@ -248,7 +251,7 @@ class App {
             const response = await fetch('/api/agents/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: name || null, context, style, temperature })
+                body: JSON.stringify({ name: name || null, context, temperature })
             });
             
             if (!response.ok) {

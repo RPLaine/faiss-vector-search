@@ -75,7 +75,7 @@ export class UIManager {
                 </label>
             </div>
             <div class="agent-node-content ${agent.expanded ? 'expanded' : ''}" id="content-container-${agent.id}">
-                <div class="content-text" id="content-${agent.id}">Creating tasklist based on agent profile...</div>
+                <div class="content-text" id="content-${agent.id}">${agent.phase_0_response ? this.escapeHtml(agent.phase_0_response) : 'Waiting to start...'}</div>
             </div>
         `;
         
@@ -87,6 +87,29 @@ export class UIManager {
         
         // Add event listeners
         this.attachNodeEventListeners(node, agent.id);
+        
+        // Observe content area size changes to recalculate position
+        this.observeContentChanges(agent.id, node);
+    }
+    
+    observeContentChanges(agentId, node) {
+        const contentContainer = node.querySelector(`#content-container-${agentId}`);
+        if (!contentContainer) return;
+        
+        // Create ResizeObserver to watch for size changes
+        const resizeObserver = new ResizeObserver(() => {
+            // Recenter the agent when content size changes
+            this.canvasManager.recenterAgent(agentId);
+        });
+        
+        // Start observing
+        resizeObserver.observe(contentContainer);
+        
+        // Store observer reference for cleanup
+        if (!node._observers) {
+            node._observers = [];
+        }
+        node._observers.push(resizeObserver);
     }
     
     attachNodeEventListeners(node, agentId) {
@@ -611,6 +634,11 @@ export class UIManager {
     removeAgent(agentId) {
         const node = this.agentNodes.get(agentId);
         if (node) {
+            // Disconnect observers before removing
+            if (node._observers) {
+                node._observers.forEach(observer => observer.disconnect());
+            }
+            
             node.style.opacity = '0';
             node.style.transform = 'scale(0.9)';
             setTimeout(() => {

@@ -419,6 +419,10 @@ async def run_agent(agent_id: str):
             event_data["data"]["content"] = content
         
         await broadcast_event(event_data)
+        
+        # Save to persistent store after phase completes
+        if status == "completed" and agent_manager:
+            agent_manager._save_state()
     
     def chunk_callback(phase: int, chunk: str):
         """Callback for streaming chunks."""

@@ -259,14 +259,15 @@ class WorkflowExecutor:
             
             tasklist = json.loads(extracted_json)
             
-            # Store tasklist in agent state
+            # Store raw response and parsed tasklist in agent state
+            agent["phase_0_response"] = tasklist_json
             agent["tasklist"] = tasklist
             agent["goal"] = tasklist.get("goal", "Complete assigned tasks")
             
             if phase_callback:
                 await phase_callback(
                     0, "completed",
-                    f"Created tasklist with {len(tasklist.get('tasks', []))} tasks"
+                    tasklist_json  # Send raw response as content
                 )
             
             logger.info(f"Agent {agent_id} generated tasklist: {tasklist.get('goal')}")
@@ -277,10 +278,11 @@ class WorkflowExecutor:
             logger.error(f"Raw response: {tasklist_json[:500]}...")  # Log first 500 chars
             
             # Fallback: store raw text
+            agent["phase_0_response"] = tasklist_json
             agent["tasklist"] = {"goal": "Task planning", "tasks": [], "raw": tasklist_json}
             
             if phase_callback:
-                await phase_callback(0, "completed", "Tasklist created (parsing failed)")
+                await phase_callback(0, "completed", tasklist_json)  # Send raw response
             
             return "Task planning complete"
     

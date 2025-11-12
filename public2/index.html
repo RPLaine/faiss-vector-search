@@ -22,11 +22,11 @@
         <!-- Control Panel -->
         <div class="control-panel">
             <div class="control-group">
-                <button id="addAgentBtn" class="btn btn-primary">
+                <button type="button" id="addAgentBtn" class="btn btn-primary">
                     <span class="btn-icon">+</span>
                     Create New Agent
                 </button>
-                <button id="clearCompletedBtn" class="btn btn-secondary">
+                <button type="button" id="clearCompletedBtn" class="btn btn-secondary">
                     <span class="btn-icon">🗑</span>
                     Clear Completed
                 </button>
@@ -61,7 +61,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 class="modal-title">Create AI Journalist Agent</h2>
-                <button class="modal-close" onclick="closeCreateAgentModal()">&times;</button>
+                <button type="button" class="modal-close" onclick="closeCreateAgentModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
@@ -105,8 +105,8 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeCreateAgentModal()">Cancel</button>
-                <button class="btn btn-primary" id="createAgentSubmit">Create</button>
+                <button type="button" class="btn btn-secondary" onclick="closeCreateAgentModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="createAgentSubmit">Create</button>
             </div>
         </div>
     </div>
@@ -117,7 +117,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 class="modal-title">Edit AI Journalist Agent</h2>
-                <button class="modal-close" onclick="closeEditAgentModal()">&times;</button>
+                <button type="button" class="modal-close" onclick="closeEditAgentModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="editAgentId">
@@ -162,8 +162,8 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeEditAgentModal()">Cancel</button>
-                <button class="btn btn-primary" id="editAgentSubmit">Save Changes</button>
+                <button type="button" class="btn btn-secondary" onclick="closeEditAgentModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="editAgentSubmit">Save Changes</button>
             </div>
         </div>
     </div>

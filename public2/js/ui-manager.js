@@ -45,19 +45,19 @@ export class UIManager {
                 <span>Temp: ${agent.temperature || 'N/A'}</span>
             </div>
             <div class="agent-node-controls">
-                <button class="btn btn-primary btn-action" data-agent-id="${agent.id}" data-action="start">
+                <button type="button" class="btn btn-primary btn-action" data-agent-id="${agent.id}" data-action="start">
                     <span class="btn-icon">▶️</span>
                     <span class="btn-text">Start</span>
                 </button>
-                <button class="btn btn-primary btn-continue" data-agent-id="${agent.id}" style="display: none;">
+                <button type="button" class="btn btn-primary btn-continue" data-agent-id="${agent.id}" style="display: none;">
                     <span class="btn-icon">⏩</span>
                     Continue
                 </button>
-                <button class="btn btn-secondary btn-edit" data-agent-id="${agent.id}">
+                <button type="button" class="btn btn-secondary btn-edit" data-agent-id="${agent.id}">
                     <span class="btn-icon">✏️</span>
                     Edit
                 </button>
-                <button class="btn btn-secondary btn-delete" data-agent-id="${agent.id}">
+                <button type="button" class="btn btn-secondary btn-delete" data-agent-id="${agent.id}">
                     <span class="btn-icon">🗑️</span>
                     Delete
                 </button>
@@ -351,53 +351,48 @@ export class UIManager {
     }
     
     async handleAutoToggle(agentId, enabled) {
-        // Update frontend agent state
+        // Update frontend agent state immediately
         const agent = window.app.agentManager.getAgent(agentId);
         if (agent) {
             agent.auto = enabled;
         }
         
-        // Update backend agent state (without broadcasting to avoid re-render)
-        try {
-            const response = await fetch(`/api/agents/${agentId}/auto`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ auto: enabled })
-            });
-            
+        // Update backend asynchronously (without blocking UI)
+        fetch(`/api/agents/${agentId}/auto`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify({ auto: enabled })
+        }).then(response => {
             if (!response.ok) {
                 console.warn(`Failed to update auto state on server: ${response.status}`);
             }
-            
             console.log(`Agent ${agentId} auto:`, enabled);
-        } catch (error) {
+        }).catch(error => {
             console.error('Failed to update auto state:', error);
-        }
+        });
     }
     
     async handleHaltToggle(agentId, enabled) {
-        // Update frontend agent state
+        // Update frontend agent state immediately
         const agent = window.app.agentManager.getAgent(agentId);
         if (agent) {
             agent.halt = enabled;
         }
         
-        // Update backend agent state (for running agents)
-        try {
-            const response = await fetch(`/api/agents/${agentId}/halt`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ halt: enabled })
-            });
-            
+        console.log(`Agent ${agentId} halt:`, enabled);
+        
+        // Update backend asynchronously (without blocking UI)
+        fetch(`/api/agents/${agentId}/halt`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify({ halt: enabled })
+        }).then(response => {
             if (!response.ok) {
                 console.warn(`Failed to update halt state on server: ${response.status}`);
             }
-            
-            console.log(`Agent ${agentId} halt:`, enabled);
-        } catch (error) {
+        }).catch(error => {
             console.error('Failed to update halt state:', error);
-        }
+        });
     }
     
     async handleExpandToggle(agentId, enabled) {
@@ -430,7 +425,7 @@ export class UIManager {
         // Update backend agent state asynchronously (without blocking UI)
         fetch(`/api/agents/${agentId}/expand`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
             body: JSON.stringify({ expanded: enabled })
         }).then(response => {
             if (!response.ok) {
@@ -459,8 +454,9 @@ export class UIManager {
         statusEl.className = `agent-node-status ${status}`;
         statusEl.textContent = displayStatus;
         
-        // Update node border color
-        node.className = `agent-node ${status}`;
+        // Update node border color (use 'active' class for 'running' status to trigger animation)
+        const nodeClass = status === 'running' ? 'active' : status;
+        node.className = `agent-node ${nodeClass}`;
         
         // Update action button, continue button, and halt checkbox visibility based on status
         const agent = window.app.agentManager.getAgent(agentId);

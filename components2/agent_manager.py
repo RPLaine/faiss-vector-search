@@ -125,14 +125,37 @@ class AgentManager:
         """
         return self._agents.get(agent_id)
     
+    def get_serializable_agent(self, agent_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a serializable copy of an agent (without task objects).
+        
+        Args:
+            agent_id: The agent ID
+            
+        Returns:
+            Serializable agent record or None if not found
+        """
+        agent = self._agents.get(agent_id)
+        if agent:
+            agent_copy = agent.copy()
+            agent_copy.pop("task", None)
+            return agent_copy
+        return None
+    
     def list_agents(self) -> List[Dict[str, Any]]:
         """
         List all agents.
         
         Returns:
-            List of agent records
+            List of agent records (with non-serializable fields removed)
         """
-        return list(self._agents.values())
+        # Return serializable copies without task objects
+        agents_list = []
+        for agent in self._agents.values():
+            agent_copy = agent.copy()
+            agent_copy.pop("task", None)  # Remove asyncio task
+            agents_list.append(agent_copy)
+        return agents_list
     
     def update_agent_status(
         self,

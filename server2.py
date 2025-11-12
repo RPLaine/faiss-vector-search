@@ -208,6 +208,11 @@ async def start_agent(agent_id: str, request_data: Optional[Dict[str, Any]] = No
     agent["halt"] = halt
     agent["current_phase"] = -1  # Not started yet
     
+    # Clear previous responses
+    agent.pop("phase_0_response", None)
+    agent.pop("tasklist", None)
+    agent.pop("goal", None)
+    
     # Update status
     agent_manager.update_agent_status(agent_id, "running")
     
@@ -379,6 +384,12 @@ async def redo_phase(agent_id: str, request_data: Dict[str, Any]):
     
     # Get current phase to redo
     current_phase = agent.get("current_phase", 0)
+    
+    # Clear the response for the phase being redone
+    if current_phase == 0:
+        agent.pop("phase_0_response", None)
+        agent.pop("tasklist", None)
+        agent.pop("goal", None)
     
     # Set the phase to redo (workflow will check this and re-execute that phase)
     agent["redo_phase"] = current_phase
@@ -617,10 +628,13 @@ async def update_agent(agent_id: str, agent_data: Dict[str, Any]):
         # Save to persistent store
         agent_manager._save_state()
         
+        # Get serializable copy for broadcasting
+        serializable_agent = agent_manager.get_serializable_agent(agent_id)
+        
         # Broadcast agent update
         await broadcast_event({
             "type": "agent_updated",
-            "data": agent
+            "data": serializable_agent
         })
         
         return agent

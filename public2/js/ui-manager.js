@@ -8,6 +8,7 @@ export class UIManager {
     constructor() {
         this.agentNodes = new Map();
         this.canvasManager = new CanvasManager('agentCanvas');
+        this.taskManager = null;  // Will be set by App
     }
     
     setConnected(connected) {
@@ -106,8 +107,13 @@ export class UIManager {
         
         // Create ResizeObserver to watch for size changes
         const resizeObserver = new ResizeObserver(() => {
-            // Recenter the agent when content size changes
+            // Recenter the agent node when content size changes
             this.canvasManager.recenterAgent(agentId);
+            
+            // Reposition tasks if task manager is available
+            if (this.taskManager) {
+                this.taskManager.repositionTasksForAgent(agentId);
+            }
         });
         
         // Start observing

@@ -14,6 +14,7 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 
 from components.services import LLMService
+from components2.task_executor import TaskExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,9 @@ class WorkflowExecutor:
         self.llm_service = llm_service
         self.executor = executor
         self.event_loop = event_loop
+        
+        # Initialize task executor
+        self.task_executor = TaskExecutor(llm_service, executor, event_loop)
         
         # Load prompts
         self.prompts_dir = Path("prompts2")
@@ -118,6 +122,7 @@ class WorkflowExecutor:
                 logger.info(f"Agent {agent_id} redoing phase {redo_phase}, current_phase set to {current_phase}")
             
             subject = agent.get("phase_0_response", "")
+            tasklist = agent.get("tasklist")  # Get tasklist at top level
             
             # Phase 0: Invent Subject
             if current_phase < 0:
@@ -139,57 +144,137 @@ class WorkflowExecutor:
                     logger.info(f"Agent {agent_id} halted at phase 0, returning halted status")
                     return {"halted": True, "phase": 0}
             
-            # Phase 1-5: Research phases (simulated)
-            if current_phase < 1:
-                await self._phase_get_sources(agent_id, phase_callback)
-                if agent.get("halt", False):
-                    agent["current_phase"] = 1
-                    return {"halted": True, "phase": 1}
+            # Execute tasks (either after phase 0 completes or when continuing from halt)
+            # Task execution is part of phase 0
+            if current_phase <= 0:
+                # After phase 0, get updated tasklist and execute tasks
+                tasklist = agent.get("tasklist")
+                if tasklist and tasklist.get("tasks"):
+                    logger.info(f"Agent {agent_id} executing {len(tasklist['tasks'])} tasks")
+                    
+                    # Execute tasks in order by ID
+                    sorted_tasks = sorted(tasklist["tasks"], key=lambda t: t["id"])
+                    
+                    # Create task callback wrapper
+                    async def task_callback(task_id: int, status: str, data: Optional[Dict] = None):
+                        if action_callback:
+                            event = {
+                                "type": f"task_{status}",
+                                "timestamp": datetime.now().isoformat(),
+                                "data": {
+                                    "agent_id": agent_id,
+                                    "task_id": task_id,
+                                    "status": status
+                                }
+                            }
+                            if data:
+                                event["data"].update(data)
+                            await action_callback(event)
+                    
+                    # Create task chunk callback wrapper
+                    def task_chunk_callback(task_id: int, chunk: str):
+                        if chunk_callback:
+                            # Reuse the existing chunk_callback but with task metadata
+                            chunk_callback(-1, chunk)  # -1 indicates task phase
+                        if action_callback:
+                            asyncio.create_task(action_callback({
+                                "type": "task_chunk",
+                                "data": {
+                                    "agent_id": agent_id,
+                                    "task_id": task_id,
+                                    "chunk": chunk
+                                }
+                            }))
+                    
+                    # Create validation callback wrapper
+                    async def validation_callback(task_id: int, is_valid: bool, reason: str):
+                        if action_callback:
+                            await action_callback({
+                                "type": "task_validation",
+                                "timestamp": datetime.now().isoformat(),
+                                "data": {
+                                    "agent_id": agent_id,
+                                    "task_id": task_id,
+                                    "is_valid": is_valid,
+                                    "reason": reason
+                                }
+                            })
+                    
+                    for task in sorted_tasks:
+                        # Check halt before each task
+                        if agent.get("halt", False):
+                            logger.info(f"Agent {agent_id} halted before task {task['id']}")
+                            agent["current_phase"] = 0  # Still in phase 0 (tasks)
+                            return {"halted": True, "phase": 0, "task_id": task["id"]}
+                        
+                        # Check cancellation
+                        if agent.get("cancelled", False):
+                            raise asyncio.CancelledError("Agent cancelled during task execution")
+                        
+                        try:
+                            # Execute task
+                            task_result = await self.task_executor.execute_task(
+                                agent=agent,
+                                task=task,
+                                task_callback=task_callback,
+                                chunk_callback=task_chunk_callback,
+                                validation_callback=validation_callback
+                            )
+                            
+                            # Store result back in the task object
+                            task["output"] = task_result.get("output", "")
+                            task["validation"] = task_result.get("validation", {})
+                            task["completed_at"] = task_result.get("completed_at", "")
+                            
+                            logger.info(f"Agent {agent_id} completed task {task['id']}: {task['name']}")
+                            
+                        except asyncio.CancelledError:
+                            logger.info(f"Agent {agent_id} - Task {task['id']} cancelled")
+                            raise
+                        except Exception as e:
+                            logger.error(f"Agent {agent_id} - Task {task['id']} failed: {e}")
+                            # Continue with next task even if one fails
+                            if action_callback:
+                                await action_callback({
+                                    "type": "task_failed",
+                                    "timestamp": datetime.now().isoformat(),
+                                    "data": {
+                                        "agent_id": agent_id,
+                                        "task_id": task["id"],
+                                        "error": str(e)
+                                    }
+                                })
+                    
+                    logger.info(f"Agent {agent_id} completed all tasks")
             
-            if current_phase < 2:
-                await self._phase_extract_data(agent_id, phase_callback)
-                if agent.get("halt", False):
-                    agent["current_phase"] = 2
-                    return {"halted": True, "phase": 2}
-            
-            if current_phase < 3:
-                await self._phase_find_names(agent_id, phase_callback)
-                if agent.get("halt", False):
-                    agent["current_phase"] = 3
-                    return {"halted": True, "phase": 3}
-            
-            if current_phase < 4:
-                await self._phase_send_contacts(agent_id, phase_callback)
-                if agent.get("halt", False):
-                    agent["current_phase"] = 4
-                    return {"halted": True, "phase": 4}
-            
-            if current_phase < 5:
-                await self._phase_receive_info(agent_id, phase_callback)
-                if agent.get("halt", False):
-                    agent["current_phase"] = 5
-                    return {"halted": True, "phase": 5}
-            
-            # Phase 6: Write Article
-            # Only proceed if subject is a string (not an error dict)
-            if isinstance(subject, str):
-                article = await self._phase_write_article(
-                    agent, subject, phase_callback, chunk_callback, action_callback
-                )
-            else:
-                # Should not reach here if error handling above works correctly
-                logger.error(f"Agent {agent_id} cannot proceed to article writing with invalid subject")
-                return {"halted": True, "phase": 0, "error": "Invalid subject/tasklist"}
+            # Workflow is now complete after tasks
+            # Phase 1-5: OLD RESEARCH PHASES - NOW REPLACED BY TASKS
+            # Phase 6: OLD ARTICLE WRITING - NOW REPLACED BY FINAL TASK OUTPUT
+            # The tasks themselves are the complete workflow
             
             # Clear current phase (workflow completed)
             agent["current_phase"] = -1
             
+            # Get the goal from tasklist as the "subject"
+            goal = agent.get("goal", subject if isinstance(subject, str) else "Task completion")
+            
+            # Collect task outputs as the final result
+            task_results = []
+            if tasklist and tasklist.get("tasks"):
+                for task in tasklist["tasks"]:
+                    task_results.append({
+                        "task_id": task["id"],
+                        "task_name": task["name"],
+                        "output": task.get("output", "")
+                    })
+            
             # Return results
             result = {
-                "subject": subject,
-                "article": article["text"],
-                "word_count": len(article["text"].split()),
-                "generation_time": article["generation_time"],
+                "subject": goal,
+                "article": f"Tasks completed for: {goal}",  # Placeholder
+                "task_results": task_results,
+                "word_count": sum(len(str(t.get("output", "")).split()) for t in task_results),
+                "generation_time": 0,
                 "success": True
             }
             

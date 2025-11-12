@@ -43,8 +43,9 @@ export class CanvasManager {
         // Clear canvas
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Draw connections between agents if needed in the future
-        // For now, just keep canvas as backdrop
+        // Draw connections between agents and tasks
+        // This will be called by TaskManager when needed
+        // Canvas is shared between CanvasManager and TaskManager
     }
     
     getCenterPosition() {

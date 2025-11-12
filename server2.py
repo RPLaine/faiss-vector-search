@@ -434,6 +434,10 @@ async def run_agent(agent_id: str):
         if content:
             event_data["data"]["content"] = content
         
+        # Include tasklist when phase 0 completes
+        if phase == 0 and status == "completed" and agent.get("tasklist"):
+            event_data["data"]["tasklist"] = agent["tasklist"]
+        
         await broadcast_event(event_data)
         
         # Save to persistent store after phase completes
@@ -457,9 +461,12 @@ async def run_agent(agent_id: str):
             )
     
     def action_callback(action_data: Dict[str, Any]):
-        """Callback for action events."""
+        """Callback for action events (including task events)."""
         if main_loop and active_connections:
-            action_data["agent_id"] = agent_id
+            # Ensure agent_id is in the event data
+            if "agent_id" not in action_data:
+                action_data["agent_id"] = agent_id
+            
             asyncio.run_coroutine_threadsafe(
                 broadcast_event(action_data),
                 main_loop

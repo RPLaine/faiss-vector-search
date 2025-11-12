@@ -5,12 +5,14 @@
 import { WebSocketService } from './websocket.js';
 import { AgentManager } from './agent-manager.js';
 import { UIManager } from './ui-manager.js';
+import { TaskManager } from './task-manager.js';
 
 class App {
     constructor() {
         this.wsService = new WebSocketService('ws://localhost:8001/ws');
         this.agentManager = new AgentManager();
         this.uiManager = new UIManager();
+        this.taskManager = null;  // Will be initialized when UIManager is ready
         
         this.init();
     }
@@ -20,6 +22,12 @@ class App {
         this.wsService.setConnectionStateCallback((connected) => {
             this.uiManager.setConnected(connected);
         });
+        
+        // Initialize task manager after UI manager
+        this.taskManager = new TaskManager(this.uiManager.canvasManager);
+        
+        // Link task manager to UI manager for repositioning
+        this.uiManager.taskManager = this.taskManager;
         
         // Initialize WebSocket handlers
         this.setupWebSocketHandlers();
@@ -41,6 +49,11 @@ class App {
                     if (!this.agentManager.getAgent(agent.id)) {
                         this.agentManager.addAgent(agent);
                         this.uiManager.renderAgent(agent);
+                        
+                        // If agent has a tasklist, create task nodes
+                        if (agent.tasklist && agent.tasklist.tasks) {
+                            this.taskManager.createTasksForAgent(agent.id, agent.tasklist);
+                        }
                     }
                 });
             }
@@ -96,13 +109,17 @@ class App {
             if (agent) {
                 agent.status = 'running';
                 this.uiManager.updateAgentStatus(data.data.agent_id, 'running');
+                
+                // Scroll to first task if tasks exist
+                this.scrollToFirstTask(data.data.agent_id);
+                
                 this.updateStats();
             }
         });
         
         // Workflow phase updates
         this.wsService.on('workflow_phase', (data) => {
-            const { agent_id, phase, status, content } = data.data;
+            const { agent_id, phase, status, content, tasklist } = data.data;
             // phase: 0-6 (index), status: 'active' or 'completed'
             this.uiManager.updateWorkflowPhase(agent_id, phase, status);
             
@@ -114,7 +131,65 @@ class App {
             // Show final content when phase completes
             if (status === 'completed' && content) {
                 this.uiManager.updatePhaseContent(agent_id, phase, content, false);
+                
+                // If phase 0 completed, create task nodes
+                if (phase === 0 && tasklist) {
+                    // Update agent with tasklist
+                    const agent = this.agentManager.getAgent(agent_id);
+                    if (agent) {
+                        agent.tasklist = tasklist;
+                    }
+                    
+                    // Create task nodes
+                    this.taskManager.createTasksForAgent(agent_id, tasklist);
+                }
             }
+        });
+        
+        // Task events
+        this.wsService.on('task_running', (data) => {
+            const { agent_id, task_id, status } = data.data;
+            this.taskManager.updateTaskStatus(agent_id, task_id, status);
+            this.taskManager.updateTaskContent(agent_id, task_id, '');
+        });
+        
+        this.wsService.on('task_completed', (data) => {
+            const { agent_id, task_id, status, output, validation } = data.data;
+            this.taskManager.updateTaskStatus(agent_id, task_id, status);
+            if (output) {
+                this.taskManager.updateTaskContent(agent_id, task_id, output, false);
+            }
+            if (validation) {
+                this.taskManager.showValidation(
+                    agent_id, 
+                    task_id, 
+                    validation.is_valid, 
+                    validation.reason, 
+                    validation.score
+                );
+            }
+        });
+        
+        this.wsService.on('task_failed', (data) => {
+            const { agent_id, task_id, error } = data.data;
+            this.taskManager.updateTaskStatus(agent_id, task_id, 'failed');
+            this.taskManager.updateTaskContent(agent_id, task_id, `Error: ${error}`, false);
+        });
+        
+        this.wsService.on('task_cancelled', (data) => {
+            const { agent_id, task_id } = data.data;
+            this.taskManager.updateTaskStatus(agent_id, task_id, 'cancelled');
+        });
+        
+        this.wsService.on('task_chunk', (data) => {
+            const { agent_id, task_id, chunk } = data.data;
+            this.taskManager.updateTaskContent(agent_id, task_id, chunk, true);
+        });
+        
+        this.wsService.on('task_validation', (data) => {
+            const { agent_id, task_id, is_valid, reason } = data.data;
+            // Validation result will be shown when task completes
+            console.log(`Task ${task_id} validation: ${is_valid} - ${reason}`);
         });
         
         // Phase streaming chunks (for phase 0-5)
@@ -207,6 +282,7 @@ class App {
         this.wsService.on('agent_deleted', (data) => {
             this.agentManager.removeAgent(data.data.agent_id);
             this.uiManager.removeAgent(data.data.agent_id);
+            this.taskManager.removeTasksForAgent(data.data.agent_id);
             this.updateStats();
         });
         
@@ -218,6 +294,7 @@ class App {
                 if (agent.status === 'completed' || agent.status === 'failed') {
                     this.agentManager.removeAgent(agent.id);
                     this.uiManager.removeAgent(agent.id);
+                    this.taskManager.removeTasksForAgent(agent.id);
                 }
             });
             this.updateStats();
@@ -337,6 +414,47 @@ class App {
         document.getElementById('activeCount').textContent = active;
         document.getElementById('completedCount').textContent = completed;
         document.getElementById('totalCount').textContent = total;
+    }
+    
+    scrollToFirstTask(agentId) {
+        // Get the first task node for this agent
+        const taskKeys = this.taskManager.agentTasks.get(agentId);
+        if (!taskKeys || taskKeys.size === 0) {
+            console.log(`No tasks found for agent ${agentId}`);
+            return;
+        }
+        
+        // Find the task with the smallest ID
+        let firstTaskKey = null;
+        let minTaskId = Infinity;
+        
+        for (const taskKey of taskKeys) {
+            const taskData = this.taskManager.taskNodes.get(taskKey);
+            if (taskData && taskData.taskId < minTaskId) {
+                minTaskId = taskData.taskId;
+                firstTaskKey = taskKey;
+            }
+        }
+        
+        if (firstTaskKey) {
+            const taskData = this.taskManager.taskNodes.get(firstTaskKey);
+            if (taskData && taskData.element) {
+                // Scroll the element into view with smooth behavior
+                taskData.element.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                    inline: 'center'
+                });
+                
+                // Optional: Add a highlight effect
+                taskData.element.style.boxShadow = '0 0 20px rgba(37, 99, 235, 0.6)';
+                setTimeout(() => {
+                    taskData.element.style.boxShadow = '';
+                }, 2000);
+                
+                console.log(`Scrolled to first task (ID: ${minTaskId}) for agent ${agentId}`);
+            }
+        }
     }
 }
 

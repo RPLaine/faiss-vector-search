@@ -556,6 +556,179 @@ body {
 
 /* Old agent card styles removed - using canvas-based nodes now */
 
+/* Task Nodes */
+.task-node {
+    position: absolute;
+    width: 280px;
+    background: var(--color-bg-secondary);
+    border: 2px solid var(--color-border);
+    border-radius: var(--border-radius);
+    padding: var(--space-md);
+    transition: all var(--transition-normal);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.task-node.running {
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.task-node.completed {
+    border-color: var(--color-accent-success);
+}
+
+.task-node.failed {
+    border-color: var(--color-accent-danger);
+}
+
+.task-node-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--space-md);
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-md);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.task-node-info h4 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0 0 var(--space-xs) 0;
+}
+
+.task-node-order {
+    font-size: 11px;
+    color: var(--color-text-muted);
+}
+
+.task-node-status {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.task-node-status.created {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-muted);
+}
+
+.task-node-status.running {
+    background: rgba(37, 99, 235, 0.2);
+    color: var(--color-accent-primary);
+    animation: pulse 2s infinite;
+}
+
+.task-node-status.completed {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--color-accent-success);
+}
+
+.task-node-status.failed {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--color-accent-danger);
+}
+
+.task-node-status.cancelled {
+    background: rgba(248, 113, 113, 0.2);
+    color: #f87171;
+}
+
+.task-node-description {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-md);
+    line-height: 1.5;
+}
+
+.task-node-expected {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-md);
+    padding: var(--space-sm);
+    background: var(--color-bg-tertiary);
+    border-radius: 4px;
+}
+
+.task-node-expected strong {
+    color: var(--color-text-secondary);
+}
+
+.task-node-content {
+    max-height: 200px;
+    overflow-y: auto;
+    margin-bottom: var(--space-md);
+}
+
+.task-node-content .content-text {
+    font-size: 13px;
+    color: var(--color-text-primary);
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.6;
+    font-family: var(--font-mono);
+    background: var(--color-bg-primary);
+    padding: var(--space-sm);
+    border-radius: 4px;
+}
+
+.task-node-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.task-node-content::-webkit-scrollbar-track {
+    background: var(--color-bg-tertiary);
+}
+
+.task-node-content::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
+}
+
+.task-node-validation {
+    padding: var(--space-sm);
+    border-radius: 4px;
+    margin-top: var(--space-md);
+}
+
+.task-node-validation.valid {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.task-node-validation.invalid {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.task-node-validation .validation-result {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.task-node-validation .validation-result strong {
+    font-size: 13px;
+    color: var(--color-text-primary);
+}
+
+.task-node-validation .validation-score {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    margin-left: var(--space-sm);
+}
+
+.task-node-validation .validation-reason {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    margin-top: var(--space-xs);
+    font-style: italic;
+}
+
 /* Removed empty state - grid always visible with texture */
 
 /* Modal */

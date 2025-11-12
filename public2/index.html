@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Journalist Agents - Live Demo</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.0.0/marked.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="app-title">AI Journalist Agents</h1>
+                <div class="connection-status">
+                    <span class="status-indicator" id="statusIndicator"></span>
+                    <span class="status-text" id="statusText">Connecting...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <div class="control-group">
+                <button id="addAgentBtn" class="btn btn-primary">
+                    <span class="btn-icon">+</span>
+                    Create New Agent
+                </button>
+                <button id="clearCompletedBtn" class="btn btn-secondary">
+                    <span class="btn-icon">🗑</span>
+                    Clear Completed
+                </button>
+            </div>
+            <div class="agent-stats">
+                <span class="stat-item">
+                    <span class="stat-label">Active:</span>
+                    <span class="stat-value" id="activeCount">0</span>
+                </span>
+                <span class="stat-item">
+                    <span class="stat-label">Completed:</span>
+                    <span class="stat-value" id="completedCount">0</span>
+                </span>
+                <span class="stat-item">
+                    <span class="stat-label">Total:</span>
+                    <span class="stat-value" id="totalCount">0</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- Agent Grid -->
+        <div class="agents-grid" id="agentsGrid">
+            <!-- Agent cards will be dynamically added here -->
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="emptyState">
+            <div class="empty-state-content">
+                <div class="empty-state-icon">📰</div>
+                <h2 class="empty-state-title">No Agents Yet</h2>
+                <p class="empty-state-text">Create your first AI journalist agent to start generating articles</p>
+                <button class="btn btn-primary" onclick="document.getElementById('addAgentBtn').click()">
+                    Create Agent
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Agent Modal -->
+    <div class="modal" id="createAgentModal">
+        <div class="modal-overlay" onclick="closeCreateAgentModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Create AI Journalist Agent</h2>
+                <button class="modal-close" onclick="closeCreateAgentModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="agentName" class="form-label">Agent Name</label>
+                    <input 
+                        type="text" 
+                        id="agentName" 
+                        class="form-input" 
+                        placeholder="e.g., Tech Reporter, Sports Columnist"
+                    >
+                </div>
+                <div class="form-group">
+                    <label for="agentContext" class="form-label">Additional Context (Optional)</label>
+                    <textarea 
+                        id="agentContext" 
+                        class="form-textarea" 
+                        rows="3" 
+                        placeholder="e.g., Focus on recent developments, Interview tech experts, Use data from Q4 2024"
+                    ></textarea>
+                    <div class="form-hint">
+                        Provide guidance or constraints for the journalist. The agent will invent its own subject.
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="agentStyle" class="form-label">Writing Style</label>
+                    <select id="agentStyle" class="form-select">
+                        <option value="professional journalism">Professional Journalism</option>
+                        <option value="investigative reporting">Investigative Reporting</option>
+                        <option value="opinion editorial">Opinion Editorial</option>
+                        <option value="feature writing">Feature Writing</option>
+                        <option value="technical writing">Technical Writing</option>
+                        <option value="creative storytelling">Creative Storytelling</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="agentTemperature" class="form-label">
+                        Creativity (Temperature: <span id="tempValue">0.3</span>)
+                    </label>
+                    <input 
+                        type="range" 
+                        id="agentTemperature" 
+                        class="form-range" 
+                        min="0" 
+                        max="1" 
+                        step="0.1" 
+                        value="0.3"
+                        oninput="document.getElementById('tempValue').textContent = this.value"
+                    >
+                    <div class="form-hint">
+                        Lower values = more focused, Higher values = more creative
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeCreateAgentModal()">Cancel</button>
+                <button class="btn btn-primary" id="createAgentSubmit">Create & Start</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/js/app.js"></script>
+</body>
+</html>

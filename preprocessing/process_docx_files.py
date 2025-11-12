@@ -23,7 +23,6 @@ Markdown conversions:
 - Tables → Markdown table format
 """
 
-import os
 from pathlib import Path
 from docx import Document
 import re

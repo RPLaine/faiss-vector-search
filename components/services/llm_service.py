@@ -116,16 +116,13 @@ class LLMService:
                 json=payload,
                 headers=self.headers,
                 timeout=self.timeout,
-                stream=stream
+                stream=True  # Always stream for SSE-based servers
             )
             response.raise_for_status()
             
-            # Handle streaming vs non-streaming
-            if stream and progress_callback:
-                text = self._handle_streaming_response(response, progress_callback)
-            else:
-                result = response.json()
-                text = self._extract_response_text(result)
+            # Handle streaming response (SSE format)
+            # Note: The streaming server only supports SSE format, not JSON responses
+            text = self._handle_streaming_response(response, progress_callback)
             
             generation_time = time.time() - start_time
             
@@ -192,13 +189,18 @@ class LLMService:
     def _build_payload(self, prompt: str, temperature: float, max_tokens: int, stream: bool) -> Dict[str, Any]:
         """Build API payload based on payload type."""
         if self.payload_type == "message":
-            return {
+            payload = {
                 "model": self.model,
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": temperature,
-                "max_tokens": max_tokens,
-                "stream": stream
+                "max_tokens": max_tokens
             }
+            # Add top_p and top_k if configured
+            if "top_p" in self.config:
+                payload["top_p"] = self.config["top_p"]
+            if "top_k" in self.config:
+                payload["top_k"] = self.config["top_k"]
+            return payload
         else:  # completion style
             return {
                 "model": self.model,
@@ -223,36 +225,26 @@ class LLMService:
         
         raise ValueError("Could not extract text from LLM response")
     
-    def _handle_streaming_response(self, response, progress_callback: Callable[[str], None]) -> str:
-        """Handle streaming response with progress updates."""
+    def _handle_streaming_response(self, response, progress_callback: Optional[Callable[[str], None]] = None) -> str:
+        """
+        Handle plain text streaming response.
+        
+        The server returns plain text chunks without any wrapper format (no SSE, no JSON).
+        Chunks arrive as the model generates them and should be accumulated into full_text.
+        """
         full_text = ""
         
-        for line in response.iter_lines():
-            if line:
-                try:
-                    chunk = line.decode('utf-8')
-                    # Parse SSE format
-                    if chunk.startswith("data: "):
-                        data = chunk[6:]  # Remove "data: " prefix
-                        if data == "[DONE]":
-                            break
-                        
-                        import json
-                        chunk_data = json.loads(data)
-                        
-                        # Extract text based on payload type
-                        if self.payload_type == "message":
-                            text = chunk_data.get("choices", [{}])[0].get("delta", {}).get("content", "")
-                        else:
-                            text = chunk_data.get("response", "")
-                        
-                        if text:
-                            full_text += text
-                            progress_callback(text)
+        # Iterate over response chunks as they arrive
+        for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
+            if chunk:
+                # Add chunk to full text
+                full_text += chunk
                 
-                except Exception as e:
-                    logger.warning(f"Error parsing stream chunk: {e}")
+                # Call progress callback if provided (for UI updates)
+                if progress_callback:
+                    progress_callback(chunk)
         
+        logger.info(f"Stream completed: received {len(full_text)} characters")
         return full_text
     
     def get_statistics(self) -> Dict[str, Any]:

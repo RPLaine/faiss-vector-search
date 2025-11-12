@@ -24,7 +24,6 @@ Chunking strategy:
 - Preserve context by adding overlap between chunks
 """
 
-import os
 import re
 from pathlib import Path
 from typing import List, Tuple
@@ -335,11 +334,9 @@ def process_text_files():
                 chunk_path = output_dir / chunk_filename
                 
                 # Create chunk with metadata header
-                chunk_content = f"Source File: {txt_file.name}\n"
-                chunk_content += f"Chunk: {i} of {len(chunks)}\n"
-                chunk_content += f"Lines: {start_line}-{end_line}\n"
-                chunk_content += f"Characters: {len(chunk)}\n"
-                chunk_content += f"Type: {chunk_type}\n"
+                chunk_content = f"Lähdetiedosto: {txt_file.name}\n"
+                chunk_content += f"Lohko: {i} of {len(chunks)}\n"
+                chunk_content += f"Rivit: {start_line}-{end_line}\n"
                 chunk_content += "-" * 50 + "\n\n"
                 chunk_content += chunk
                 

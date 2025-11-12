@@ -770,6 +770,8 @@ if __name__ == "__main__":
     import webbrowser
     import threading
     import argparse
+    import signal
+    import sys
     
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description="RAG System Server")
@@ -801,6 +803,14 @@ if __name__ == "__main__":
     print("=" * 70)
     print()
     
+    # Set up signal handlers for graceful shutdown
+    def signal_handler(sig, frame):
+        print("\n\nShutting down server...")
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
     # Open browser after a short delay to ensure server is ready (unless --no-browser is set)
     if not args.no_browser:
         def open_browser():
@@ -813,4 +823,9 @@ if __name__ == "__main__":
         print("ℹ️  Browser auto-open disabled (--no-browser flag)")
         print()
     
-    uvicorn.run(app, host=args.host, port=args.port)
+    try:
+        uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+    except KeyboardInterrupt:
+        print("\nServer stopped.")
+    finally:
+        print("Cleanup complete.")

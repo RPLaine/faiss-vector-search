@@ -90,6 +90,11 @@ export class UIManager {
         
         // Observe content area size changes to recalculate position
         this.observeContentChanges(agent.id, node);
+        
+        // Apply status-specific UI changes (important for restored agents)
+        if (agent.status && agent.status !== 'created') {
+            this.updateAgentStatus(agent.id, agent.status);
+        }
     }
     
     observeContentChanges(agentId, node) {
@@ -435,14 +440,19 @@ export class UIManager {
     }
     
     updateAgentStatus(agentId, status) {
+        console.log(`updateAgentStatus called: ${agentId}, status: ${status}`);
         const node = this.agentNodes.get(agentId);
-        if (!node) return;
+        if (!node) {
+            console.warn(`Node not found for agent: ${agentId}`);
+            return;
+        }
         
         const statusEl = node.querySelector('.agent-node-status');
         
         // Map internal status to display text
         const displayStatus = status === 'halted' ? 'Phase Complete' : status;
         
+        console.log(`Updating status badge to: ${displayStatus} (${status})`);
         statusEl.className = `agent-node-status ${status}`;
         statusEl.textContent = displayStatus;
         
@@ -452,6 +462,8 @@ export class UIManager {
         // Update action button, continue button, and halt checkbox visibility based on status
         const agent = window.app.agentManager.getAgent(agentId);
         const haltEnabled = agent?.halt || false;
+        
+        console.log(`Status is halted: ${status === 'halted'}, agent exists: ${!!agent}`);
         
         if (status === 'running') {
             // Show Stop button, hide Continue button, show Halt checkbox

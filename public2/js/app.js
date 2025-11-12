@@ -16,6 +16,11 @@ class App {
     }
     
     init() {
+        // Set up connection state callback
+        this.wsService.setConnectionStateCallback((connected) => {
+            this.uiManager.setConnected(connected);
+        });
+        
         // Initialize WebSocket handlers
         this.setupWebSocketHandlers();
         
@@ -29,13 +34,14 @@ class App {
     setupWebSocketHandlers() {
         // Connection established
         this.wsService.on('connection_established', (data) => {
-            this.uiManager.setConnected(true);
-            
-            // Load existing agents
+            // Load existing agents (only if not already rendered)
             if (data.data.agents) {
                 data.data.agents.forEach(agent => {
-                    this.agentManager.addAgent(agent);
-                    this.uiManager.renderAgent(agent);
+                    // Only add and render if agent doesn't already exist
+                    if (!this.agentManager.getAgent(agent.id)) {
+                        this.agentManager.addAgent(agent);
+                        this.uiManager.renderAgent(agent);
+                    }
                 });
             }
             
@@ -75,11 +81,15 @@ class App {
         
         // Agent halted
         this.wsService.on('agent_halted', (data) => {
+            console.log('Received agent_halted event:', data);
             const agent = this.agentManager.getAgent(data.data.agent_id);
             if (agent) {
+                console.log('Updating agent status to halted');
                 agent.status = 'halted';
                 this.uiManager.updateAgentStatus(data.data.agent_id, 'halted');
                 this.updateStats();
+            } else {
+                console.warn('Agent not found in manager:', data.data.agent_id);
             }
         });
         

@@ -242,9 +242,6 @@ async def continue_agent(agent_id: str):
     if agent.get("status") != "halted":
         raise HTTPException(status_code=409, detail="Agent is not halted")
     
-    # Clear the halt flag to continue execution
-    agent["continue"] = True
-    
     # Update status back to running
     agent_manager.update_agent_status(agent_id, "running")
     
@@ -256,6 +253,10 @@ async def continue_agent(agent_id: str):
             "name": agent["name"]
         }
     })
+    
+    # Restart the workflow from the halted phase
+    # This will continue execution from where it left off
+    asyncio.create_task(run_agent(agent_id))
     
     return {"success": True, "agent_id": agent_id}
 
@@ -458,10 +459,14 @@ async def run_agent(agent_id: str):
             action_callback=action_callback
         )
         
+        logger.info(f"Workflow result for agent {agent_id}: {result}")
+        
         # Check if halted
         if result.get("halted"):
+            logger.info(f"Agent {agent_id} halted at phase {result.get('phase', -1)}")
             agent_manager.update_agent_status(agent_id, "halted")
             
+            logger.info(f"Broadcasting agent_halted event for {agent_id}")
             await broadcast_event({
                 "type": "agent_halted",
                 "data": {
@@ -470,6 +475,7 @@ async def run_agent(agent_id: str):
                     "phase": result.get("phase", -1)
                 }
             })
+            logger.info(f"agent_halted event broadcasted for {agent_id}")
             return
         
         # Update agent with results
@@ -733,14 +739,11 @@ else:
 
 if __name__ == "__main__":
     import uvicorn
-    import webbrowser
-    import threading
     import argparse
     import signal
     import sys
     
     parser = argparse.ArgumentParser(description="AI Journalist Agents Demo Server")
-    parser.add_argument("--no-browser", action="store_true", help="Don't open browser")
     parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
     parser.add_argument("--port", type=int, default=8001, help="Port to bind to")
     args = parser.parse_args()
@@ -763,13 +766,20 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     
-    if not args.no_browser:
-        def open_browser():
-            import time
-            time.sleep(1.5)
-            webbrowser.open(f"http://localhost:{args.port}")
-        
-        threading.Thread(target=open_browser, daemon=True).start()
+    # Print startup info after uvicorn starts
+    def print_startup_info():
+        import time
+        time.sleep(1)  # Wait for uvicorn to fully start
+        print()
+        print("=" * 70)
+        print("✅ Server is ready!")
+        print()
+        print(f"🌐 Open in browser: \x1b]8;;http://localhost:{args.port}\x1b\\http://localhost:{args.port}\x1b]8;;\x1b\\")
+        print()
+        print("=" * 70)
+    
+    import threading
+    threading.Thread(target=print_startup_info, daemon=True).start()
     
     try:
         uvicorn.run(app, host=args.host, port=args.port, log_level="info")

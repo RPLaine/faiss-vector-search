@@ -10,6 +10,11 @@ export class WebSocketService {
         this.maxReconnectDelay = 30000;
         this.eventHandlers = new Map();
         this.connected = false;
+        this.connectionStateCallback = null;
+    }
+    
+    setConnectionStateCallback(callback) {
+        this.connectionStateCallback = callback;
     }
     
     connect() {
@@ -20,6 +25,9 @@ export class WebSocketService {
                 console.log('WebSocket connected');
                 this.connected = true;
                 this.reconnectDelay = 1000;
+                if (this.connectionStateCallback) {
+                    this.connectionStateCallback(true);
+                }
             };
             
             this.ws.onmessage = (event) => {
@@ -34,15 +42,26 @@ export class WebSocketService {
             this.ws.onclose = () => {
                 console.log('WebSocket disconnected');
                 this.connected = false;
+                if (this.connectionStateCallback) {
+                    this.connectionStateCallback(false);
+                }
                 this.reconnect();
             };
             
             this.ws.onerror = (error) => {
                 console.error('WebSocket error:', error);
+                this.connected = false;
+                if (this.connectionStateCallback) {
+                    this.connectionStateCallback(false);
+                }
             };
             
         } catch (error) {
             console.error('Failed to connect WebSocket:', error);
+            this.connected = false;
+            if (this.connectionStateCallback) {
+                this.connectionStateCallback(false);
+            }
             this.reconnect();
         }
     }

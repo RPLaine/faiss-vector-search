@@ -105,52 +105,60 @@ class WorkflowExecutor:
         self.llm_service.cancellation_checker = check_cancelled
         
         try:
-            # Phase 0: Invent Subject
-            subject = await self._phase_invent_subject(
-                agent, phase_callback, chunk_callback
-            )
+            # Get the current phase (for resuming after halt)
+            current_phase = agent.get("current_phase", -1)
+            subject = agent.get("phase_0_response", "")
             
-            # Check halt dynamically before proceeding
-            if agent.get("halt", False):
-                agent["current_phase"] = 0
-                if not await self._wait_for_continue(agent):
+            # Phase 0: Invent Subject
+            if current_phase < 0:
+                subject = await self._phase_invent_subject(
+                    agent, phase_callback, chunk_callback
+                )
+                
+                # Check halt dynamically before proceeding
+                if agent.get("halt", False):
+                    agent["current_phase"] = 0
+                    logger.info(f"Agent {agent_id} halted at phase 0, returning halted status")
                     return {"halted": True, "phase": 0}
             
             # Phase 1-5: Research phases (simulated)
-            await self._phase_get_sources(agent_id, phase_callback)
-            if agent.get("halt", False):
-                agent["current_phase"] = 1
-                if not await self._wait_for_continue(agent):
+            if current_phase < 1:
+                await self._phase_get_sources(agent_id, phase_callback)
+                if agent.get("halt", False):
+                    agent["current_phase"] = 1
                     return {"halted": True, "phase": 1}
             
-            await self._phase_extract_data(agent_id, phase_callback)
-            if agent.get("halt", False):
-                agent["current_phase"] = 2
-                if not await self._wait_for_continue(agent):
+            if current_phase < 2:
+                await self._phase_extract_data(agent_id, phase_callback)
+                if agent.get("halt", False):
+                    agent["current_phase"] = 2
                     return {"halted": True, "phase": 2}
             
-            await self._phase_find_names(agent_id, phase_callback)
-            if agent.get("halt", False):
-                agent["current_phase"] = 3
-                if not await self._wait_for_continue(agent):
+            if current_phase < 3:
+                await self._phase_find_names(agent_id, phase_callback)
+                if agent.get("halt", False):
+                    agent["current_phase"] = 3
                     return {"halted": True, "phase": 3}
             
-            await self._phase_send_contacts(agent_id, phase_callback)
-            if agent.get("halt", False):
-                agent["current_phase"] = 4
-                if not await self._wait_for_continue(agent):
+            if current_phase < 4:
+                await self._phase_send_contacts(agent_id, phase_callback)
+                if agent.get("halt", False):
+                    agent["current_phase"] = 4
                     return {"halted": True, "phase": 4}
             
-            await self._phase_receive_info(agent_id, phase_callback)
-            if agent.get("halt", False):
-                agent["current_phase"] = 5
-                if not await self._wait_for_continue(agent):
+            if current_phase < 5:
+                await self._phase_receive_info(agent_id, phase_callback)
+                if agent.get("halt", False):
+                    agent["current_phase"] = 5
                     return {"halted": True, "phase": 5}
             
             # Phase 6: Write Article
             article = await self._phase_write_article(
                 agent, subject, phase_callback, chunk_callback, action_callback
             )
+            
+            # Clear current phase (workflow completed)
+            agent["current_phase"] = -1
             
             # Return results
             result = {

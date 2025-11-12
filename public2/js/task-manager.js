@@ -37,11 +37,14 @@ export class TaskManager {
         // Sort tasks by ID to ensure correct order
         const sortedTasks = [...tasklist.tasks].sort((a, b) => a.id - b.id);
         
-        // Create task nodes
+        // Create task nodes with staggered animation
         const taskKeys = [];
         sortedTasks.forEach((task, index) => {
             const taskKey = `${agentId}-task-${task.id}`;
+            
+            // Create node with animation classes
             const taskNode = this.createTaskNode(agentId, task, index, sortedTasks.length);
+            taskNode.classList.add('animating-in');
             
             this.taskNodes.set(taskKey, {
                 element: taskNode,
@@ -52,6 +55,12 @@ export class TaskManager {
             });
             
             taskKeys.push(taskKey);
+            
+            // Animate in with stagger - use CSS classes
+            setTimeout(() => {
+                taskNode.classList.remove('animating-in');
+                taskNode.classList.add('visible');
+            }, 150 * index); // 150ms delay between each task
         });
         
         // Store task keys for this agent
@@ -80,13 +89,25 @@ export class TaskManager {
         node.dataset.agentId = agentId;
         node.dataset.taskId = task.id;
         
+        // Get task status and output from task object (restore from agent state)
+        const taskStatus = task.status || 'created';
+        const taskOutput = task.output || 'Waiting to start...';
+        
         node.innerHTML = `
             <div class="task-node-header">
                 <div class="task-node-info">
                     <h4>${this.escapeHtml(task.name)}</h4>
                     <div class="task-node-order">Task ${index + 1} of ${totalTasks}</div>
                 </div>
-                <div class="task-node-status created">created</div>
+                <div class="task-node-status ${taskStatus}">${taskStatus}</div>
+            </div>
+            <div class="task-node-controls" style="display: none;">
+                <button class="btn btn-primary task-continue-btn" data-agent-id="${agentId}" data-task-id="${task.id}">
+                    <span class="btn-icon">▶</span> Continue
+                </button>
+                <button class="btn btn-secondary task-pause-btn" data-agent-id="${agentId}" data-task-id="${task.id}">
+                    <span class="btn-icon">⏸</span> Pause
+                </button>
             </div>
             <div class="task-node-description">
                 ${this.escapeHtml(task.description)}
@@ -95,7 +116,7 @@ export class TaskManager {
                 <strong>Expected:</strong> ${this.escapeHtml(task.expected_output)}
             </div>
             <div class="task-node-content" id="task-content-${agentId}-${task.id}">
-                <div class="content-text">Waiting to start...</div>
+                <div class="content-text">${this.escapeHtml(taskOutput)}</div>
             </div>
             <div class="task-node-validation" id="task-validation-${agentId}-${task.id}" style="display: none;">
                 <div class="validation-result"></div>
@@ -103,6 +124,20 @@ export class TaskManager {
         `;
         
         container.appendChild(node);
+        
+        // If task has validation data, show it
+        if (task.validation) {
+            setTimeout(() => {
+                this.showValidation(
+                    agentId,
+                    task.id,
+                    task.validation.is_valid,
+                    task.validation.reason,
+                    task.validation.score || 0
+                );
+            }, 100);
+        }
+        
         return node;
     }
     
@@ -191,10 +226,7 @@ export class TaskManager {
             const agentX = agentPos.x + agentWidth;
             const agentY = agentPos.y + (agentHeight / 2);
             
-            // Draw lines to each task
-            ctx.strokeStyle = '#404040';
-            ctx.lineWidth = 2;
-            
+            // Draw lines to each task with a subtle gradient
             taskKeys.forEach(taskKey => {
                 const taskData = this.taskNodes.get(taskKey);
                 if (!taskData) return;
@@ -206,11 +238,23 @@ export class TaskManager {
                 const taskX = taskData.x;
                 const taskY = taskData.y + (taskHeight / 2);
                 
+                // Create gradient for line
+                const gradient = ctx.createLinearGradient(agentX, agentY, taskX, taskY);
+                gradient.addColorStop(0, '#404040');
+                gradient.addColorStop(1, '#2563eb');
+                
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 3]); // Dashed line
+                
                 // Draw line
                 ctx.beginPath();
                 ctx.moveTo(agentX, agentY);
                 ctx.lineTo(taskX, taskY);
                 ctx.stroke();
+                
+                // Reset dash
+                ctx.setLineDash([]);
             });
         }
     }
@@ -227,6 +271,16 @@ export class TaskManager {
         if (statusEl) {
             statusEl.className = `task-node-status ${status}`;
             statusEl.textContent = status;
+        }
+        
+        // Add pulse animation when task becomes active
+        if (status === 'running') {
+            taskData.element.classList.add('pulse-scale');
+            
+            // Remove animation class after it completes
+            setTimeout(() => {
+                taskData.element.classList.remove('pulse-scale');
+            }, 300);
         }
         
         console.log(`Task ${taskId} status: ${status}`);
@@ -279,29 +333,50 @@ export class TaskManager {
             <div class="validation-reason">${this.escapeHtml(reason)}</div>
         `;
         
+        // Animate in using CSS classes
+        requestAnimationFrame(() => {
+            validationEl.classList.add('show');
+        });
+        
         // Reposition tasks if height changed
-        this.positionTasksForAgent(agentId);
+        setTimeout(() => {
+            this.positionTasksForAgent(agentId);
+        }, 400);
     }
     
     /**
-     * Clear all tasks for an agent.
+     * Clear all tasks for an agent with smooth animation.
      */
     clearTasksForAgent(agentId) {
         const taskKeys = this.agentTasks.get(agentId);
         if (!taskKeys) return;
         
-        taskKeys.forEach(taskKey => {
+        // Animate out each task with stagger
+        const taskKeysArray = Array.from(taskKeys);
+        taskKeysArray.forEach((taskKey, index) => {
             const taskData = this.taskNodes.get(taskKey);
             if (taskData && taskData.element) {
-                taskData.element.remove();
+                // Add fade-out animation class
+                setTimeout(() => {
+                    taskData.element.classList.add('animating-out');
+                    
+                    // Remove element after animation completes
+                    setTimeout(() => {
+                        taskData.element.remove();
+                        this.taskNodes.delete(taskKey);
+                        
+                        // Redraw lines after last task is removed
+                        if (index === taskKeysArray.length - 1) {
+                            this.drawAllConnectionLines();
+                        }
+                    }, 400); // Match animation duration
+                }, index * 50); // 50ms stagger
+            } else {
+                this.taskNodes.delete(taskKey);
             }
-            this.taskNodes.delete(taskKey);
         });
         
         this.agentTasks.delete(agentId);
-        
-        // Redraw all connection lines
-        this.drawAllConnectionLines();
     }
     
     /**
@@ -316,6 +391,109 @@ export class TaskManager {
      */
     repositionTasksForAgent(agentId) {
         this.positionTasksForAgent(agentId);
+    }
+    
+    /**
+     * Focus on a specific task - center it and show controls.
+     * 
+     * @param {string} agentId - Parent agent ID
+     * @param {number} taskId - Task ID to focus
+     */
+    focusTask(agentId, taskId) {
+        const taskKey = `${agentId}-task-${taskId}`;
+        const taskData = this.taskNodes.get(taskKey);
+        if (!taskData) return;
+        
+        const element = taskData.element;
+        
+        // Show controls
+        const controls = element.querySelector('.task-node-controls');
+        if (controls) {
+            controls.style.display = 'grid';
+        }
+        
+        // Center task in viewport
+        const rect = element.getBoundingClientRect();
+        const container = document.querySelector('.agents-grid');
+        const containerRect = container.getBoundingClientRect();
+        
+        // Calculate center position
+        const centerX = containerRect.width / 2 - rect.width / 2;
+        const centerY = containerRect.height / 2 - rect.height / 2;
+        
+        // Scroll to center the task
+        container.scrollTo({
+            left: taskData.x - centerX,
+            top: taskData.y - centerY,
+            behavior: 'smooth'
+        });
+        
+        // Add highlight effect
+        element.classList.add('focused');
+        setTimeout(() => {
+            element.classList.remove('focused');
+        }, 2000);
+        
+        console.log(`Focused on task ${taskId} of agent ${agentId}`);
+    }
+    
+    /**
+     * Get the first task for an agent.
+     * 
+     * @param {string} agentId - Parent agent ID
+     * @returns {object|null} - Task data or null
+     */
+    getFirstTask(agentId) {
+        const taskKeys = this.agentTasks.get(agentId);
+        if (!taskKeys || taskKeys.size === 0) return null;
+        
+        const sortedTaskKeys = Array.from(taskKeys).sort((a, b) => {
+            const taskA = this.taskNodes.get(a);
+            const taskB = this.taskNodes.get(b);
+            return taskA.taskId - taskB.taskId;
+        });
+        
+        if (sortedTaskKeys.length === 0) return null;
+        
+        const firstTaskKey = sortedTaskKeys[0];
+        return this.taskNodes.get(firstTaskKey);
+    }
+    
+    /**
+     * Get the next unexecuted task for an agent.
+     * Returns the task with the smallest ID that has status 'created' or 'halted'.
+     * 
+     * @param {string} agentId - Parent agent ID
+     * @returns {object|null} - Task data or null
+     */
+    getNextUnexecutedTask(agentId) {
+        const taskKeys = this.agentTasks.get(agentId);
+        if (!taskKeys || taskKeys.size === 0) return null;
+        
+        // Sort tasks by ID
+        const sortedTaskKeys = Array.from(taskKeys).sort((a, b) => {
+            const taskA = this.taskNodes.get(a);
+            const taskB = this.taskNodes.get(b);
+            return taskA.taskId - taskB.taskId;
+        });
+        
+        // Find first task that hasn't been executed (created status)
+        for (const taskKey of sortedTaskKeys) {
+            const taskData = this.taskNodes.get(taskKey);
+            if (!taskData) continue;
+            
+            const statusEl = taskData.element.querySelector('.task-node-status');
+            if (!statusEl) continue;
+            
+            const status = statusEl.textContent.toLowerCase();
+            
+            // Return first task that is not completed, failed, or running
+            if (status === 'created' || status === 'halted') {
+                return taskData;
+            }
+        }
+        
+        return null;
     }
     
     /**

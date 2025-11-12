@@ -101,6 +101,20 @@ class LLMService:
         # Build payload
         payload = self._build_payload(prompt, temp, tokens, stream)
         
+        # Console log the request details
+        print("\n" + "="*80)
+        print("LLM REQUEST")
+        print("="*80)
+        print(f"URL: {current_api_url}")
+        print(f"Model: {current_model}")
+        print(f"Temperature: {temp}")
+        print(f"Max Tokens: {tokens}")
+        print(f"Stream: {stream}")
+        print(f"Headers: {current_headers}")
+        print(f"Payload: {payload}")
+        print(f"Prompt (first 200 chars): {prompt[:200]}...")
+        print("="*80 + "\n")
+        
         # Emit LLM request action (for app representation)
         if action_callback:
             action_callback({
@@ -140,6 +154,16 @@ class LLMService:
             self.total_calls += 1
             self.total_time += generation_time
             
+            # Console log the response details
+            print("\n" + "="*80)
+            print("LLM RESPONSE")
+            print("="*80)
+            print(f"Success: True")
+            print(f"Generation Time: {generation_time:.2f}s")
+            print(f"Response Length: {len(text)} characters")
+            print(f"Response (first 200 chars): {text[:200]}...")
+            print("="*80 + "\n")
+            
             # Emit LLM response action (for app representation)
             if action_callback:
                 action_callback({
@@ -161,6 +185,11 @@ class LLMService:
             )
             
         except requests.exceptions.Timeout:
+            print("\n" + "="*80)
+            print("LLM ERROR - TIMEOUT")
+            print("="*80)
+            print(f"Timeout after: {self.timeout}s")
+            print("="*80 + "\n")
             logger.error(f"LLM call timeout after {self.timeout}s")
             if action_callback:
                 action_callback({
@@ -173,6 +202,14 @@ class LLMService:
             raise TimeoutError(f"LLM request timeout after {self.timeout}s")
         
         except requests.exceptions.RequestException as e:
+            print("\n" + "="*80)
+            print("LLM ERROR - REQUEST EXCEPTION")
+            print("="*80)
+            print(f"Error: {e}")
+            print(f"Type: {type(e)}")
+            print(f"Response Status: {getattr(e.response, 'status_code', 'N/A') if hasattr(e, 'response') else 'N/A'}")
+            print(f"Response Body: {getattr(e.response, 'text', 'N/A')[:500] if hasattr(e, 'response') and hasattr(e.response, 'text') else 'N/A'}")
+            print("="*80 + "\n")
             logger.error(f"LLM API request failed: {e}")
             if action_callback:
                 action_callback({
@@ -185,6 +222,14 @@ class LLMService:
             raise RuntimeError(f"LLM API call failed: {e}")
         
         except Exception as e:
+            print("\n" + "="*80)
+            print("LLM ERROR - UNEXPECTED EXCEPTION")
+            print("="*80)
+            print(f"Error: {e}")
+            print(f"Type: {type(e)}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
+            print("="*80 + "\n")
             logger.error(f"Unexpected error in LLM call: {e}")
             if action_callback:
                 action_callback({

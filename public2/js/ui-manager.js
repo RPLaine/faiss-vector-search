@@ -297,6 +297,24 @@ export class UIManager {
     
     async handleContinueAgent(agentId) {
         try {
+            const agent = window.app.agentManager.getAgent(agentId);
+            
+            // If agent is halted and has tasks, focus the next unexecuted task
+            if (agent && agent.status === 'halted' && agent.tasklist && agent.tasklist.tasks && agent.tasklist.tasks.length > 0) {
+                const nextTask = this.taskManager.getNextUnexecutedTask(agentId);
+                if (nextTask) {
+                    // Focus on the next unexecuted task
+                    this.taskManager.focusTask(agentId, nextTask.taskId);
+                    console.log(`Focusing on next unexecuted task ${nextTask.taskId} for agent ${agentId}`);
+                } else {
+                    // All tasks are executed, focus on first task
+                    const firstTask = this.taskManager.getFirstTask(agentId);
+                    if (firstTask) {
+                        this.taskManager.focusTask(agentId, firstTask.taskId);
+                    }
+                }
+            }
+            
             const response = await fetch(`/api/agents/${agentId}/continue`, {
                 method: 'POST'
             });

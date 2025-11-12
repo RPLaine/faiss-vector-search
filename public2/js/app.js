@@ -85,6 +85,10 @@ class App {
             if (agent) {
                 agent.status = 'running';
                 this.uiManager.updateAgentStatus(data.data.agent_id, 'running');
+                
+                // Clear existing tasks with smooth animation
+                this.taskManager.clearTasksForAgent(data.data.agent_id);
+                
                 this.updateStats();
             }
         });
@@ -187,9 +191,16 @@ class App {
         });
         
         this.wsService.on('task_validation', (data) => {
-            const { agent_id, task_id, is_valid, reason } = data.data;
-            // Validation result will be shown when task completes
-            console.log(`Task ${task_id} validation: ${is_valid} - ${reason}`);
+            const { agent_id, task_id, is_valid, reason, score } = data.data;
+            // Show validation immediately when received
+            this.taskManager.showValidation(
+                agent_id,
+                task_id,
+                is_valid,
+                reason,
+                score || 0
+            );
+            console.log(`Task ${task_id} validation: ${is_valid} (score: ${score}) - ${reason}`);
         });
         
         // Phase streaming chunks (for phase 0-5)
@@ -299,6 +310,18 @@ class App {
             });
             this.updateStats();
         });
+        
+        // Server online notification
+        this.wsService.on('server_online', (data) => {
+            console.log('Server restarted:', data.data.message);
+            // Optionally show a visual notification to the user
+            // that the server has restarted
+        });
+        
+        // Server offline notification
+        this.wsService.on('server_offline', (data) => {
+            console.log('Server shutting down:', data.data.message);
+        });
     }
     
     setupUIHandlers() {
@@ -320,6 +343,28 @@ class App {
         // Edit agent submit
         document.getElementById('editAgentSubmit').addEventListener('click', async () => {
             await this.editAgent();
+        });
+        
+        // Event delegation for task controls (Continue, Pause)
+        const nodesContainer = document.getElementById('agentNodesContainer');
+        
+        nodesContainer.addEventListener('click', async (e) => {
+            const target = e.target.closest('button');
+            if (!target) return;
+            
+            // Task Continue button
+            if (target.classList.contains('task-continue-btn')) {
+                const agentId = target.dataset.agentId;
+                const taskId = parseInt(target.dataset.taskId);
+                await this.continueTask(agentId, taskId);
+            }
+            
+            // Task Pause button
+            if (target.classList.contains('task-pause-btn')) {
+                const agentId = target.dataset.agentId;
+                const taskId = parseInt(target.dataset.taskId);
+                await this.pauseTask(agentId, taskId);
+            }
         });
     }
     
@@ -403,6 +448,39 @@ class App {
         } catch (error) {
             console.error('Failed to clear agents:', error);
         }
+    }
+    
+    async continueTask(agentId, taskId) {
+        console.log(`Continue task ${taskId} for agent ${agentId}`);
+        // Task execution is automatic - this would be for manual continuation if needed
+        // For now, just focus on the next task
+        const taskKeys = this.taskManager.agentTasks.get(agentId);
+        if (taskKeys) {
+            const sortedTaskKeys = Array.from(taskKeys).sort((a, b) => {
+                const taskA = this.taskManager.taskNodes.get(a);
+                const taskB = this.taskManager.taskNodes.get(b);
+                return taskA.taskId - taskB.taskId;
+            });
+            
+            const currentIndex = sortedTaskKeys.findIndex(key => {
+                const task = this.taskManager.taskNodes.get(key);
+                return task.taskId === taskId;
+            });
+            
+            if (currentIndex >= 0 && currentIndex < sortedTaskKeys.length - 1) {
+                const nextTaskKey = sortedTaskKeys[currentIndex + 1];
+                const nextTask = this.taskManager.taskNodes.get(nextTaskKey);
+                if (nextTask) {
+                    this.taskManager.focusTask(agentId, nextTask.taskId);
+                }
+            }
+        }
+    }
+    
+    async pauseTask(agentId, taskId) {
+        console.log(`Pause task ${taskId} for agent ${agentId}`);
+        // Pausing individual tasks not implemented yet
+        alert('Task pause functionality coming soon');
     }
     
     updateStats() {

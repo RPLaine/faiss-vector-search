@@ -89,6 +89,16 @@ class TaskExecutor:
             # Build prompt for task execution
             prompt = self._build_task_prompt(agent, task)
             
+            print("\n" + "="*80)
+            print(f"TASK EXECUTOR - Starting Task {task_id}")
+            print("="*80)
+            print(f"Agent ID: {agent_id}")
+            print(f"Task Name: {task['name']}")
+            print(f"Task Description: {task['description']}")
+            print(f"Temperature: {agent['temperature']}")
+            print(f"Prompt (first 300 chars): {prompt[:300]}...")
+            print("="*80 + "\n")
+            
             # Collect chunks for streaming
             collected_chunks = []
             def stream_callback(chunk: str):
@@ -109,6 +119,13 @@ class TaskExecutor:
             )
             
             task_output = response.text.strip()
+            
+            print("\n" + "="*80)
+            print(f"TASK EXECUTOR - Task {task_id} Output Received")
+            print("="*80)
+            print(f"Output Length: {len(task_output)} characters")
+            print(f"Output (first 300 chars): {task_output[:300]}...")
+            print("="*80 + "\n")
             
             # Validate output against expected_output
             validation_result = await self._validate_output(
@@ -134,12 +151,23 @@ class TaskExecutor:
             return result
             
         except asyncio.CancelledError:
+            print("\n" + "="*80)
+            print(f"TASK EXECUTOR - Task {task_id} CANCELLED")
+            print("="*80 + "\n")
             logger.info(f"Agent {agent_id} - Task {task_id} cancelled")
             if task_callback:
                 await task_callback(task_id, "cancelled", None)
             raise
             
         except Exception as e:
+            print("\n" + "="*80)
+            print(f"TASK EXECUTOR - Task {task_id} FAILED")
+            print("="*80)
+            print(f"Error: {e}")
+            print(f"Type: {type(e)}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
+            print("="*80 + "\n")
             logger.error(f"Agent {agent_id} - Task {task_id} failed: {e}")
             if task_callback:
                 await task_callback(task_id, "failed", {"error": str(e)})
@@ -272,7 +300,8 @@ Only respond with the JSON object, no additional text."""
                     await validation_callback(
                         task_id,
                         validation_result["is_valid"],
-                        validation_result["reason"]
+                        validation_result["reason"],
+                        validation_result["score"]
                     )
                 
                 return validation_result
@@ -289,7 +318,7 @@ Only respond with the JSON object, no additional text."""
                 }
                 
                 if validation_callback:
-                    await validation_callback(task_id, False, result["reason"])
+                    await validation_callback(task_id, False, result["reason"], result["score"])
                 
                 return result
                 
@@ -304,6 +333,6 @@ Only respond with the JSON object, no additional text."""
             }
             
             if validation_callback:
-                await validation_callback(task_id, False, result["reason"])
+                await validation_callback(task_id, False, result["reason"], result["score"])
             
             return result

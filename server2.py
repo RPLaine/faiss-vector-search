@@ -79,6 +79,20 @@ async def lifespan(app: FastAPI):
         workflow_executor = WorkflowExecutor(llm_service, executor, main_loop)
         
         logger.info("AI Journalist Demo system initialized successfully")
+        
+        # Broadcast server online status after a short delay to allow connections
+        async def broadcast_online():
+            await asyncio.sleep(1)  # Wait for initial connections
+            await broadcast_event({
+                "type": "server_online",
+                "data": {
+                    "timestamp": datetime.now().isoformat(),
+                    "message": "Server restarted and ready"
+                }
+            })
+        
+        asyncio.create_task(broadcast_online())
+        
     except Exception as e:
         logger.error(f"Failed to initialize system: {e}")
         raise
@@ -87,6 +101,16 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down AI Journalist Demo system...")
+    
+    # Broadcast server offline status
+    await broadcast_event({
+        "type": "server_offline",
+        "data": {
+            "timestamp": datetime.now().isoformat(),
+            "message": "Server shutting down"
+        }
+    })
+    
     executor.shutdown(wait=True)
 
 
@@ -246,6 +270,9 @@ async def continue_agent(agent_id: str):
     
     if agent.get("status") != "halted":
         raise HTTPException(status_code=409, detail="Agent is not halted")
+    
+    # Clear the halt flag to allow execution to continue
+    agent["halt"] = False
     
     # Update status back to running
     agent_manager.update_agent_status(agent_id, "running")
@@ -460,17 +487,14 @@ async def run_agent(agent_id: str):
                 main_loop
             )
     
-    def action_callback(action_data: Dict[str, Any]):
+    async def action_callback(action_data: Dict[str, Any]):
         """Callback for action events (including task events)."""
         if main_loop and active_connections:
             # Ensure agent_id is in the event data
             if "agent_id" not in action_data:
                 action_data["agent_id"] = agent_id
             
-            asyncio.run_coroutine_threadsafe(
-                broadcast_event(action_data),
-                main_loop
-            )
+            await broadcast_event(action_data)
     
     try:
         # Execute workflow

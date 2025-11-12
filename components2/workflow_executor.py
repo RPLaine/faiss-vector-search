@@ -155,6 +155,11 @@ class WorkflowExecutor:
                     # Execute tasks in order by ID
                     sorted_tasks = sorted(tasklist["tasks"], key=lambda t: t["id"])
                     
+                    # Initialize task status if not set
+                    for task in sorted_tasks:
+                        if "status" not in task:
+                            task["status"] = "created"
+                    
                     # Create task callback wrapper
                     async def task_callback(task_id: int, status: str, data: Optional[Dict] = None):
                         if action_callback:
@@ -177,17 +182,21 @@ class WorkflowExecutor:
                             # Reuse the existing chunk_callback but with task metadata
                             chunk_callback(-1, chunk)  # -1 indicates task phase
                         if action_callback:
-                            asyncio.create_task(action_callback({
-                                "type": "task_chunk",
-                                "data": {
-                                    "agent_id": agent_id,
-                                    "task_id": task_id,
-                                    "chunk": chunk
-                                }
-                            }))
+                            # Schedule the coroutine in the main event loop
+                            asyncio.run_coroutine_threadsafe(
+                                action_callback({
+                                    "type": "task_chunk",
+                                    "data": {
+                                        "agent_id": agent_id,
+                                        "task_id": task_id,
+                                        "chunk": chunk
+                                    }
+                                }),
+                                self.event_loop
+                            )
                     
                     # Create validation callback wrapper
-                    async def validation_callback(task_id: int, is_valid: bool, reason: str):
+                    async def validation_callback(task_id: int, is_valid: bool, reason: str, score: int = 0):
                         if action_callback:
                             await action_callback({
                                 "type": "task_validation",
@@ -196,11 +205,18 @@ class WorkflowExecutor:
                                     "agent_id": agent_id,
                                     "task_id": task_id,
                                     "is_valid": is_valid,
-                                    "reason": reason
+                                    "reason": reason,
+                                    "score": score
                                 }
                             })
                     
                     for task in sorted_tasks:
+                        # Skip already completed/failed tasks
+                        task_status = task.get("status", "created")
+                        if task_status in ["completed", "failed", "cancelled"]:
+                            logger.info(f"Agent {agent_id} - Skipping task {task['id']} (status: {task_status})")
+                            continue
+                        
                         # Check halt before each task
                         if agent.get("halt", False):
                             logger.info(f"Agent {agent_id} halted before task {task['id']}")
@@ -222,17 +238,27 @@ class WorkflowExecutor:
                             )
                             
                             # Store result back in the task object
+                            task["status"] = "completed"
                             task["output"] = task_result.get("output", "")
                             task["validation"] = task_result.get("validation", {})
                             task["completed_at"] = task_result.get("completed_at", "")
                             
                             logger.info(f"Agent {agent_id} completed task {task['id']}: {task['name']}")
                             
+                            # Check halt after task completes (before moving to next task)
+                            if agent.get("halt", False):
+                                logger.info(f"Agent {agent_id} halted after task {task['id']} completed")
+                                agent["current_phase"] = 0  # Still in phase 0 (tasks)
+                                return {"halted": True, "phase": 0, "task_id": task["id"]}
+                            
                         except asyncio.CancelledError:
                             logger.info(f"Agent {agent_id} - Task {task['id']} cancelled")
+                            task["status"] = "cancelled"
                             raise
                         except Exception as e:
                             logger.error(f"Agent {agent_id} - Task {task['id']} failed: {e}")
+                            task["status"] = "failed"
+                            task["error"] = str(e)
                             # Continue with next task even if one fails
                             if action_callback:
                                 await action_callback({

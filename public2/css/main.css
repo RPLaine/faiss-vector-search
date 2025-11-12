@@ -256,7 +256,7 @@ body {
     min-width: 320px;
     max-width: 320px;
     pointer-events: auto;
-    transition: all var(--transition-normal);
+    transition: border-color 0.5s ease, box-shadow 0.5s ease;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
@@ -277,6 +277,12 @@ body {
 
 .agent-node.failed {
     border-color: var(--color-accent-danger);
+}
+
+.agent-node.tasklist_error {
+    border-color: var(--color-accent-danger);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+    animation: borderPulseError 2s ease-in-out infinite;
 }
 
 .agent-node-header {
@@ -495,6 +501,12 @@ body {
 .agent-node-status.failed {
     background: rgba(239, 68, 68, 0.2);
     color: var(--color-accent-danger);
+}
+
+.agent-node-status.tasklist_error {
+    background: rgba(239, 68, 68, 0.3);
+    color: white;
+    animation: pulse 2s infinite;
 }
 
 .agent-node-controls {
@@ -741,6 +753,29 @@ body {
     100% {
         border-color: #2563eb;
         box-shadow: 0 0 20px rgba(37, 99, 235, 0.3);
+    }
+}
+
+@keyframes borderPulseError {
+    0% {
+        border-color: #ef4444;
+        box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+    }
+    25% {
+        border-color: #f87171;
+        box-shadow: 0 0 25px rgba(248, 113, 113, 0.5);
+    }
+    50% {
+        border-color: #fca5a5;
+        box-shadow: 0 0 30px rgba(252, 165, 165, 0.7);
+    }
+    75% {
+        border-color: #f87171;
+        box-shadow: 0 0 25px rgba(248, 113, 113, 0.5);
+    }
+    100% {
+        border-color: #ef4444;
+        box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
     }
 }
 

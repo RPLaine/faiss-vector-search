@@ -448,7 +448,11 @@ export class UIManager {
         const statusEl = node.querySelector('.agent-node-status');
         
         // Map internal status to display text
-        const displayStatus = status === 'halted' ? 'Phase Complete' : status;
+        const statusDisplayMap = {
+            'halted': 'Phase Complete',
+            'tasklist_error': 'Tasklist Error'
+        };
+        const displayStatus = statusDisplayMap[status] || status;
         
         console.log(`Updating status badge to: ${displayStatus} (${status})`);
         statusEl.className = `agent-node-status ${status}`;
@@ -474,6 +478,11 @@ export class UIManager {
             this.setActionButton(agentId, 'redo', '🔄', 'Redo');
             this.showButton(agentId, '.btn-continue');
             this.hideControl(agentId, '.halt-control');
+        } else if (status === 'tasklist_error') {
+            // Show Redo button, hide Continue button, show Halt checkbox
+            this.setActionButton(agentId, 'redo', '🔄', 'Redo');
+            this.hideButton(agentId, '.btn-continue');
+            this.showControl(agentId, '.halt-control');
         } else if (status === 'completed') {
             // Show Start button, hide Continue button, show Halt checkbox
             this.setActionButton(agentId, 'start', '▶️', 'Start');
@@ -676,6 +685,56 @@ export class UIManager {
     
     closeEditAgentModal() {
         document.getElementById('editAgentModal').classList.remove('active');
+    }
+    
+    updateAgentFields(agent) {
+        const node = this.agentNodes.get(agent.id);
+        if (!node) {
+            console.warn(`Node not found for agent: ${agent.id}, cannot update fields`);
+            return;
+        }
+        
+        // Update agent name
+        const nameEl = node.querySelector('.agent-node-info h3');
+        if (nameEl) {
+            nameEl.textContent = this.escapeHtml(agent.name);
+        }
+        
+        // Update context if it exists
+        const contextEl = node.querySelector('.agent-node-context');
+        if (agent.context) {
+            if (contextEl) {
+                contextEl.textContent = this.escapeHtml(agent.context);
+            } else {
+                // Add context element if it doesn't exist
+                const infoEl = node.querySelector('.agent-node-info');
+                if (infoEl) {
+                    const newContextEl = document.createElement('div');
+                    newContextEl.className = 'agent-node-context';
+                    newContextEl.textContent = this.escapeHtml(agent.context);
+                    infoEl.appendChild(newContextEl);
+                }
+            }
+        } else {
+            // Remove context element if context is empty
+            if (contextEl) {
+                contextEl.remove();
+            }
+        }
+        
+        // Update temperature
+        const metaEl = node.querySelector('.agent-node-meta');
+        if (metaEl) {
+            metaEl.innerHTML = `<span>Temp: ${agent.temperature || 'N/A'}</span>`;
+        }
+        
+        // Update auto checkbox state
+        const autoCheckbox = node.querySelector('.auto-checkbox');
+        if (autoCheckbox) {
+            autoCheckbox.checked = agent.auto || false;
+        }
+        
+        console.log(`Updated agent ${agent.id} fields smoothly`);
     }
     
     escapeHtml(text) {

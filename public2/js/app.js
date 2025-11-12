@@ -61,12 +61,9 @@ class App {
             const agent = data.data;
             this.agentManager.updateAgent(agent.id, agent);
             
-            // Re-render the agent node with updated data
-            this.uiManager.removeAgent(agent.id);
-            setTimeout(() => {
-                this.uiManager.renderAgent(agent);
-                this.updateStats();
-            }, 350);
+            // Update the agent node without removing it (smoother update)
+            this.uiManager.updateAgentFields(agent);
+            this.updateStats();
         });
         
         // Agent started

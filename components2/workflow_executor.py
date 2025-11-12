@@ -9,7 +9,7 @@ import logging
 import asyncio
 import json
 from pathlib import Path
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, Callable, Union
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 
@@ -121,9 +121,17 @@ class WorkflowExecutor:
             
             # Phase 0: Invent Subject
             if current_phase < 0:
-                subject = await self._phase_invent_subject(
+                result = await self._phase_invent_subject(
                     agent, phase_callback, chunk_callback
                 )
+                
+                # Check if phase returned an error dict
+                if isinstance(result, dict) and result.get("error"):
+                    agent["current_phase"] = 0
+                    logger.error(f"Agent {agent_id} tasklist validation failed: {result['error']}")
+                    return {"halted": True, "phase": 0, "error": result["error"]}
+                
+                subject = result
                 
                 # Check halt dynamically before proceeding
                 if agent.get("halt", False):
@@ -163,9 +171,15 @@ class WorkflowExecutor:
                     return {"halted": True, "phase": 5}
             
             # Phase 6: Write Article
-            article = await self._phase_write_article(
-                agent, subject, phase_callback, chunk_callback, action_callback
-            )
+            # Only proceed if subject is a string (not an error dict)
+            if isinstance(subject, str):
+                article = await self._phase_write_article(
+                    agent, subject, phase_callback, chunk_callback, action_callback
+                )
+            else:
+                # Should not reach here if error handling above works correctly
+                logger.error(f"Agent {agent_id} cannot proceed to article writing with invalid subject")
+                return {"halted": True, "phase": 0, "error": "Invalid subject/tasklist"}
             
             # Clear current phase (workflow completed)
             agent["current_phase"] = -1
@@ -211,8 +225,8 @@ class WorkflowExecutor:
         agent: Dict[str, Any],
         phase_callback: Optional[Callable],
         chunk_callback: Optional[Callable]
-    ) -> str:
-        """Execute Phase 0: Generate Tasklist."""
+    ) -> Union[str, Dict[str, Any]]:
+        """Execute Phase 0: Generate Tasklist. Returns str on success, dict with error on failure."""
         agent_id = agent["id"]
         
         if phase_callback:
@@ -277,6 +291,29 @@ class WorkflowExecutor:
             
             tasklist = json.loads(extracted_json)
             
+            # Validate tasklist structure
+            if not isinstance(tasklist, dict):
+                raise ValueError("Tasklist must be a JSON object")
+            
+            if "goal" not in tasklist:
+                raise ValueError("Tasklist must contain 'goal' field")
+            
+            if "tasks" not in tasklist:
+                raise ValueError("Tasklist must contain 'tasks' field")
+            
+            if not isinstance(tasklist["tasks"], list):
+                raise ValueError("'tasks' must be an array")
+            
+            # Validate each task has required fields
+            for i, task in enumerate(tasklist["tasks"]):
+                if not isinstance(task, dict):
+                    raise ValueError(f"Task {i} must be an object")
+                
+                required_fields = ["id", "name", "description", "expected_output"]
+                missing_fields = [f for f in required_fields if f not in task]
+                if missing_fields:
+                    raise ValueError(f"Task {i} missing required fields: {', '.join(missing_fields)}")
+            
             # Store raw response and parsed tasklist in agent state
             agent["phase_0_response"] = tasklist_json
             agent["tasklist"] = tasklist
@@ -291,18 +328,28 @@ class WorkflowExecutor:
             logger.info(f"Agent {agent_id} generated tasklist: {tasklist.get('goal')}")
             return tasklist.get("goal", "Task planning complete")
             
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse tasklist JSON for agent {agent_id}: {e}")
+        except (json.JSONDecodeError, ValueError) as e:
+            error_type = "JSON parsing" if isinstance(e, json.JSONDecodeError) else "validation"
+            logger.error(f"Failed {error_type} for agent {agent_id}: {e}")
             logger.error(f"Raw response: {tasklist_json[:500]}...")  # Log first 500 chars
             
-            # Fallback: store raw text
+            # Set agent status to tasklist_error
+            agent["status"] = "tasklist_error"
+            
+            # Fallback: store raw text with error info
             agent["phase_0_response"] = tasklist_json
-            agent["tasklist"] = {"goal": "Task planning", "tasks": [], "raw": tasklist_json}
+            agent["tasklist"] = {
+                "goal": "Task planning", 
+                "tasks": [], 
+                "raw": tasklist_json,
+                "error": str(e)
+            }
             
             if phase_callback:
-                await phase_callback(0, "completed", tasklist_json)  # Send raw response
+                await phase_callback(0, "completed", f"ERROR: {str(e)}\n\n{tasklist_json}")  # Send error with raw response
             
-            return "Task planning complete"
+            # Don't continue workflow, halt here
+            return {"halted": True, "phase": 0, "error": str(e)}
     
     async def _phase_get_sources(
         self,

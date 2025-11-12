@@ -88,9 +88,15 @@ class LLMService:
             from components.exceptions import QueryCancelledException
             raise QueryCancelledException("Query was cancelled before LLM call")
         
-        # Use config defaults if not overridden
+        # Use config defaults if not overridden (read fresh from config)
         temp = temperature if temperature is not None else self.config.get("temperature", 0.7)
         tokens = max_tokens if max_tokens is not None else self.config.get("max_tokens", 1000)
+        
+        # Get fresh API URL and headers from config
+        current_api_url = self.config.get("url", self.api_url)
+        current_headers = self.config.get("headers", self.headers)
+        current_timeout = self.config.get("timeout", self.timeout)
+        current_model = self.config.get("model", self.model)
         
         # Build payload
         payload = self._build_payload(prompt, temp, tokens, stream)
@@ -100,8 +106,8 @@ class LLMService:
             action_callback({
                 "action": "llm_request",
                 "data": {
-                    "endpoint": self.api_url,
-                    "model": self.model,
+                    "endpoint": current_api_url,
+                    "model": current_model,
                     "temperature": temp,
                     "max_tokens": tokens,
                     "prompt": prompt,
@@ -112,10 +118,10 @@ class LLMService:
         try:
             # Make API call
             response = requests.post(
-                self.api_url,
+                current_api_url,
                 json=payload,
-                headers=self.headers,
-                timeout=self.timeout,
+                headers=current_headers,
+                timeout=current_timeout,
                 stream=True  # Always stream for SSE-based servers
             )
             response.raise_for_status()
@@ -187,15 +193,24 @@ class LLMService:
             raise
     
     def _build_payload(self, prompt: str, temperature: float, max_tokens: int, stream: bool) -> Dict[str, Any]:
-        """Build API payload based on payload type."""
-        if self.payload_type == "message":
+        """
+        Build API payload based on payload type.
+        
+        Note: Always reads fresh values from self.config to pick up
+        configuration changes without requiring service restart.
+        """
+        # Refresh model and payload type from config in case they changed
+        current_model = self.config.get("model", self.model)
+        current_payload_type = self.config.get("payload_type", self.payload_type)
+        
+        if current_payload_type == "message":
             payload = {
-                "model": self.model,
+                "model": current_model,
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": temperature,
                 "max_tokens": max_tokens
             }
-            # Add top_p and top_k if configured
+            # Add top_p and top_k if configured (read fresh from config)
             if "top_p" in self.config:
                 payload["top_p"] = self.config["top_p"]
             if "top_k" in self.config:
@@ -203,7 +218,7 @@ class LLMService:
             return payload
         else:  # completion style
             return {
-                "model": self.model,
+                "model": current_model,
                 "prompt": prompt,
                 "stream": stream,
                 "options": {

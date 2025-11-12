@@ -8,6 +8,7 @@ import { appState } from '../state.js';
 import { apiService } from '../services/api.js';
 import { uiManager } from '../ui/manager.js';
 import { displayResponse, showHelp } from '../ui/components.js';
+import { createSimpleCard } from '../ui/utils/card-builder.js';
 
 class QueryHandler {
     /**
@@ -64,12 +65,59 @@ class QueryHandler {
                 // Cancellation is handled by WebSocket event, no need to show error
                 console.log('Query cancelled, UI updated via WebSocket');
             } else {
-                uiManager.appendOutput(`\n❌ Error: ${error.message}`, 'error');
+                // Display error as a card
+                this.displayErrorCard(error);
             }
         } finally {
             appState.setState({ processing: false });
             uiManager.setLoading(false);
         }
+    }
+
+    /**
+     * Display error as a card
+     */
+    displayErrorCard(error) {
+        const errorMessage = error.message || 'Unknown error occurred';
+        
+        // Extract HTTP status if present
+        const httpMatch = errorMessage.match(/HTTP (\d+):/);
+        const statusCode = httpMatch ? httpMatch[1] : null;
+        
+        // Determine error icon and title based on status code
+        let icon = '❌';
+        let title = 'Error';
+        
+        if (statusCode) {
+            switch (statusCode) {
+                case '400':
+                    title = 'Bad Request';
+                    break;
+                case '404':
+                    title = 'Not Found';
+                    break;
+                case '409':
+                    icon = '⚠️';
+                    title = 'Conflict';
+                    break;
+                case '500':
+                    title = 'Server Error';
+                    break;
+                case '503':
+                    title = 'Service Unavailable';
+                    break;
+                default:
+                    title = `HTTP ${statusCode} Error`;
+            }
+        }
+        
+        const errorCard = createSimpleCard({
+            title: `${icon} ${title}`,
+            className: 'error',
+            content: `<pre class="error-message">${errorMessage}</pre>`
+        });
+        
+        uiManager.appendElement(errorCard);
     }
 
     /**

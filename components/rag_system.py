@@ -100,11 +100,30 @@ class RAGSystem:
         """
         Reload configuration from file.
         
+        Updates the existing config dictionary in-place so all references
+        to it (in modes, services, etc.) see the fresh values.
+        
         Returns:
             Updated configuration dictionary
         """
         logger.info(f"Reloading configuration from {self.config_path}")
-        self.config = self._load_config(self.config_path)
+        new_config = self._load_config(self.config_path)
+        
+        # Deep update: update nested dicts in-place instead of replacing them
+        # This ensures that services holding references to nested dicts (like external_llm)
+        # also see the updated values
+        def deep_update(target: Dict, source: Dict) -> None:
+            """Update target dict from source dict, updating nested dicts in place."""
+            for key, value in source.items():
+                if key in target and isinstance(target[key], dict) and isinstance(value, dict):
+                    # Recursively update nested dicts
+                    deep_update(target[key], value)
+                else:
+                    # Replace value
+                    target[key] = value
+        
+        deep_update(self.config, new_config)
+        
         return self.config
     
     def _init_services(self) -> None:

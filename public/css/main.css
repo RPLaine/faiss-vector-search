@@ -796,7 +796,8 @@ body::-webkit-scrollbar-thumb:hover {
     color: var(--color-accent-light-blue);
 }
 
-.llm-error-box .action-header {
+.llm-error-box .action-header,
+.error-box .action-header {
     color: var(--color-accent-red);
 }
 

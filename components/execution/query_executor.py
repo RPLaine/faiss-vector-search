@@ -54,6 +54,10 @@ class QueryExecutor:
             ValueError: If mode is invalid
             Exception: If query execution fails
         """
+        # Reload config to pick up any changes from config.json
+        # This updates the shared config dict in-place
+        self.rag_system.reload_config()
+        
         # Get mode instance
         try:
             mode_instance = self.mode_selector.get_mode(mode)

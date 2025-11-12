@@ -48,8 +48,8 @@ Kirjoita käyttäjän kysymys otsikoksi käyttäen Markdown-otsikkotasoa `#`.
 ---
  
 # Lähteet tekstissä
-- Jos käytät kontekstia, merkitse lähteet suluissa muodossa: (<source file>, <lines>)
-- Jos sama tieto on useassa lähteessä: (<source file1>, <lines1>; <source file2>, <lines2>)
+- Jos käytät kontekstia, merkitse lähteet suluissa muodossa: (source file, lines)
+- Jos sama tieto on useassa lähteessä: (source file1, lines1>; source file2, lines2>)
 - Sijoita lähdeviite kappaleen tai virkkeen loppuun
 - Älä käytä termejä kuten "Chunk" tai "Characters"
 - Älä lisää lähteitä, jos kontekstia ei ole käytössä

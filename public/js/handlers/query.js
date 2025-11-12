@@ -8,7 +8,7 @@ import { appState } from '../state.js';
 import { apiService } from '../services/api.js';
 import { uiManager } from '../ui/manager.js';
 import { displayResponse, showHelp } from '../ui/components.js';
-import { createSimpleCard } from '../ui/utils/card-builder.js';
+import { createCollapsibleCard } from '../ui/utils/card-builder.js';
 
 class QueryHandler {
     /**
@@ -111,13 +111,14 @@ class QueryHandler {
             }
         }
         
-        const errorCard = createSimpleCard({
+        const { element } = createCollapsibleCard({
             title: `${icon} ${title}`,
             className: 'error',
-            content: `<pre class="error-message">${errorMessage}</pre>`
+            content: `<pre class="error-message">${errorMessage}</pre>`,
+            collapsed: false
         });
         
-        uiManager.appendElement(errorCard);
+        uiManager.appendElement(element);
     }
 
     /**

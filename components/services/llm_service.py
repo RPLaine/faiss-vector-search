@@ -63,7 +63,7 @@ class LLMService:
         prompt: str,
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
-        stream: bool = False,
+        stream: bool = True,  # Enable streaming by default for better UX
         progress_callback: Optional[Callable[[str], None]] = None,
         action_callback: Optional[Callable[[Dict[str, Any]], None]] = None
     ) -> LLMResponse:
@@ -128,7 +128,11 @@ class LLMService:
             
             # Handle streaming response (SSE format)
             # Note: The streaming server only supports SSE format, not JSON responses
-            text = self._handle_streaming_response(response, progress_callback)
+            text = self._handle_streaming_response(
+                response, 
+                progress_callback, 
+                action_callback
+            )
             
             generation_time = time.time() - start_time
             
@@ -240,26 +244,68 @@ class LLMService:
         
         raise ValueError("Could not extract text from LLM response")
     
-    def _handle_streaming_response(self, response, progress_callback: Optional[Callable[[str], None]] = None) -> str:
+    def _handle_streaming_response(
+        self, 
+        response, 
+        progress_callback: Optional[Callable[[str], None]] = None,
+        action_callback: Optional[Callable[[Dict[str, Any]], None]] = None
+    ) -> str:
         """
         Handle plain text streaming response.
         
         The server returns plain text chunks without any wrapper format (no SSE, no JSON).
         Chunks arrive as the model generates them and should be accumulated into full_text.
+        
+        Args:
+            response: HTTP response object with streaming content
+            progress_callback: Legacy callback for chunks (deprecated, kept for compatibility)
+            action_callback: Action callback for structured WebSocket events
         """
         full_text = ""
+        chunk_count = 0
+        
+        # Emit streaming start event
+        if action_callback:
+            action_callback({
+                "action": "llm_stream_start",
+                "data": {
+                    "timestamp": time.time()
+                }
+            })
         
         # Iterate over response chunks as they arrive
         for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
             if chunk:
+                chunk_count += 1
                 # Add chunk to full text
                 full_text += chunk
                 
-                # Call progress callback if provided (for UI updates)
+                # Emit chunk via action callback (for WebSocket)
+                if action_callback:
+                    action_callback({
+                        "action": "llm_stream_chunk",
+                        "data": {
+                            "chunk": chunk,
+                            "total_length": len(full_text),
+                            "chunk_number": chunk_count
+                        }
+                    })
+                
+                # Legacy progress callback (kept for backwards compatibility)
                 if progress_callback:
                     progress_callback(chunk)
         
-        logger.info(f"Stream completed: received {len(full_text)} characters")
+        # Emit streaming complete event
+        if action_callback:
+            action_callback({
+                "action": "llm_stream_complete",
+                "data": {
+                    "total_length": len(full_text),
+                    "total_chunks": chunk_count
+                }
+            })
+        
+        logger.info(f"Stream completed: received {len(full_text)} characters in {chunk_count} chunks")
         return full_text
     
     def get_statistics(self) -> Dict[str, Any]:

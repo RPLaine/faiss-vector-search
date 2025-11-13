@@ -56,21 +56,21 @@ export class TransitionManager {
      */
     disableAllTransitions() {
         // Disable agent transitions
-        for (const [agentId, element] of this.agentElements.entries()) {
+        for (const [, element] of this.agentElements.entries()) {
             if (element) {
                 element.classList.add('no-transition');
             }
         }
         
         // Disable task transitions
-        for (const [taskKey, element] of this.taskElements.entries()) {
+        for (const [, element] of this.taskElements.entries()) {
             if (element) {
                 element.classList.add('no-transition');
             }
         }
         
         // Disable connection line transitions (SVG uses className.baseVal)
-        for (const [key, path] of this.connectionElements.entries()) {
+        for (const [, path] of this.connectionElements.entries()) {
             if (path) {
                 const currentClass = path.className.baseVal;
                 if (!currentClass.includes('no-transition')) {
@@ -85,21 +85,21 @@ export class TransitionManager {
      */
     enableAllTransitions() {
         // Enable agent transitions
-        for (const [agentId, element] of this.agentElements.entries()) {
+        for (const [, element] of this.agentElements.entries()) {
             if (element) {
                 element.classList.remove('no-transition');
             }
         }
         
         // Enable task transitions
-        for (const [taskKey, element] of this.taskElements.entries()) {
+        for (const [, element] of this.taskElements.entries()) {
             if (element) {
                 element.classList.remove('no-transition');
             }
         }
         
         // Enable connection line transitions (SVG uses className.baseVal)
-        for (const [key, path] of this.connectionElements.entries()) {
+        for (const [, path] of this.connectionElements.entries()) {
             if (path) {
                 const currentClass = path.className.baseVal;
                 path.className.baseVal = currentClass.replace(/\s*no-transition\s*/g, '').trim();

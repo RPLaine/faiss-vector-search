@@ -168,8 +168,11 @@ export class ConnectionLinesManager {
         const pathData = this.createBendyPath(x1, y1, x2, y2);
         path.setAttribute('d', pathData);
         
-        // Update status class
-        path.className.baseVal = `connection-line ${statusClass}${isNewPath && isInitialCreation ? ' initial-animation' : ''}`;
+        // Update status class while preserving transition-related classes
+        const currentClass = path.className.baseVal;
+        const hasNoTransition = currentClass.includes('no-transition');
+        const newBaseClass = `connection-line ${statusClass}${isNewPath && isInitialCreation ? ' initial-animation' : ''}`;
+        path.className.baseVal = hasNoTransition ? `${newBaseClass} no-transition` : newBaseClass;
     }
     
     /**

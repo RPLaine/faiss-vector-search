@@ -89,11 +89,8 @@ export class DragHandler {
                 this.canvasManager.updateAllElementPositions();
                 
                 // Update connection lines immediately after positions are set
-                // Use setTimeout to ensure task position event has been processed
-                setTimeout(() => {
-                    this.canvasManager.connectionLinesManager.updateAllConnections();
-                    this.dragUpdateScheduled = false;
-                }, 0);
+                this.canvasManager.connectionLinesManager.updateAllConnections();
+                this.dragUpdateScheduled = false;
             });
         }
     }

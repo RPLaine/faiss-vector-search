@@ -414,32 +414,49 @@ body {
     transition: all var(--transition-normal);
 }
 
-.agent-node-content .content-text {
+/* Content Text - Base Styles */
+.content-text {
     font-size: 12px;
     line-height: 1.5;
     color: var(--color-text-primary);
-    max-height: 80px;
     overflow-y: auto;
     white-space: pre-wrap;
     word-wrap: break-word;
     transition: max-height var(--transition-normal);
+    padding-right: 2px; /* Small gap for scrollbar */
+}
+
+.content-text::-webkit-scrollbar {
+    width: 6px;
+}
+
+.content-text::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 3px;
+}
+
+.content-text::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
+}
+
+.content-text::-webkit-scrollbar-thumb:hover {
+    background: var(--color-border-light);
+}
+
+/* Firefox scrollbar styling */
+.content-text {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+}
+
+/* Agent Content Text - Specific Overrides */
+.agent-node-content .content-text {
+    max-height: 80px;
 }
 
 .agent-node-content.expanded .content-text {
     max-height: 400px;
-}
-
-.agent-node-content .content-text::-webkit-scrollbar {
-    width: 4px;
-}
-
-.agent-node-content .content-text::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.agent-node-content .content-text::-webkit-scrollbar-thumb {
-    background: var(--color-border);
-    border-radius: 2px;
 }
 
 /* Tasklist Styling */
@@ -771,36 +788,15 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-}
-
-.task-node-content .content-text {
-    font-size: 12px;
-    line-height: 1.5;
-    color: var(--color-text-primary);
-    max-height: 400px;
-    overflow-y: auto;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    font-family: var(--font-mono);
+    padding: var(--space-md);
     background: var(--color-bg-primary);
-    padding: var(--space-sm);
-    border-radius: 4px;
-    scroll-behavior: smooth;
-    transition: max-height var(--transition-normal);
-    flex: 1;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--color-border);
 }
 
-.task-node-content .content-text::-webkit-scrollbar {
-    width: 4px;
-}
-
-.task-node-content .content-text::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.task-node-content .content-text::-webkit-scrollbar-thumb {
-    background: var(--color-border);
-    border-radius: 2px;
+/* Task Content Text - Specific Overrides */
+.task-node-content .content-text {
+    max-height: 400px;
 }
 
 .task-node-validation {

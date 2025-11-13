@@ -58,7 +58,8 @@ export class UIManager {
             onDelete: (agentId) => this.handleDeleteAgent(agentId),
             onAutoToggle: (agentId, enabled) => this.handleAutoToggle(agentId, enabled),
             onHaltToggle: (agentId, enabled) => this.handleHaltToggle(agentId, enabled),
-            onExpandToggle: (agentId, enabled) => this.handleExpandToggle(agentId, enabled)
+            onExpandToggle: (agentId, enabled) => this.handleExpandToggle(agentId, enabled),
+            onSelect: (agentId) => this.handleSelectAgent(agentId)
         };
         
         // Render using renderer
@@ -175,6 +176,39 @@ export class UIManager {
                 this.canvasManager.scrollAgentToCenter(agentId);
             }, SCROLL_DELAYS.RECENTER_AFTER_EXPAND);
         });
+    }
+    
+    handleSelectAgent(agentId) {
+        console.log(`[UIManager] Selecting agent ${agentId}`);
+        
+        // Get previously selected agent
+        const previouslySelected = this.agentManager.getSelectedAgentId();
+        
+        // If clicking the already-selected agent, do nothing
+        if (previouslySelected === agentId) {
+            return;
+        }
+        
+        // Deselect previous agent
+        if (previouslySelected) {
+            this.agentRenderer.setSelected(previouslySelected, false);
+            this.taskController.hideTasksForAgent(previouslySelected);
+        }
+        
+        // Select new agent
+        this.agentManager.selectAgent(agentId);
+        this.agentRenderer.setSelected(agentId, true);
+        
+        // Show tasks for selected agent
+        this.taskController.showTasksForAgent(agentId);
+        
+        // Recalculate agent positions (selected agent moves right, unselected move left)
+        this.canvasManager.recalculateAgentPositions();
+        
+        // Recalculate task positions for the newly selected agent
+        if (this.taskManager.getAgentTasks(agentId)?.length > 0) {
+            this.taskController.positionTasksForAgent(agentId);
+        }
     }
     
     // ========================================

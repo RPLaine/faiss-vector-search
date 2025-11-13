@@ -5,6 +5,7 @@
 export class AgentManager {
     constructor() {
         this.agents = new Map();
+        this.selectedAgentId = null; // Currently selected agent
     }
     
     addAgent(agent) {
@@ -60,5 +61,37 @@ export class AgentManager {
             agent.status = 'failed';
             agent.error = error;
         }
+    }
+    
+    // ========================================
+    // Selection Management
+    // ========================================
+    
+    /**
+     * Select an agent (deselects others)
+     */
+    selectAgent(agentId) {
+        this.selectedAgentId = agentId;
+    }
+    
+    /**
+     * Get currently selected agent ID
+     */
+    getSelectedAgentId() {
+        return this.selectedAgentId;
+    }
+    
+    /**
+     * Check if an agent is selected
+     */
+    isAgentSelected(agentId) {
+        return this.selectedAgentId === agentId;
+    }
+    
+    /**
+     * Clear selection
+     */
+    clearSelection() {
+        this.selectedAgentId = null;
     }
 }

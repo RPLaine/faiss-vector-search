@@ -283,7 +283,7 @@ body {
 .connection-line {
     fill: none;
     stroke-width: 3;
-    transition: stroke 0.3s ease, d 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
+    transition: stroke 0.3s ease, d 0.8s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.3s ease;
 }
 
 .connection-line.no-transition {
@@ -403,6 +403,22 @@ body {
     border-color: var(--color-accent-danger);
     box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
     animation: borderPulseError 2s ease-in-out infinite;
+}
+
+/* Selection State */
+.agent-node.selected {
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 30px rgba(37, 99, 235, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+    transform: scale(1.02);
+    z-index: 10;
+}
+
+.agent-node:not(.selected) {
+    cursor: pointer;
+}
+
+.agent-node:not(.selected):hover {
+    border-color: var(--color-border-light);
 }
 
 .agent-node-header {
@@ -632,11 +648,24 @@ body {
     flex-direction: column;
     width: 900px;
     padding: var(--space-md);
-    transition: border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, top 0.8s cubic-bezier(0.4, 0.0, 0.2, 1), left 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.4s ease, transform 0.4s ease, top 0.8s cubic-bezier(0.4, 0.0, 0.2, 1), left 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
 .task-node.no-transition {
     transition: none !important;
+}
+
+/* Visibility states for selection system */
+.task-node.task-hidden {
+    opacity: 0;
+    transform: translateX(-30px) scale(0.95);
+    pointer-events: none;
+}
+
+.task-node.task-visible {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    pointer-events: auto;
 }
 
 /* Initial creation animation - same style as agent nodes */

@@ -39,7 +39,7 @@ class App {
         // State managers (Note: TaskManager is injected into CanvasManager for connection lines)
         this.agentManager = new AgentManager();
         this.taskManager = new TaskManager(null, this.transitionManager); // canvasManager will be set below
-        this.canvasManager = new CanvasManager('agentCanvas', this.taskManager, this.transitionManager);
+        this.canvasManager = new CanvasManager('agentCanvas', this.taskManager, this.transitionManager, this.agentManager);
         this.taskManager.canvasManager = this.canvasManager;
         
         // Services

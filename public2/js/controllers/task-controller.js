@@ -321,4 +321,61 @@ export class TaskController {
         
         console.log(`[TaskController] Focused on task ${taskId}`);
     }
+    
+    /**
+     * Show tasks for an agent (when agent is selected)
+     */
+    showTasksForAgent(agentId) {
+        const taskKeys = this.taskManager.getAgentTasks(agentId);
+        if (!taskKeys || taskKeys.length === 0) return;
+        
+        console.log(`[TaskController] Showing tasks for agent ${agentId}`);
+        
+        taskKeys.forEach((taskKey, index) => {
+            const taskData = this.taskManager.getTask(taskKey);
+            if (taskData && taskData.element) {
+                // Remove hidden class and trigger fade-in animation
+                taskData.element.classList.remove('task-hidden');
+                taskData.element.classList.add('task-visible');
+                
+                // Stagger the animation for each task
+                taskData.element.style.transitionDelay = `${index * 50}ms`;
+            }
+        });
+        
+        // Show connection lines with delay to sync with task animations
+        setTimeout(() => {
+            if (this.canvasManager && this.canvasManager.connectionLinesManager) {
+                this.canvasManager.connectionLinesManager.showConnectionsForAgent(agentId);
+            }
+        }, 100);
+    }
+    
+    /**
+     * Hide tasks for an agent (when agent is deselected)
+     */
+    hideTasksForAgent(agentId) {
+        const taskKeys = this.taskManager.getAgentTasks(agentId);
+        if (!taskKeys || taskKeys.length === 0) return;
+        
+        console.log(`[TaskController] Hiding tasks for agent ${agentId}`);
+        
+        // Hide connection lines first
+        if (this.canvasManager && this.canvasManager.connectionLinesManager) {
+            this.canvasManager.connectionLinesManager.hideConnectionsForAgent(agentId);
+        }
+        
+        taskKeys.forEach((taskKey, index) => {
+            const taskData = this.taskManager.getTask(taskKey);
+            if (taskData && taskData.element) {
+                // Add hidden class to trigger fade-out animation
+                taskData.element.classList.remove('task-visible');
+                taskData.element.classList.add('task-hidden');
+                
+                // Stagger the animation for each task (reverse order for hide)
+                const reverseIndex = taskKeys.length - 1 - index;
+                taskData.element.style.transitionDelay = `${reverseIndex * 30}ms`;
+            }
+        });
+    }
 }

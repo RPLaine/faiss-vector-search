@@ -24,7 +24,7 @@ export class TaskRenderer {
      */
     renderTask(agentId, task, index, totalTasks) {
         const node = DOMUtils.createElement('div', {
-            className: `task-node card-base ${task.status || 'created'} initial-animation`,
+            className: `task-node card-base ${task.status || 'created'} initial-animation task-hidden`,
             id: `task-${agentId}-${task.id}`,
             dataset: {
                 agentId: agentId,

@@ -43,6 +43,16 @@ export class AgentRenderer {
             this._attachEventListeners(node, agent.id, eventHandlers);
         }
         
+        // Add click handler for selection if provided
+        if (eventHandlers.onSelect) {
+            node.addEventListener('click', (e) => {
+                // Don't trigger selection if clicking on interactive elements
+                if (!e.target.closest('button, input, label')) {
+                    eventHandlers.onSelect(agent.id);
+                }
+            });
+        }
+        
         return node;
     }
     
@@ -345,6 +355,20 @@ export class AgentRenderer {
             AnimationUtils.fadeOut(node, ANIMATION_DURATIONS.AGENT_FADE_OUT).then(() => {
                 node.remove();
             });
+        }
+    }
+    
+    /**
+     * Set agent as selected (visual feedback)
+     */
+    setSelected(agentId, selected) {
+        const node = document.getElementById(`agent-${agentId}`);
+        if (!node) return;
+        
+        if (selected) {
+            node.classList.add('selected');
+        } else {
+            node.classList.remove('selected');
         }
     }
 }

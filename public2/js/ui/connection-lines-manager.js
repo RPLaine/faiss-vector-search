@@ -346,4 +346,41 @@ export class ConnectionLinesManager {
             this.updateConnectionsForAgent(agentId);
         }
     }
+    
+    /**
+     * Show connection lines for an agent
+     */
+    showConnectionsForAgent(agentId) {
+        for (const [key, path] of this.lines.entries()) {
+            if (key.includes(`agent-${agentId}`)) {
+                // Animate in with fade
+                path.style.opacity = '0';
+                path.style.display = 'block';
+                
+                // Trigger fade-in animation
+                requestAnimationFrame(() => {
+                    path.style.transition = 'opacity 0.3s ease';
+                    path.style.opacity = '1';
+                });
+            }
+        }
+    }
+    
+    /**
+     * Hide connection lines for an agent
+     */
+    hideConnectionsForAgent(agentId) {
+        for (const [key, path] of this.lines.entries()) {
+            if (key.includes(`agent-${agentId}`)) {
+                // Animate out with fade
+                path.style.transition = 'opacity 0.2s ease';
+                path.style.opacity = '0';
+                
+                // Hide after animation completes
+                setTimeout(() => {
+                    path.style.display = 'none';
+                }, 200);
+            }
+        }
+    }
 }

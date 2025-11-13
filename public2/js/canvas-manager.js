@@ -20,12 +20,13 @@ import { DragHandler } from './utils/drag-handler.js';
 import { ScrollHandler } from './utils/scroll-handler.js';
 
 export class CanvasManager {
-    constructor(canvasId, taskManager, transitionManager) {
+    constructor(canvasId, taskManager, transitionManager, agentManager) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
         this.agents = new Map(); // agent_id -> {globalX, globalY, element}
         this.heightUpdateTimeout = null; // Debounce timer for height updates
         this.isRecalculating = false; // Flag to prevent nested recalculations
+        this.agentManager = agentManager; // For checking agent selection state
         
         // Camera/viewport system for scroll-free navigation
         this.camera = {
@@ -151,7 +152,8 @@ export class CanvasManager {
         
         for (const [agentId, agent] of this.agents.entries()) {
             const height = agent.element.offsetHeight || 200;
-            agentData.push({ agentId, agent, height });
+            const isSelected = this.agentManager ? this.agentManager.isAgentSelected(agentId) : false;
+            agentData.push({ agentId, agent, height, isSelected });
             totalHeight += height;
         }
         
@@ -166,8 +168,10 @@ export class CanvasManager {
         // Position agents in global coordinates
         let currentGlobalY = gapBetweenAgents;
         
-        for (const { agentId, agent, height } of agentData) {
-            const globalX = leftMargin;
+        for (const { agentId, agent, height, isSelected } of agentData) {
+            // Selected agents use full left margin, unselected use half width offset
+            const horizontalOffset = isSelected ? 0 : -(LAYOUT_DIMENSIONS.AGENT_WIDTH / 2);
+            const globalX = leftMargin + horizontalOffset;
             const globalY = currentGlobalY;
             
             // Store global coordinates

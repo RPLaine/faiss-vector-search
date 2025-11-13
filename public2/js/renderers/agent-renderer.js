@@ -23,7 +23,7 @@ export class AgentRenderer {
      */
     renderAgent(agent, eventHandlers = {}) {
         const node = DOMUtils.createElement('div', {
-            className: `agent-node ${agent.status || 'created'}`,
+            className: `agent-node ${agent.status || 'created'} initial-animation`,
             id: `agent-${agent.id}`,
             dataset: { agentId: agent.id }
         });
@@ -31,6 +31,11 @@ export class AgentRenderer {
         node.innerHTML = this._getAgentTemplate(agent);
         
         this.container.appendChild(node);
+        
+        // Remove animation class after animation completes (800ms)
+        setTimeout(() => {
+            node.classList.remove('initial-animation');
+        }, 800);
         
         // Attach event listeners if provided
         if (eventHandlers) {

@@ -7,6 +7,8 @@
  * - CanvasManager (layout updates)
  */
 
+import { POSITIONING_DELAYS } from '../constants.js';
+
 export class TaskController {
     constructor(taskManager, taskRenderer, canvasManager) {
         this.taskManager = taskManager;
@@ -42,12 +44,15 @@ export class TaskController {
                 const taskData = this.taskManager.getTask(taskKey);
                 if (!taskData) return;
                 
-                // Update stored position
-                taskData.x = x;
-                taskData.y = y;
+                // Update stored global position
+                taskData.globalX = x;
+                taskData.globalY = y;
+                
+                // Convert to screen coordinates
+                const screenPos = this.taskManager.canvasManager.globalToScreen(x, y);
                 
                 // Apply to DOM immediately (no animation during recalculation)
-                this.renderer.setPosition(taskData.element, x, y, true);
+                this.renderer.setPosition(taskData.element, screenPos.x, screenPos.y, true);
             });
         }
         
@@ -87,8 +92,8 @@ export class TaskController {
                 element: taskNode,
                 agentId: agentId,
                 taskId: task.id,
-                x: 0,
-                y: 0
+                globalX: 0,
+                globalY: 0
             });
             
             taskKeys.push(taskKey);
@@ -170,7 +175,7 @@ export class TaskController {
         // Reposition after validation UI appears
         setTimeout(() => {
             this.positionTasksForAgent(agentId);
-        }, 400);
+        }, POSITIONING_DELAYS.VALIDATION_REPOSITION_DELAY);
     }
     
     /**
@@ -190,7 +195,7 @@ export class TaskController {
         // Reposition after validation UI appears
         setTimeout(() => {
             this.positionTasksForAgent(agentId);
-        }, 400);
+        }, POSITIONING_DELAYS.VALIDATION_REPOSITION_DELAY);
     }
     
     /**
@@ -203,7 +208,7 @@ export class TaskController {
         const agentPos = this.canvasManager.getAgentPosition(agentId);
         if (!agentPos) return;
         
-        // Calculate positions using layout logic from TaskManager
+        // Calculate positions using layout logic from TaskManager (returns global coords)
         const positions = this.taskManager.calculateTaskPositions(agentId, agentPos);
         
         // Apply positions to task elements
@@ -211,12 +216,15 @@ export class TaskController {
             const taskData = this.taskManager.getTask(taskKey);
             if (!taskData) return;
             
-            // Update position
-            taskData.x = x;
-            taskData.y = y;
+            // Update global position
+            taskData.globalX = x;
+            taskData.globalY = y;
+            
+            // Convert to screen coordinates
+            const screenPos = this.canvasManager.globalToScreen(x, y);
             
             // Apply to DOM
-            this.renderer.setPosition(taskData.element, x, y, immediate);
+            this.renderer.setPosition(taskData.element, screenPos.x, screenPos.y, immediate);
         });
         
         // Update connection lines after positioning (not during centralized recalculation)
@@ -226,10 +234,9 @@ export class TaskController {
                 this.canvasManager.updateConnectionsForAgent(agentId);
             } else {
                 // Update connection lines during transitions (similar to agent positioning)
-                // Tasks have 400ms transition, update multiple times to keep lines in sync
+                // Tasks have transition, update multiple times to keep lines in sync
                 this.canvasManager.updateConnectionsForAgent(agentId);
-                const updateIntervals = [50, 100, 150, 200, 250, 300, 350, 450];
-                updateIntervals.forEach(delay => {
+                POSITIONING_DELAYS.TASK_CONNECTION_UPDATES.forEach(delay => {
                     setTimeout(() => {
                         if (this.canvasManager) {
                             this.canvasManager.updateConnectionsForAgent(agentId);
@@ -238,10 +245,6 @@ export class TaskController {
                 });
             }
         }
-        
-        // Update canvas height after task positioning (not during centralized recalculation)
-        // This handles runtime task updates that aren't part of a full recalculation
-        this.canvasManager.updateCanvasHeight();
     }
     
     /**

@@ -3,24 +3,49 @@
  * 
  * Responsibilities:
  * - Store task data
- * - Calculate task positions (layout logic)
  * - Manage task-agent relationships
+ * - Provide task query methods
  * 
  * NOT responsible for:
  * - DOM manipulation (delegated to TaskRenderer)
  * - HTML generation (delegated to TaskRenderer)
  * - Business logic (delegated to TaskController)
+ * - Layout calculations (delegated to TaskLayoutCalculator)
  */
+
+import { TaskLayoutCalculator } from './utils/task-layout-calculator.js';
+import { POSITIONING_DELAYS, LAYOUT_DIMENSIONS } from './constants.js';
 
 export class TaskManager {
     constructor(canvasManager) {
         this.canvasManager = canvasManager;
-        this.taskNodes = new Map(); // task_key -> {element, agentId, taskId, x, y}
+        this.taskNodes = new Map(); // task_key -> {element, agentId, taskId, globalX, globalY}
         this.agentTasks = new Map(); // agent_id -> Set of task_keys
         this.isAligning = new Map(); // agent_id -> boolean (prevents conflicts during alignment)
         
+        // Listen for camera position updates to update task screen positions
+        window.addEventListener('updateTaskScreenPositions', (e) => {
+            this.updateAllTaskScreenPositions(e.detail.camera);
+        });
+        
         // Note: Centralized recalculation is handled by TaskController
         // which listens to 'recalculateTaskPositions' events
+    }
+    
+    /**
+     * Update all task DOM positions based on camera position
+     */
+    updateAllTaskScreenPositions(camera) {
+        for (const [taskKey, taskData] of this.taskNodes.entries()) {
+            if (!taskData.element) continue;
+            
+            // Convert global to screen coordinates
+            const screenX = taskData.globalX - camera.x;
+            const screenY = taskData.globalY - camera.y;
+            
+            taskData.element.style.left = `${screenX}px`;
+            taskData.element.style.top = `${screenY}px`;
+        }
     }
     
     // ========================================
@@ -82,7 +107,7 @@ export class TaskManager {
     }
     
     // ========================================
-    // Layout Calculation Methods
+    // Layout Calculation Methods (Delegated)
     // ========================================
     
     /**
@@ -97,96 +122,17 @@ export class TaskManager {
         const agentElement = this.canvasManager.agents.get(agentId)?.element;
         if (!agentElement) return [];
         
-        const agentWidth = agentElement.offsetWidth || 320;
+        const agentWidth = agentElement.offsetWidth || LAYOUT_DIMENSIONS.AGENT_WIDTH;
         
-        // Starting position for tasks (right of agent with gap)
-        const startX = agentPos.x + agentWidth + 40; // 40px gap
-        
-        // Sort tasks by ID
-        const sortedTaskKeys = taskKeys.sort((a, b) => {
-            const taskA = this.taskNodes.get(a);
-            const taskB = this.taskNodes.get(b);
-            return taskA.taskId - taskB.taskId;
+        // Delegate to pure utility function
+        return TaskLayoutCalculator.calculateTaskPositions({
+            taskKeys,
+            getTaskData: (key) => this.taskNodes.get(key),
+            agentPos,
+            agentWidth,
+            gapBetweenElements: LAYOUT_DIMENSIONS.GAP_BETWEEN_TASKS,
+            horizontalGap: LAYOUT_DIMENSIONS.GAP_AGENT_TO_TASK
         });
-        
-        // Calculate heights
-        const taskHeights = [];
-        for (const taskKey of sortedTaskKeys) {
-            const taskData = this.taskNodes.get(taskKey);
-            if (!taskData) continue;
-            const height = taskData.element.offsetHeight || 300;
-            taskHeights.push(height);
-        }
-        
-        // Determine alignment based on task status
-        const alignTaskIndex = this._getAlignmentIndex(sortedTaskKeys);
-        
-        // Calculate start Y position
-        const gapBetweenElements = 20;
-        let heightBeforeAlignedTask = 0;
-        for (let i = 0; i < alignTaskIndex; i++) {
-            heightBeforeAlignedTask += taskHeights[i] + gapBetweenElements;
-        }
-        
-        let startY = agentPos.y - heightBeforeAlignedTask;
-        let currentY = startY;
-        
-        // Build positions array
-        const positions = [];
-        sortedTaskKeys.forEach((taskKey, index) => {
-            positions.push({
-                taskKey,
-                x: startX,
-                y: currentY
-            });
-            currentY += taskHeights[index] + gapBetweenElements;
-        });
-        
-        return positions;
-    }
-    
-    /**
-     * Determine which task should align with agent top
-     */
-    _getAlignmentIndex(sortedTaskKeys) {
-        // Find running task
-        for (let i = 0; i < sortedTaskKeys.length; i++) {
-            const taskData = this.taskNodes.get(sortedTaskKeys[i]);
-            const statusEl = taskData?.element.querySelector('.task-node-status');
-            const status = statusEl?.textContent.toLowerCase();
-            if (status === 'running') {
-                return i;
-            }
-        }
-        
-        // Check if all tasks are completed
-        let allCompleted = true;
-        let hasAnyNonCreated = false;
-        for (const taskKey of sortedTaskKeys) {
-            const taskData = this.taskNodes.get(taskKey);
-            const statusEl = taskData?.element.querySelector('.task-node-status');
-            const status = statusEl?.textContent.toLowerCase();
-            if (status !== 'completed') {
-                allCompleted = false;
-            }
-            if (status !== 'created' && status !== 'pending') {
-                hasAnyNonCreated = true;
-            }
-        }
-        
-        // If all completed, align last task
-        if (allCompleted && sortedTaskKeys.length > 0) {
-            return sortedTaskKeys.length - 1;
-        }
-        
-        // If all tasks are in initial state (created/pending), start from agent position
-        // This prevents tasks from being positioned above the agent on page load
-        if (!hasAnyNonCreated) {
-            return 0; // First task aligns with agent, rest flow down
-        }
-        
-        // Default: align first task
-        return 0;
     }
     
     /**
@@ -200,12 +146,12 @@ export class TaskManager {
             if (agentPos) {
                 const positions = this.calculateTaskPositions(agentId, agentPos);
                 
-                // Update stored positions (data only)
+                // Update stored global positions (data only)
                 positions.forEach(({ taskKey, x, y }) => {
                     const taskData = this.taskNodes.get(taskKey);
                     if (taskData) {
-                        taskData.x = x;
-                        taskData.y = y;
+                        taskData.globalX = x;
+                        taskData.globalY = y;
                     }
                 });
             }
@@ -243,19 +189,19 @@ export class TaskManager {
         
         const positions = this.calculateTaskPositions(agentId, agentPos);
         
-        // Update stored positions
+        // Update stored global positions
         positions.forEach(({ taskKey, x, y }) => {
             const taskData = this.taskNodes.get(taskKey);
             if (taskData) {
-                taskData.x = x;
-                taskData.y = y;
+                taskData.globalX = x;
+                taskData.globalY = y;
             }
         });
         
-        // Clear alignment flag after animation (850ms)
+        // Clear alignment flag after animation
         setTimeout(() => {
             this.setAligning(agentId, false);
-        }, 850);
+        }, POSITIONING_DELAYS.TASK_ALIGNMENT_CLEAR);
     }
     
     // ========================================

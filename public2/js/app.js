@@ -44,11 +44,15 @@ class App {
         this.agentRenderer = new AgentRenderer('#agentNodesContainer');
         this.taskRenderer = new TaskRenderer('#agentNodesContainer');
         
-        // Controllers
-        this.agentController = new AgentController(this.agentManager, this.agentRenderer);
+        // Controllers (with full dependency injection)
+        this.agentController = new AgentController(
+            this.agentManager, 
+            this.agentRenderer,
+            this.taskManager  // Inject TaskManager for failed task queries
+        );
         this.taskController = new TaskController(this.taskManager, this.taskRenderer, this.canvasManager);
         
-        // UI Manager (coordination)
+        // UI Manager (coordination) with dependency injection
         this.uiManager = new UIManager(
             this.agentController,
             this.taskController,
@@ -56,6 +60,7 @@ class App {
             this.canvasManager
         );
         this.uiManager.taskManager = this.taskManager;
+        this.uiManager.agentManager = this.agentManager; // Inject AgentManager
         
         // WebSocket service
         this.wsService = new WebSocketService('ws://localhost:8001/ws');

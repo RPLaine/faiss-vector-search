@@ -12,6 +12,8 @@
  * - API calls (delegated to controllers → APIService)
  */
 
+import { SCROLL_DELAYS } from './constants.js';
+
 export class UIManager {
     constructor(agentController, taskController, agentRenderer, canvasManager) {
         this.agentController = agentController;
@@ -19,6 +21,7 @@ export class UIManager {
         this.agentRenderer = agentRenderer;
         this.canvasManager = canvasManager;
         this.taskManager = null; // Will be set externally
+        this.agentManager = null; // Will be set externally for agent queries
     }
     
     // ========================================
@@ -127,7 +130,7 @@ export class UIManager {
     }
     
     handleEditAgent(agentId) {
-        const agent = window.app.agentManager.getAgent(agentId);
+        const agent = this.agentManager?.getAgent(agentId);
         if (!agent) {
             alert('Agent not found');
             return;
@@ -173,7 +176,7 @@ export class UIManager {
         requestAnimationFrame(() => {
             setTimeout(() => {
                 this.canvasManager.scrollAgentToCenter(agentId);
-            }, 400);
+            }, SCROLL_DELAYS.RECENTER_AFTER_EXPAND);
         });
     }
     
@@ -188,9 +191,9 @@ export class UIManager {
         this.agentRenderer.updateStatus(agentId, status);
         
         // Update button visibility based on status
-        const agent = window.app.agentManager.getAgent(agentId);
+        const agent = this.agentManager?.getAgent(agentId);
         const haltEnabled = agent?.halt || false;
-        const hasFailedTasks = this.taskManager.hasFailedTasks(agentId);
+        const hasFailedTasks = this.taskManager?.hasFailedTasks(agentId);
         
         if (status === 'running') {
             this.agentRenderer.setActionButton(agentId, 'stop', '⏹️', 'Stop');

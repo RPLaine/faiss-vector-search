@@ -5,6 +5,8 @@
  * No direct DOM manipulation - delegates to controllers/managers only.
  */
 
+import { SCROLL_DELAYS, POSITIONING_DELAYS, ANIMATION_DURATIONS } from '../constants.js';
+
 export class WebSocketEventHandler {
     constructor(agentManager, agentController, taskController, uiManager, canvasManager, taskManager) {
         this.agentManager = agentManager;
@@ -77,10 +79,9 @@ export class WebSocketEventHandler {
                 
                 if (agent.tasklist && agent.tasklist.tasks) {
                     // Delay task creation to allow agent positioning to complete
-                    // Agent positioning takes ~100ms (2 RAF + 50ms), add buffer
                     setTimeout(() => {
                         this.taskController.createTasksForAgent(agent.id, agent.tasklist);
-                    }, 200);
+                    }, POSITIONING_DELAYS.AGENT_POSITION_DELAY);
                     maxTaskCount = Math.max(maxTaskCount, agent.tasklist.tasks.length);
                 }
             }
@@ -89,7 +90,9 @@ export class WebSocketEventHandler {
         // Scroll to first agent after loading
         if (agentCount > 0) {
             const firstAgent = data.data.agents[0];
-            const scrollDelay = 800 + (maxTaskCount * 100) + 300;
+            const scrollDelay = SCROLL_DELAYS.SCROLL_AFTER_LOAD + 
+                               (maxTaskCount * SCROLL_DELAYS.SCROLL_TASK_MULTIPLIER) + 
+                               SCROLL_DELAYS.SCROLL_BUFFER;
             setTimeout(() => {
                 this.canvasManager.scrollAgentToCenter(firstAgent.id);
             }, scrollDelay);
@@ -109,10 +112,9 @@ export class WebSocketEventHandler {
         
         // Scroll to center the newly created agent
         // Delay to allow agent positioning to complete
-        // Agent positioning takes ~100ms (2 RAF + 50ms), add buffer
         setTimeout(() => {
             this.canvasManager.scrollAgentToCenter(agent.id);
-        }, 200);
+        }, POSITIONING_DELAYS.AGENT_POSITION_DELAY);
     }
     
     handleAgentUpdated(data) {

@@ -10,9 +10,10 @@
 import { APIService } from '../services/api-service.js';
 
 export class AgentController {
-    constructor(agentManager, agentRenderer) {
+    constructor(agentManager, agentRenderer, taskManager = null) {
         this.agentManager = agentManager;
         this.renderer = agentRenderer;
+        this.taskManager = taskManager; // Injected dependency for task queries
     }
     
     /**
@@ -112,11 +113,11 @@ export class AgentController {
             console.log(`[Agent ${agentId}] Restart initiated`);
         } else if (agent.status === 'halted') {
             // Check if there are failed tasks
-            const hasFailedTasks = window.app.taskManager.hasFailedTasks(agentId);
+            const hasFailedTasks = this.taskManager?.hasFailedTasks(agentId);
             
             if (hasFailedTasks) {
                 // Redo the first failed task
-                const failedTask = window.app.taskManager.getFirstFailedTask(agentId);
+                const failedTask = this.taskManager.getFirstFailedTask(agentId);
                 const confirmMsg = `Redo failed task "${failedTask.element.querySelector('h4').textContent}"?`;
                 if (!confirm(confirmMsg)) return;
                 

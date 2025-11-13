@@ -10,13 +10,28 @@
  * - Failed: red (#ef4444)
  */
 
+import { ANIMATION_DURATIONS, POSITIONING_DELAYS, LAYOUT_DIMENSIONS } from './constants.js';
+
 export class CanvasManager {
     constructor(canvasId, taskManager) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
-        this.agents = new Map(); // agent_id -> {x, y, element}
+        this.agents = new Map(); // agent_id -> {globalX, globalY, element}
         this.heightUpdateTimeout = null; // Debounce timer for height updates
         this.isRecalculating = false; // Flag to prevent nested recalculations
+        
+        // Camera/viewport system for scroll-free navigation
+        this.camera = {
+            x: 0,  // Camera X offset (changed by mouse drag)
+            y: 0   // Camera Y offset (changed by mouse wheel and drag)
+        };
+        
+        // Mouse drag state
+        this.isDragging = false;
+        this.dragStartX = 0;
+        this.dragStartY = 0;
+        this.cameraStartX = 0;
+        this.cameraStartY = 0;
         
         // Connection lines (merged from ConnectionLinesManager)
         this.taskManager = taskManager;
@@ -25,49 +40,146 @@ export class CanvasManager {
         
         this.resize();
         window.addEventListener('resize', () => this.resize());
+        this.setupScrollHandler();
+        this.setupDragHandler();
+    }
+    
+    /**
+     * Setup mouse wheel handler for camera-based scrolling
+     */
+    setupScrollHandler() {
+        const container = this.canvas.parentElement;
+        
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            
+            // Update camera Y position (positive delta = scroll down = move camera up)
+            this.camera.y += e.deltaY * 0.5; // Scale for smoother scrolling
+            
+            // Update all element positions based on new camera position
+            this.updateAllElementPositions();
+            this.updateAllConnections();
+        }, { passive: false });
+    }
+    
+    /**
+     * Setup mouse drag handler for camera panning
+     */
+    setupDragHandler() {
+        const container = this.canvas.parentElement;
+        
+        // Mouse down - start drag
+        container.addEventListener('mousedown', (e) => {
+            // Only start drag if clicking on canvas background (not on elements)
+            if (e.target !== this.canvas && e.target !== container) {
+                return;
+            }
+            
+            this.isDragging = true;
+            this.dragStartX = e.clientX;
+            this.dragStartY = e.clientY;
+            this.cameraStartX = this.camera.x;
+            this.cameraStartY = this.camera.y;
+            
+            // Change cursor
+            container.style.cursor = 'grabbing';
+            
+            // Prevent text selection during drag
+            e.preventDefault();
+        });
+        
+        // Mouse move - update camera if dragging
+        window.addEventListener('mousemove', (e) => {
+            if (!this.isDragging) return;
+            
+            // Calculate drag delta
+            const deltaX = e.clientX - this.dragStartX;
+            const deltaY = e.clientY - this.dragStartY;
+            
+            // Update camera position (drag right = camera moves left = positive delta, negative camera change)
+            this.camera.x = this.cameraStartX - deltaX;
+            this.camera.y = this.cameraStartY - deltaY;
+            
+            // Update all element positions
+            this.updateAllElementPositions();
+            this.updateAllConnections();
+        });
+        
+        // Mouse up - end drag
+        window.addEventListener('mouseup', () => {
+            if (this.isDragging) {
+                this.isDragging = false;
+                container.style.cursor = '';
+            }
+        });
+        
+        // Set initial cursor style
+        container.style.cursor = 'grab';
+    }
+    
+    /**
+     * Convert global coordinates to screen coordinates
+     */
+    globalToScreen(globalX, globalY) {
+        return {
+            x: globalX - this.camera.x,
+            y: globalY - this.camera.y
+        };
+    }
+    
+    /**
+     * Convert screen coordinates to global coordinates
+     */
+    screenToGlobal(screenX, screenY) {
+        return {
+            x: screenX + this.camera.x,
+            y: screenY + this.camera.y
+        };
+    }
+    
+    /**
+     * Update all element DOM positions based on current camera position
+     */
+    updateAllElementPositions() {
+        // Update all agent positions
+        for (const [agentId, agent] of this.agents.entries()) {
+            const screenPos = this.globalToScreen(agent.globalX, agent.globalY);
+            agent.element.style.left = `${screenPos.x}px`;
+            agent.element.style.top = `${screenPos.y}px`;
+        }
+        
+        // Update all task positions via event
+        if (this.taskManager) {
+            const event = new CustomEvent('updateTaskScreenPositions', {
+                detail: { camera: this.camera }
+            });
+            window.dispatchEvent(event);
+        }
     }
     
     resize() {
         const container = this.canvas.parentElement;
+        
+        // Fixed canvas size = viewport size (no dynamic height)
+        const viewportWidth = container.clientWidth;
+        const viewportHeight = container.clientHeight;
+        
+        this.canvas.width = viewportWidth;
+        this.canvas.height = viewportHeight;
+        
+        // Update nodes container to match (no scrollbar needed)
         const nodesContainer = document.getElementById('agentNodesContainer');
-        
-        // Calculate required height based on content
-        let maxContentHeight = container.clientHeight;
-        
-        // Check if we have agents and tasks that extend beyond viewport
         if (nodesContainer) {
-            const children = nodesContainer.children;
-            let bottomMostY = 0;
-            
-            for (const child of children) {
-                // Get the absolute bottom position of each element
-                const computedTop = parseInt(child.style.top) || 0;
-                const elementHeight = child.offsetHeight || 0;
-                const elementBottom = computedTop + elementHeight;
-                
-                bottomMostY = Math.max(bottomMostY, elementBottom);
-            }
-            
-            // Add padding to bottom (100px for better UX)
-            if (bottomMostY > 0) {
-                maxContentHeight = Math.max(container.clientHeight, bottomMostY + 100);
-            }
+            nodesContainer.style.width = `${viewportWidth}px`;
+            nodesContainer.style.height = `${viewportHeight}px`;
+            nodesContainer.style.overflow = 'hidden'; // No scrollbar
         }
         
-        this.canvas.width = container.clientWidth;
-        this.canvas.height = maxContentHeight;
-        
-        // Update nodes container height
-        if (nodesContainer) {
-            nodesContainer.style.height = `${maxContentHeight}px`;
-        }
-        
-        // Recalculate all positions when viewport changes
-        this.recalculateAllPositions();
-        
-        // Update connection lines
+        // Update SVG dimensions to match viewport
         this.updateSVGDimensions();
-        this.updateAllConnections();
+        
+        // Recalculate positions after resize (global coords don't change, but centering might)
+        this.recalculateAllPositions();
         
         this.draw();
     }
@@ -80,15 +192,14 @@ export class CanvasManager {
         const canvasHeight = this.canvas.height;
         
         // Calculate total content width (agents + gap + tasks)
-        // Assume agent width ~400px, gap 40px, task width ~900px
-        const agentWidth = 400;
-        const gapWidth = 40;
-        const taskWidth = 900;
+        const agentWidth = LAYOUT_DIMENSIONS.AGENT_ESTIMATED_WIDTH;
+        const gapWidth = LAYOUT_DIMENSIONS.GAP_AGENT_TO_TASK;
+        const taskWidth = LAYOUT_DIMENSIONS.TASK_WIDTH;
         const totalContentWidth = agentWidth + gapWidth + taskWidth;
         
-        // Calculate horizontal center offset
+        // Calculate horizontal center offset (in global space)
         const horizontalCenter = (canvasWidth - totalContentWidth) / 2;
-        const leftMargin = Math.max(50, horizontalCenter); // At least 50px margin
+        const leftMargin = Math.max(LAYOUT_DIMENSIONS.CANVAS_MIN_MARGIN, horizontalCenter);
         
         // Get all agent elements with their heights
         const agentData = [];
@@ -100,35 +211,39 @@ export class CanvasManager {
             totalHeight += height;
         }
         
-        // Calculate spacing between agents
+        // Calculate spacing between agents in global space
         const agentCount = agentData.length;
-        const padding = 50;
-        const availableHeight = canvasHeight - (padding * 2);
-        const totalGapSpace = Math.max(0, availableHeight - totalHeight);
-        const gapBetweenAgents = agentCount > 1 ? totalGapSpace / (agentCount + 1) : totalGapSpace / 2;
+        const padding = LAYOUT_DIMENSIONS.GAP_BETWEEN_AGENTS;
         
-        // Position agents with calculated gaps, centered horizontally
-        let currentY = padding + gapBetweenAgents;
+        // Start from global Y = 0 and distribute agents vertically
+        const totalGapSpace = (agentCount > 1) ? padding * (agentCount + 1) : padding * 2;
+        const gapBetweenAgents = totalGapSpace / (agentCount + 1);
+        
+        // Position agents in global coordinates
+        let currentGlobalY = gapBetweenAgents;
         
         for (const { agentId, agent, height } of agentData) {
-            const x = leftMargin;
-            const y = currentY;
+            const globalX = leftMargin;
+            const globalY = currentGlobalY;
             
-            agent.x = x;
-            agent.y = y;
-            agent.element.style.left = `${x}px`;
-            agent.element.style.top = `${y}px`;
+            // Store global coordinates
+            agent.globalX = globalX;
+            agent.globalY = globalY;
             
-            currentY += height + gapBetweenAgents;
+            // Apply camera transform for screen position
+            const screenPos = this.globalToScreen(globalX, globalY);
+            agent.element.style.left = `${screenPos.x}px`;
+            agent.element.style.top = `${screenPos.y}px`;
+            
+            currentGlobalY += height + gapBetweenAgents;
         }
         
         // Update connection lines immediately
         this.updateAllConnections();
         
-        // Also update connection lines during and after agent transitions (800ms)
+        // Also update connection lines during and after agent transitions
         // Use multiple updates to keep lines in sync with animated movement
-        const updateIntervals = [100, 200, 300, 400, 500, 600, 700, 850];
-        updateIntervals.forEach(delay => {
+        POSITIONING_DELAYS.AGENT_POSITION_UPDATES.forEach(delay => {
             setTimeout(() => {
                 this.updateAllConnections();
             }, delay);
@@ -152,8 +267,8 @@ export class CanvasManager {
     }
     
     addAgent(agentId, element) {
-        // Add agent to map first
-        this.agents.set(agentId, { x: 0, y: 0, element });
+        // Add agent to map first (initialize with global coords)
+        this.agents.set(agentId, { globalX: 0, globalY: 0, element });
         
         // Disable transition for initial positioning
         element.classList.add('no-transition');
@@ -170,7 +285,7 @@ export class CanvasManager {
         });
         
         const agent = this.agents.get(agentId);
-        return { x: agent.x, y: agent.y };
+        return { x: agent.globalX, y: agent.globalY };
     }
     
     removeAgent(agentId) {
@@ -182,7 +297,7 @@ export class CanvasManager {
     
     /**
      * Recalculate all positions (agents and tasks) in correct order
-     * Order: Canvas size → Agent positions → Task positions → Connection lines
+     * Order: Agent positions → Task positions → Connection lines
      */
     recalculateAllPositions() {
         // Avoid nested RAF calls if already in progress
@@ -190,28 +305,20 @@ export class CanvasManager {
         this.isRecalculating = true;
         
         requestAnimationFrame(() => {
-            // Step 1: Update canvas size first (measures viewport)
-            const container = this.canvas.parentElement;
-            const viewportHeight = container.clientHeight;
-            const viewportWidth = container.clientWidth;
+            console.log(`[CanvasManager] Recalculating - viewport: ${this.canvas.width}x${this.canvas.height}`);
             
-            console.log(`[CanvasManager] Recalculating - viewport: ${viewportWidth}x${viewportHeight}`);
-            
-            // Step 2: Calculate and apply agent positions
+            // Step 1: Calculate and apply agent positions (in global coords)
             this.recalculateAgentPositions();
             
-            // Step 3: Calculate and apply task positions
+            // Step 2: Calculate and apply task positions (in global coords)
             // Dispatch event synchronously for TaskController to handle
             const taskRecalculationEvent = new CustomEvent('recalculateTaskPositions', {
                 detail: { immediate: true }
             });
             window.dispatchEvent(taskRecalculationEvent);
             
-            // Step 4: Wait for task positioning to complete, then update canvas height and connection lines
+            // Step 3: Wait for task positioning to complete, then update connection lines
             requestAnimationFrame(() => {
-                // Update canvas height based on all positioned elements
-                this.updateCanvasHeightImmediate();
-                
                 // Update all connection lines last
                 this.updateAllConnections();
                 
@@ -223,180 +330,77 @@ export class CanvasManager {
     
     getAgentPosition(agentId) {
         const agent = this.agents.get(agentId);
-        return agent ? { x: agent.x, y: agent.y } : null;
+        if (!agent) return null;
+        
+        // Return global coordinates
+        return { x: agent.globalX, y: agent.globalY };
     }
     
-    updateAgentPosition(agentId, x, y) {
+    updateAgentPosition(agentId, globalX, globalY) {
         const agent = this.agents.get(agentId);
         if (agent) {
-            agent.x = x;
-            agent.y = y;
-            agent.element.style.left = `${x}px`;
-            agent.element.style.top = `${y}px`;
+            agent.globalX = globalX;
+            agent.globalY = globalY;
+            
+            const screenPos = this.globalToScreen(globalX, globalY);
+            agent.element.style.left = `${screenPos.x}px`;
+            agent.element.style.top = `${screenPos.y}px`;
             this.draw();
         }
     }
     
-    recenterAgent(agentId) {
-        // Recalculate position for a specific agent to center it
-        const agent = this.agents.get(agentId);
-        if (!agent) return;
-        
-        const center = this.getCenterPosition();
-        const element = agent.element;
-        
-        // Get the actual height of the element
-        const elementHeight = element.offsetHeight;
-        
-        // Offset from center so the node is centered
-        const x = center.x - 160; // Node width is 320px
-        const y = center.y - (elementHeight / 2);
-        
-        agent.x = x;
-        agent.y = y;
-        element.style.left = `${x}px`;
-        element.style.top = `${y}px`;
-        
-        this.draw();
-    }
     
     /**
-     * Update canvas height based on current content.
-     * Call this after tasks are positioned or content changes.
-     * Uses debouncing to prevent excessive recalculations.
-     */
-    updateCanvasHeight() {
-        // Clear any pending updates
-        if (this.heightUpdateTimeout) {
-            clearTimeout(this.heightUpdateTimeout);
-        }
-        
-        // Debounce the update to prevent rapid recalculations
-        this.heightUpdateTimeout = setTimeout(() => {
-            this.updateCanvasHeightImmediate();
-            this.heightUpdateTimeout = null;
-        }, 150); // 150ms debounce delay
-    }
-    
-    /**
-     * Update canvas height immediately without debounce
-     * Used during coordinated recalculations
-     */
-    updateCanvasHeightImmediate() {
-        const container = this.canvas.parentElement;
-        const nodesContainer = document.getElementById('agentNodesContainer');
-        
-        if (!nodesContainer) return;
-        
-        const viewportHeight = container.clientHeight;
-        let maxContentHeight = viewportHeight;
-        const children = nodesContainer.children;
-        let topMostY = 0;
-        let bottomMostY = 0;
-        
-        console.log(`[CanvasManager] Updating canvas height - ${children.length} elements`);
-        
-        // Find both the highest and lowest points
-        for (const child of children) {
-            const computedTop = parseInt(child.style.top) || 0;
-            const elementHeight = child.offsetHeight || 0;
-            const elementBottom = computedTop + elementHeight;
-            
-            topMostY = Math.min(topMostY, computedTop);
-            bottomMostY = Math.max(bottomMostY, elementBottom);
-        }
-        
-        console.log(`[CanvasManager] Content bounds: top=${topMostY}, bottom=${bottomMostY}, height=${bottomMostY - topMostY}`);
-        
-        // Calculate total required height including content above viewport
-        if (bottomMostY > 0 || topMostY < 0) {
-            // Add padding (50px top, 100px bottom)
-            const totalContentHeight = (bottomMostY - topMostY) + 150;
-            
-            // Ensure enough space below content to center agent in viewport
-            // Add at least half viewport height below the bottom-most content
-            const minHeightForCentering = totalContentHeight + (viewportHeight / 2);
-            maxContentHeight = Math.max(viewportHeight, minHeightForCentering);
-            
-            // If content starts above 0, adjust the canvas and container
-            if (topMostY < 0) {
-                const offset = Math.abs(topMostY) + 50; // Add 50px padding at top
-                
-                // Shift all children down by the offset
-                for (const child of children) {
-                    const currentTop = parseInt(child.style.top) || 0;
-                    child.style.top = `${currentTop + offset}px`;
-                }
-                
-                // Update stored agent positions
-                for (const [agentId, agent] of this.agents.entries()) {
-                    agent.y += offset;
-                    agent.element.style.top = `${agent.y}px`;
-                }
-                
-                maxContentHeight += offset;
-            }
-        }
-        
-        // Only update if height changed significantly (more than 10px)
-        if (Math.abs(this.canvas.height - maxContentHeight) > 10) {
-            console.log(`[CanvasManager] Canvas height changed: ${this.canvas.height} → ${maxContentHeight}`);
-            this.canvas.height = maxContentHeight;
-            if (nodesContainer) {
-                nodesContainer.style.height = `${maxContentHeight}px`;
-            }
-        }
-    }
-    
-    /**
-     * Scroll an agent to the vertical center of the viewport
+     * Center an agent in the viewport by adjusting camera position
+     * Uses smooth animated camera movement
      */
     scrollAgentToCenter(agentId) {
         const agent = this.agents.get(agentId);
         if (!agent) return;
         
-        const container = this.canvas.parentElement;
         const agentElement = agent.element;
-        const agentTop = agent.y;
         const agentHeight = agentElement.offsetHeight || 200;
-        const viewportHeight = container.clientHeight;
+        const viewportHeight = this.canvas.height;
         
-        // Calculate scroll position to center the agent
-        const agentCenter = agentTop + (agentHeight / 2);
-        const targetScrollTop = agentCenter - (viewportHeight / 2);
+        // Calculate target camera Y to center the agent
+        // Agent global center Y
+        const agentCenterGlobalY = agent.globalY + (agentHeight / 2);
         
-        // Use a slower, more controlled smooth scroll
-        // First ensure we're starting from top
-        const currentScroll = container.scrollTop;
-        const scrollDistance = Math.abs(targetScrollTop - currentScroll);
+        // We want agent center at viewport center
+        // screenY = globalY - camera.y
+        // viewportHeight/2 = agentCenterGlobalY - camera.y
+        // camera.y = agentCenterGlobalY - viewportHeight/2
+        const targetCameraY = agentCenterGlobalY - (viewportHeight / 2);
         
-        // Calculate duration based on distance (longer distance = longer duration)
-        // Min 1500ms, max 4000ms - slower and more elegant
-        const duration = Math.min(4000, Math.max(1500, scrollDistance / 1.5));
+        // Smooth camera animation
+        const startCameraY = this.camera.y;
+        const cameraChange = targetCameraY - startCameraY;
+        const duration = Math.min(4000, Math.max(1500, Math.abs(cameraChange) / 1.5));
         
         const startTime = performance.now();
-        const startScroll = currentScroll;
-        const scrollChange = targetScrollTop - currentScroll;
         
         // Easing function for smooth deceleration (ease-out-cubic)
         const easeOutCubic = (t) => {
             return 1 - Math.pow(1 - t, 3);
         };
         
-        const animateScroll = (currentTime) => {
+        const animateCamera = (currentTime) => {
             const elapsed = currentTime - startTime;
             const progress = Math.min(elapsed / duration, 1);
             const easedProgress = easeOutCubic(progress);
             
-            const newScroll = startScroll + (scrollChange * easedProgress);
-            container.scrollTop = Math.max(0, newScroll);
+            this.camera.y = startCameraY + (cameraChange * easedProgress);
+            
+            // Update all positions and connections
+            this.updateAllElementPositions();
+            this.updateAllConnections();
             
             if (progress < 1) {
-                requestAnimationFrame(animateScroll);
+                requestAnimationFrame(animateCamera);
             }
         };
         
-        requestAnimationFrame(animateScroll);
+        requestAnimationFrame(animateCamera);
     }
     
     // ========================================
@@ -408,9 +412,10 @@ export class CanvasManager {
      */
     updateSVGDimensions() {
         if (this.svg && this.canvas) {
-            this.svg.setAttribute('width', this.canvas.scrollWidth);
-            this.svg.setAttribute('height', this.canvas.scrollHeight);
-            this.svg.setAttribute('viewBox', `0 0 ${this.canvas.scrollWidth} ${this.canvas.scrollHeight}`);
+            // SVG matches viewport size (not scroll area)
+            this.svg.setAttribute('width', this.canvas.width);
+            this.svg.setAttribute('height', this.canvas.height);
+            this.svg.setAttribute('viewBox', `0 0 ${this.canvas.width} ${this.canvas.height}`);
         }
     }
     
@@ -427,7 +432,7 @@ export class CanvasManager {
             return;
         }
         
-        const agentPos = this.getAgentPosition(agentId);
+        const agentPos = this.getAgentPosition(agentId); // Returns global coords
         if (!agentPos) return;
         
         const agentElement = this.agents.get(agentId)?.element;
@@ -440,9 +445,12 @@ export class CanvasManager {
         const agentWidth = agentRect.width;
         const agentHeight = agentRect.height;
         
-        // Calculate agent center (using actual position on canvas)
-        const agentCenterX = agentPos.x + (agentWidth / 2);
-        const agentCenterY = agentPos.y + (agentHeight / 2);
+        // Calculate agent center in global coordinates
+        const agentCenterGlobalX = agentPos.x + (agentWidth / 2);
+        const agentCenterGlobalY = agentPos.y + (agentHeight / 2);
+        
+        // Convert to screen coordinates for SVG
+        const agentCenterScreen = this.globalToScreen(agentCenterGlobalX, agentCenterGlobalY);
         
         // Sort tasks by ID to get proper order
         const sortedTaskKeys = Array.from(taskKeys).sort((a, b) => {
@@ -463,18 +471,21 @@ export class CanvasManager {
             const taskWidth = taskRect.width;
             const taskHeight = taskRect.height;
             
-            // Calculate task center (using actual position on canvas)
-            const taskCenterX = taskData.x + (taskWidth / 2);
-            const taskCenterY = taskData.y + (taskHeight / 2);
+            // Calculate task center in global coordinates
+            const taskCenterGlobalX = taskData.globalX + (taskWidth / 2);
+            const taskCenterGlobalY = taskData.globalY + (taskHeight / 2);
             
-            // Create connection from agent to this task
+            // Convert to screen coordinates for SVG
+            const taskCenterScreen = this.globalToScreen(taskCenterGlobalX, taskCenterGlobalY);
+            
+            // Create connection from agent to this task (using screen coords)
             const connectionKey = `agent-${agentId}-to-task-${taskData.taskId}`;
             this.createConnection(
                 connectionKey,
-                agentCenterX,
-                agentCenterY,
-                taskCenterX,
-                taskCenterY,
+                agentCenterScreen.x,
+                agentCenterScreen.y,
+                taskCenterScreen.x,
+                taskCenterScreen.y,
                 this.getStatusClass(taskData.element)
             );
         });

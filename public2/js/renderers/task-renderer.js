@@ -12,6 +12,7 @@
 import { MarkdownFormatter } from '../utils/markdown-formatter.js';
 import { DOMUtils } from '../utils/dom-utils.js';
 import { AnimationUtils } from '../utils/animation-utils.js';
+import { ANIMATION_DURATIONS } from '../constants.js';
 
 export class TaskRenderer {
     constructor(containerSelector) {
@@ -39,7 +40,7 @@ export class TaskRenderer {
         setTimeout(() => {
             node.classList.remove('animating-in');
             node.classList.add('visible');
-        }, 200 * (index + 1));
+        }, ANIMATION_DURATIONS.TASK_ANIMATION_IN * (index + 1));
         
         return node;
     }
@@ -140,7 +141,7 @@ export class TaskRenderer {
         
         // Add pulse animation when task becomes active
         if (status === 'running') {
-            AnimationUtils.pulse(element, 300);
+            AnimationUtils.pulse(element, ANIMATION_DURATIONS.PULSE);
         }
     }
     
@@ -232,7 +233,7 @@ export class TaskRenderer {
         element.classList.add('animating-out');
         setTimeout(() => {
             if (callback) callback();
-        }, 400);
+        }, ANIMATION_DURATIONS.TASK_ANIMATION_OUT);
     }
     
     /**
@@ -249,6 +250,6 @@ export class TaskRenderer {
         element.classList.add('focused');
         setTimeout(() => {
             element.classList.remove('focused');
-        }, 2000);
+        }, 2000); // Using literal as it matches UI_TIMINGS.HIGHLIGHT_DURATION
     }
 }

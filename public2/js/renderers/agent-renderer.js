@@ -12,6 +12,7 @@
 import { MarkdownFormatter } from '../utils/markdown-formatter.js';
 import { DOMUtils } from '../utils/dom-utils.js';
 import { AnimationUtils } from '../utils/animation-utils.js';
+import { ANIMATION_DURATIONS } from '../constants.js';
 
 export class AgentRenderer {
     constructor(containerSelector) {
@@ -32,10 +33,10 @@ export class AgentRenderer {
         
         this.container.appendChild(node);
         
-        // Remove animation class after animation completes (800ms)
+        // Remove animation class after animation completes
         setTimeout(() => {
             node.classList.remove('initial-animation');
-        }, 800);
+        }, ANIMATION_DURATIONS.AGENT_INITIAL_ANIMATION);
         
         // Attach event listeners if provided
         if (eventHandlers) {
@@ -341,7 +342,7 @@ export class AgentRenderer {
     removeAgent(agentId) {
         const node = document.getElementById(`agent-${agentId}`);
         if (node) {
-            AnimationUtils.fadeOut(node, 400).then(() => {
+            AnimationUtils.fadeOut(node, ANIMATION_DURATIONS.AGENT_FADE_OUT).then(() => {
                 node.remove();
             });
         }

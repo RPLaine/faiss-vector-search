@@ -270,7 +270,7 @@ body {
 .connection-line {
     fill: none;
     stroke-width: 3;
-    transition: stroke 0.3s ease;
+    transition: stroke 0.3s ease, d 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
 .connection-line.incomplete {

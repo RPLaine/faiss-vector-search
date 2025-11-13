@@ -54,10 +54,15 @@ export class ConnectionLinesManager {
         const agentElement = this.canvasManager.agents.get(agentId)?.element;
         if (!agentElement) return;
         
-        const agentWidth = agentElement.offsetWidth || 320;
-        const agentHeight = agentElement.offsetHeight || 400;
+        // Use getBoundingClientRect for accurate rendered dimensions
+        const agentRect = agentElement.getBoundingClientRect();
+        const containerRect = agentElement.parentElement.getBoundingClientRect();
         
-        // Calculate agent center
+        // Calculate agent width and height from bounding rect
+        const agentWidth = agentRect.width;
+        const agentHeight = agentRect.height;
+        
+        // Calculate agent center (using actual position on canvas)
         const agentCenterX = agentPos.x + (agentWidth / 2);
         const agentCenterY = agentPos.y + (agentHeight / 2);
         
@@ -74,10 +79,13 @@ export class ConnectionLinesManager {
             if (!taskData || !taskData.element) return;
             
             const taskElement = taskData.element;
-            const taskWidth = taskElement.offsetWidth || 500;
-            const taskHeight = taskElement.offsetHeight || 300;
             
-            // Calculate task center
+            // Use getBoundingClientRect for accurate rendered dimensions
+            const taskRect = taskElement.getBoundingClientRect();
+            const taskWidth = taskRect.width;
+            const taskHeight = taskRect.height;
+            
+            // Calculate task center (using actual position on canvas)
             const taskCenterX = taskData.x + (taskWidth / 2);
             const taskCenterY = taskData.y + (taskHeight / 2);
             
@@ -122,22 +130,27 @@ export class ConnectionLinesManager {
     /**
      * Create a bendy SVG path between two points
      * Uses cubic bezier curves for smooth, organic connections
+     * Emphasizes vertical direction at start, horizontal direction at end
      */
     createBendyPath(x1, y1, x2, y2) {
         const dx = x2 - x1;
         const dy = y2 - y1;
         
-        // Control points for bezier curve
-        // Horizontal distance influences horizontal curve strength
-        const curveStrength = Math.min(Math.abs(dx) * 0.5, 100);
+        // Calculate horizontal curve strength based on distance
+        const horizontalStrength = Math.min(Math.abs(dx) * 0.5, 100);
         
-        // First control point: move right from start
-        const cp1x = x1 + curveStrength;
-        const cp1y = y1;
+        // Calculate vertical curve strength - much stronger for dramatic bending at start
+        // Use 80% of vertical distance for strong emphasis on vertical movement
+        const verticalStrength = Math.abs(dy) * 0.8; // 80% of vertical distance for strong emphasis
         
-        // Second control point: move left from end
-        const cp2x = x2 - curveStrength;
-        const cp2y = y2;
+        // First control point: move right AND strongly in the vertical direction from start
+        const cp1x = x1 + horizontalStrength;
+        const cp1y = y1 + (dy > 0 ? verticalStrength : -verticalStrength);
+        
+        // Second control point: almost entirely horizontal approach to end point
+        // Move much further horizontally and keep Y at target level for horizontal entry
+        const cp2x = x2 - horizontalStrength * 5; // Strong horizontal emphasis
+        const cp2y = y2; // No vertical offset - line arrives horizontally
         
         return `M ${x1} ${y1} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x2} ${y2}`;
     }

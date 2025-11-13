@@ -105,12 +105,20 @@ export class CanvasManager {
             currentY += height + gapBetweenAgents;
         }
         
-        // Update connection lines after agents have moved
+        // Update connection lines immediately
         if (this.connectionLines) {
-            // Use setTimeout to ensure DOM has updated positions
-            setTimeout(() => {
-                this.connectionLines.updateAllConnections();
-            }, 0);
+            this.connectionLines.updateAllConnections();
+        }
+        
+        // Also update connection lines during and after agent transitions (800ms)
+        // Use multiple updates to keep lines in sync with animated movement
+        if (this.connectionLines) {
+            const updateIntervals = [100, 200, 300, 400, 500, 600, 700, 850];
+            updateIntervals.forEach(delay => {
+                setTimeout(() => {
+                    this.connectionLines.updateAllConnections();
+                }, delay);
+            });
         }
     }
     

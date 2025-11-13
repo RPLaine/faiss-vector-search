@@ -57,7 +57,7 @@ export class TaskRenderer {
         const taskOutput = task.output || 'Waiting to start...';
         
         // Generate validation HTML
-        const validationHtml = this._getValidationHTML(task);
+        const validationHtml = this._getValidationHTML(agentId, task);
         
         return `
             <div class="task-node-header">
@@ -101,10 +101,10 @@ export class TaskRenderer {
     /**
      * Get validation HTML based on task validation data
      */
-    _getValidationHTML(task) {
+    _getValidationHTML(agentId, task) {
         if (!task.validation) {
             return `
-                <div class="task-node-validation" id="task-validation-${task.agentId || ''}-${task.id}">
+                <div class="task-node-validation" id="task-validation-${agentId}-${task.id}">
                     <div class="validation-result">Not yet validated</div>
                 </div>
             `;
@@ -114,7 +114,7 @@ export class TaskRenderer {
         const validationClass = is_valid ? 'valid' : 'invalid';
         
         return `
-            <div class="task-node-validation ${validationClass} show" id="task-validation-${task.agentId || ''}-${task.id}">
+            <div class="task-node-validation ${validationClass} show" id="task-validation-${agentId}-${task.id}">
                 <div class="validation-result">
                     <strong>${is_valid ? '✓ Valid' : '✗ Invalid'}</strong>
                     <span class="validation-score">Score: ${score}/100</span>

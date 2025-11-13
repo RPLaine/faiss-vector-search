@@ -6,6 +6,7 @@ import { WebSocketService } from './websocket.js';
 import { AgentManager } from './agent-manager.js';
 import { UIManager } from './ui-manager.js';
 import { TaskManager } from './task-manager.js';
+import { ConnectionLinesManager } from './connection-lines.js';
 
 class App {
     constructor() {
@@ -13,6 +14,7 @@ class App {
         this.agentManager = new AgentManager();
         this.uiManager = new UIManager();
         this.taskManager = null;  // Will be initialized when UIManager is ready
+        this.connectionLines = null;  // Will be initialized after task manager
         
         this.init();
     }
@@ -26,8 +28,15 @@ class App {
         // Initialize task manager after UI manager
         this.taskManager = new TaskManager(this.uiManager.canvasManager);
         
+        // Initialize connection lines manager
+        this.connectionLines = new ConnectionLinesManager(this.uiManager.canvasManager, this.taskManager);
+        
         // Link task manager to UI manager for repositioning
         this.uiManager.taskManager = this.taskManager;
+        
+        // Link connection lines to task manager and canvas manager
+        this.taskManager.connectionLines = this.connectionLines;
+        this.uiManager.canvasManager.connectionLines = this.connectionLines;
         
         // Initialize WebSocket handlers
         this.setupWebSocketHandlers();
@@ -62,10 +71,10 @@ class App {
                 });
                 
                 // After all agents are loaded, scroll the first agent to center
-                // Wait for: agent animation (800ms) + task animations (200ms * taskCount) + positioning (500ms)
+                // Wait for: agent animation (800ms) + task animations (100ms * taskCount) + positioning (300ms)
                 if (agentCount > 0) {
                     const firstAgent = data.data.agents[0];
-                    const scrollDelay = 800 + (maxTaskCount * 200) + 1000; // Total animation time + buffer
+                    const scrollDelay = 800 + (maxTaskCount * 100) + 300; // Total animation time + buffer
                     setTimeout(() => {
                         this.uiManager.canvasManager.scrollAgentToCenter(firstAgent.id);
                     }, scrollDelay);
@@ -77,6 +86,7 @@ class App {
         
         // Agent created
         this.wsService.on('agent_created', (data) => {
+            console.log('[WebSocket] agent_created:', data);
             const agent = data.data;
             this.agentManager.addAgent(agent);
             this.uiManager.renderAgent(agent);
@@ -85,6 +95,7 @@ class App {
         
         // Agent updated
         this.wsService.on('agent_updated', (data) => {
+            console.log('[WebSocket] agent_updated:', data);
             const agent = data.data;
             this.agentManager.updateAgent(agent.id, agent);
             
@@ -95,6 +106,7 @@ class App {
         
         // Agent started
         this.wsService.on('agent_started', (data) => {
+            console.log('[WebSocket] agent_started:', data);
             const agent = this.agentManager.getAgent(data.data.agent_id);
             if (agent) {
                 agent.status = 'running';
@@ -109,7 +121,7 @@ class App {
         
         // Agent halted
         this.wsService.on('agent_halted', (data) => {
-            console.log('Received agent_halted event:', data);
+            console.log('[WebSocket] agent_halted:', data);
             const agent = this.agentManager.getAgent(data.data.agent_id);
             if (agent) {
                 console.log('Updating agent status to halted');
@@ -123,6 +135,7 @@ class App {
         
         // Agent continued
         this.wsService.on('agent_continued', (data) => {
+            console.log('[WebSocket] agent_continued:', data);
             const agent = this.agentManager.getAgent(data.data.agent_id);
             if (agent) {
                 agent.status = 'running';
@@ -137,6 +150,7 @@ class App {
         
         // Workflow phase updates
         this.wsService.on('workflow_phase', (data) => {
+            console.log('[WebSocket] workflow_phase:', data);
             const { agent_id, phase, status, content, tasklist } = data.data;
             // phase: 0-6 (index), status: 'active' or 'completed'
             this.uiManager.updateWorkflowPhase(agent_id, phase, status);
@@ -166,12 +180,14 @@ class App {
         
         // Task events
         this.wsService.on('task_running', (data) => {
+            console.log('[WebSocket] task_running:', data);
             const { agent_id, task_id, status } = data.data;
             this.taskManager.updateTaskStatus(agent_id, task_id, status);
             this.taskManager.updateTaskContent(agent_id, task_id, '');
         });
         
         this.wsService.on('task_completed', (data) => {
+            console.log('[WebSocket] task_completed:', data);
             const { agent_id, task_id, status, output, validation } = data.data;
             this.taskManager.updateTaskStatus(agent_id, task_id, status);
             if (output) {
@@ -189,22 +205,37 @@ class App {
         });
         
         this.wsService.on('task_failed', (data) => {
+            console.log('[WebSocket] task_failed:', data);
             const { agent_id, task_id, error } = data.data;
             this.taskManager.updateTaskStatus(agent_id, task_id, 'failed');
             this.taskManager.updateTaskContent(agent_id, task_id, `Error: ${error}`, false);
         });
         
         this.wsService.on('task_cancelled', (data) => {
+            console.log('[WebSocket] task_cancelled:', data);
             const { agent_id, task_id } = data.data;
             this.taskManager.updateTaskStatus(agent_id, task_id, 'cancelled');
         });
         
         this.wsService.on('task_chunk', (data) => {
             const { agent_id, task_id, chunk } = data.data;
+            
+            // Ensure task status is set to 'running' when receiving chunks
+            // This handles cases where task_running event might not have been sent
+            const taskKey = `${agent_id}-task-${task_id}`;
+            const taskData = this.taskManager.taskNodes.get(taskKey);
+            if (taskData) {
+                const statusEl = taskData.element.querySelector('.task-node-status');
+                if (statusEl && !statusEl.classList.contains('running')) {
+                    this.taskManager.updateTaskStatus(agent_id, task_id, 'running');
+                }
+            }
+            
             this.taskManager.updateTaskContent(agent_id, task_id, chunk, true);
         });
         
         this.wsService.on('task_validation', (data) => {
+            console.log('[WebSocket] task_validation:', data);
             const { agent_id, task_id, is_valid, reason, score } = data.data;
             // Show validation immediately when received
             this.taskManager.showValidation(
@@ -228,8 +259,59 @@ class App {
             this.uiManager.appendAgentChunk(data.data.agent_id, data.data.chunk);
         });
         
-        // LLM stream start (with agent_id)
+        // LLM action events (requests, responses, streaming)
         this.wsService.on('action', (data) => {
+            // Log all LLM service actions to browser console
+            if (data.action && data.action.startsWith('llm_')) {
+                console.group(`%c[LLM ${data.action}]`, 'color: #10b981; font-weight: bold;');
+                
+                if (data.action === 'llm_request') {
+                    console.log('%cREQUEST DETAILS:', 'color: #3b82f6; font-weight: bold;');
+                    console.log('Endpoint:', data.data?.endpoint);
+                    console.log('Model:', data.data?.model);
+                    console.log('Temperature:', data.data?.temperature);
+                    console.log('Max Tokens:', data.data?.max_tokens);
+                    console.log('Prompt (first 200 chars):', data.data?.prompt?.substring(0, 200) + '...');
+                    console.log('Full Payload:', data.data?.payload);
+                    if (data.agent_id) console.log('Agent ID:', data.agent_id);
+                    if (data.task_id) console.log('Task ID:', data.task_id);
+                    
+                } else if (data.action === 'llm_response') {
+                    console.log('%cRESPONSE DETAILS:', 'color: #10b981; font-weight: bold;');
+                    console.log('Success:', data.data?.success);
+                    console.log('Generation Time:', data.data?.generation_time?.toFixed(2) + 's');
+                    console.log('Response Length:', data.data?.response_length, 'characters');
+                    console.log('Response (first 200 chars):', data.data?.text?.substring(0, 200) + '...');
+                    if (data.data?.error) {
+                        console.error('Error:', data.data.error);
+                    }
+                    if (data.agent_id) console.log('Agent ID:', data.agent_id);
+                    if (data.task_id) console.log('Task ID:', data.task_id);
+                    
+                } else if (data.action === 'llm_stream_start') {
+                    console.log('%cSTREAMING STARTED', 'color: #f59e0b; font-weight: bold;');
+                    console.log('Timestamp:', new Date(data.data?.timestamp * 1000).toISOString());
+                    if (data.agent_id) console.log('Agent ID:', data.agent_id);
+                    if (data.task_id) console.log('Task ID:', data.task_id);
+                    
+                } else if (data.action === 'llm_stream_chunk') {
+                    // Only log every 10th chunk to avoid spam
+                    if (data.data?.chunk_number % 10 === 0 || data.data?.chunk_number === 1) {
+                        console.log(`Chunk #${data.data?.chunk_number} - Total: ${data.data?.total_length} chars`);
+                    }
+                    
+                } else if (data.action === 'llm_stream_complete') {
+                    console.log('%cSTREAMING COMPLETED', 'color: #10b981; font-weight: bold;');
+                    console.log('Total Length:', data.data?.total_length, 'characters');
+                    console.log('Total Chunks:', data.data?.total_chunks);
+                    if (data.agent_id) console.log('Agent ID:', data.agent_id);
+                    if (data.task_id) console.log('Task ID:', data.task_id);
+                }
+                
+                console.groupEnd();
+            }
+            
+            // Handle stream start UI update
             if (data.action === 'llm_stream_start' && data.agent_id) {
                 this.uiManager.startAgentStreaming(data.agent_id);
             }
@@ -237,6 +319,7 @@ class App {
         
         // Agent completed
         this.wsService.on('agent_completed', (data) => {
+            console.log('[WebSocket] agent_completed:', data);
             const agent = this.agentManager.getAgent(data.data.agent_id);
             if (agent) {
                 agent.status = 'completed';
@@ -256,6 +339,7 @@ class App {
         
         // Agent auto-restart
         this.wsService.on('agent_auto_restart', (data) => {
+            console.log('[WebSocket] agent_auto_restart:', data);
             const agent = this.agentManager.getAgent(data.data.agent_id);
             if (agent) {
                 agent.status = 'running';
@@ -270,6 +354,7 @@ class App {
         
         // Agent failed
         this.wsService.on('agent_failed', (data) => {
+            console.log('[WebSocket] agent_failed:', data);
             const agent = this.agentManager.getAgent(data.data.agent_id);
             if (agent) {
                 agent.status = 'failed';
@@ -284,6 +369,7 @@ class App {
         
         // Agent stopped
         this.wsService.on('agent_stopped', (data) => {
+            console.log('[WebSocket] agent_stopped:', data);
             const agent = this.agentManager.getAgent(data.data.agent_id);
             if (agent) {
                 agent.status = 'created';
@@ -294,6 +380,7 @@ class App {
         
         // Agent redo
         this.wsService.on('agent_redo', (data) => {
+            console.log('[WebSocket] agent_redo:', data);
             const agent = this.agentManager.getAgent(data.data.agent_id);
             if (agent) {
                 agent.status = 'running';
@@ -305,6 +392,7 @@ class App {
         
         // Agent deleted
         this.wsService.on('agent_deleted', (data) => {
+            console.log('[WebSocket] agent_deleted:', data);
             this.agentManager.removeAgent(data.data.agent_id);
             this.uiManager.removeAgent(data.data.agent_id);
             this.taskManager.removeTasksForAgent(data.data.agent_id);
@@ -390,18 +478,24 @@ class App {
         // Name is optional - backend will default to "Journalist" if not provided
         
         try {
+            const requestBody = { name: name || null, context, temperature };
+            console.log('[API] POST /api/agents/create Request:', requestBody);
+            
             // Create agent
             const response = await fetch('/api/agents/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: name || null, context, temperature })
+                body: JSON.stringify(requestBody)
             });
             
+            const agent = await response.json();
+            console.log('[API] POST /api/agents/create Response:', agent);
+            
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                throw new Error(`HTTP ${response.status}: ${JSON.stringify(agent)}`);
             }
             
-            const agent = await response.json();
+            console.log(`[Agent ${agent.id}] Created successfully`);
             
             // Close modal
             this.uiManager.closeCreateAgentModal();
@@ -413,7 +507,7 @@ class App {
             document.getElementById('tempValue').textContent = '0.3';
             
         } catch (error) {
-            console.error('Failed to create agent:', error);
+            console.error('[API] Failed to create agent:', error);
             alert(`Failed to create agent: ${error.message}`);
         }
     }
@@ -425,26 +519,30 @@ class App {
         const temperature = parseFloat(document.getElementById('editAgentTemperature').value);
         
         try {
+            const requestBody = { name: name || null, context, temperature };
+            console.log(`[API] PUT /api/agents/${agentId} Request:`, requestBody);
+            
             // Update agent
             const response = await fetch(`/api/agents/${agentId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: name || null, context, temperature })
+                body: JSON.stringify(requestBody)
             });
             
+            const updatedAgent = await response.json();
+            console.log(`[API] PUT /api/agents/${agentId} Response:`, updatedAgent);
+            
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                throw new Error(`HTTP ${response.status}: ${JSON.stringify(updatedAgent)}`);
             }
             
-            const updatedAgent = await response.json();
+            console.log(`[Agent ${agentId}] Updated successfully`);
             
             // Close modal
             this.uiManager.closeEditAgentModal();
             
-            console.log('Agent updated:', updatedAgent);
-            
         } catch (error) {
-            console.error('Failed to update agent:', error);
+            console.error(`[API] Failed to update agent ${agentId}:`, error);
             alert(`Failed to update agent: ${error.message}`);
         }
     }

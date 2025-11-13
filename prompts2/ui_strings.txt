@@ -1,0 +1,43 @@
+# UI Strings and Placeholder Text
+
+## Agent Form Placeholders
+AGENT_NAME_PLACEHOLDER=e.g., Tech Reporter, Sports Columnist
+AGENT_CONTEXT_PLACEHOLDER=e.g., Focus on recent developments, Interview tech experts, Use data from Q4 2024
+AGENT_CONTEXT_HINT=Provide guidance or constraints for the journalist. The agent will invent its own subject.
+AGENT_CONTEXT_HINT_EDIT=Provide guidance or constraints for the journalist.
+
+## Temperature Control
+TEMPERATURE_HINT=Lower values = more focused, Higher values = more creative
+TEMPERATURE_DEFAULT=0.3
+
+## Content Display
+AGENT_CONTENT_WAITING=Waiting to start...
+TASK_OUTPUT_WAITING=Waiting to start...
+
+## Validation Messages
+VALIDATION_NOT_YET=Not yet validated
+
+## Modal Titles
+MODAL_CREATE_TITLE=Create AI Journalist Agent
+MODAL_EDIT_TITLE=Edit AI Journalist Agent
+
+## Button Labels
+BTN_CREATE=Create
+BTN_SAVE=Save Changes
+BTN_CANCEL=Cancel
+BTN_START=Start
+BTN_STOP=Stop
+BTN_CONTINUE=Continue
+BTN_EDIT=Edit
+BTN_DELETE=Delete
+BTN_REDO=Redo
+
+## Status Labels
+STATUS_CONNECTING=Connecting...
+STATUS_CONNECTED=Connected
+STATUS_DISCONNECTED=Disconnected
+
+## Form Labels
+LABEL_AGENT_NAME=Agent Name
+LABEL_AGENT_CONTEXT=Additional Context (Optional)
+LABEL_CREATIVITY=Creativity (Temperature: {value})

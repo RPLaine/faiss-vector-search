@@ -37,7 +37,8 @@ class WorkflowExecutor:
         self,
         llm_service: LLMService,
         executor: ThreadPoolExecutor,
-        event_loop: asyncio.AbstractEventLoop
+        event_loop: asyncio.AbstractEventLoop,
+        agent_manager: Any = None
     ):
         """
         Initialize the workflow executor.
@@ -46,10 +47,12 @@ class WorkflowExecutor:
             llm_service: LLM service instance for AI calls
             executor: Thread pool executor for LLM operations
             event_loop: Main event loop for coroutine scheduling
+            agent_manager: Agent manager for state persistence
         """
         self.llm_service = llm_service
         self.executor = executor
         self.event_loop = event_loop
+        self.agent_manager = agent_manager
         
         # Initialize task executor
         self.task_executor = TaskExecutor(llm_service, executor, event_loop)
@@ -162,6 +165,15 @@ class WorkflowExecutor:
                     
                     # Create task callback wrapper
                     async def task_callback(task_id: int, status: str, data: Optional[Dict] = None):
+                        # Update task status in the tasklist
+                        for t in sorted_tasks:
+                            if t["id"] == task_id:
+                                t["status"] = status
+                                # Save state when task status changes to running or completed
+                                if status in ["running", "completed", "failed", "cancelled"] and self.agent_manager:
+                                    self.agent_manager._save_state()
+                                break
+                        
                         if action_callback:
                             event = {
                                 "type": f"task_{status}",
@@ -242,6 +254,10 @@ class WorkflowExecutor:
                             task["output"] = task_result.get("output", "")
                             task["validation"] = task_result.get("validation", {})
                             task["completed_at"] = task_result.get("completed_at", "")
+                            
+                            # Save state to persist task completion
+                            if self.agent_manager:
+                                self.agent_manager._save_state()
                             
                             logger.info(f"Agent {agent_id} completed task {task['id']}: {task['name']}")
                             

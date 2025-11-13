@@ -83,13 +83,33 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: var(--space-xl);
+}
+
+.header-left {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    min-width: 250px;
+}
+
+.header-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.header-right {
+    min-width: 250px;
+    display: flex;
+    justify-content: flex-end;
 }
 
 .app-title {
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 700;
     color: var(--color-text-primary);
-    margin-bottom: var(--space-xs);
+    margin: 0;
 }
 
 .app-subtitle {
@@ -125,19 +145,7 @@ body {
     color: var(--color-text-secondary);
 }
 
-/* Control Panel */
-.control-panel {
-    background: var(--color-bg-secondary);
-    border-bottom: 1px solid var(--color-border);
-    padding: var(--space-lg) var(--space-xl);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    max-width: 1400px;
-    margin: 0 auto;
-    width: 100%;
-}
-
+/* Control Panel (now integrated in header) */
 .control-group {
     display: flex;
     gap: var(--space-md);
@@ -230,6 +238,69 @@ body {
         linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
     background-size: 20px 20px;
     background-position: 0 0;
+}
+
+#agentCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+}
+
+#agentNodesContainer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+    width: 100%;
+}
+
+/* Connection Lines SVG Layer */
+.connection-lines {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+    overflow: visible;
+}
+
+.connection-line {
+    fill: none;
+    stroke-width: 3;
+    transition: stroke 0.3s ease;
+}
+
+.connection-line.incomplete {
+    stroke: #404040;
+    stroke-dasharray: none;
+}
+
+.connection-line.processing {
+    stroke: #2563eb;
+    stroke-dasharray: 8 4;
+    animation: processing-flow 1.5s linear infinite;
+}
+
+.connection-line.complete {
+    stroke: #10b981;
+    stroke-dasharray: none;
+}
+
+.connection-line.failed {
+    stroke: #ef4444;
+    stroke-dasharray: none;
+}
+
+@keyframes processing-flow {
+    0% {
+        stroke-dashoffset: 0;
+    }
+    100% {
+        stroke-dashoffset: 24;
+    }
 }
 
 /* Custom scrollbar styling - thin and dark */

@@ -10,6 +10,7 @@ export class TaskManager {
         this.canvasManager = canvasManager;
         this.taskNodes = new Map(); // task_key -> {element, agentId, taskId, x, y}
         this.agentTasks = new Map(); // agent_id -> Set of task_keys
+        this.isAligning = new Map(); // agent_id -> boolean (prevents conflicts during alignment)
         
         // Listen for global recalculation events
         window.addEventListener('recalculateTaskPositions', () => {
@@ -25,6 +26,13 @@ export class TaskManager {
     recalculateAllTaskPositions() {
         for (const agentId of this.agentTasks.keys()) {
             this.positionTasksForAgent(agentId);
+        }
+        
+        // Update all connection lines after all tasks have been repositioned
+        if (this.connectionLines) {
+            setTimeout(() => {
+                this.connectionLines.updateAllConnections();
+            }, 50);
         }
     }
     
@@ -80,13 +88,18 @@ export class TaskManager {
                 totalTaskHeight += height;
             }
             
-            // Calculate where the last task (largest ID) should be positioned
             const taskCount = sortedTaskKeys.length;
-            const totalGapsHeight = (taskCount - 1) * gapBetweenElements;
-            const totalContentHeight = totalTaskHeight + totalGapsHeight;
             
-            // Position so the LAST task's top border aligns exactly with agent's top border
-            let startY = agentPos.y - totalContentHeight + taskHeights[taskCount - 1];
+            // Calculate the Y position for the first unexecuted task to align with agent top
+            // We need to position it so that the unexecuted task's top = agent.y
+            // Work backwards from the unexecuted task to calculate where task 0 should start
+            let heightBeforeUnexecuted = 0;
+            for (let i = 0; i < firstUnexecutedIndex; i++) {
+                heightBeforeUnexecuted += taskHeights[i] + gapBetweenElements;
+            }
+            
+            // Start Y position for first task
+            let startY = agentPos.y - heightBeforeUnexecuted;
             let currentY = startY;
             
             sortedTaskKeys.forEach((taskKey, index) => {
@@ -109,6 +122,13 @@ export class TaskManager {
             
             // Update canvas height after animation (debounced)
             this.canvasManager.updateCanvasHeight();
+            
+            // Update connection lines after shifting
+            if (this.connectionLines) {
+                setTimeout(() => {
+                    this.connectionLines.updateConnectionsForAgent(agentId);
+                }, 0);
+            }
         }
     }
     
@@ -206,6 +226,9 @@ export class TaskManager {
         const taskStatus = task.status || 'created';
         const taskOutput = task.output || 'Waiting to start...';
         
+        // Add status class to the task node for styling (border colors)
+        node.classList.add(taskStatus);
+        
         node.innerHTML = `
             <div class="task-node-header">
                 <div class="task-node-header-info">
@@ -239,7 +262,7 @@ export class TaskManager {
                     <div class="task-node-section">
                         <div class="task-node-section-title">Output</div>
                         <div class="task-node-content" id="task-content-${agentId}-${task.id}">
-                            <div class="content-text">${this.escapeHtml(taskOutput)}</div>
+                            <div class="content-text">${this.formatMarkdown(taskOutput)}</div>
                         </div>
                     </div>
                 </div>
@@ -270,6 +293,11 @@ export class TaskManager {
      * @param {boolean} immediate - If true, position without animation
      */
     positionTasksForAgent(agentId, immediate = false) {
+        // Skip if currently aligning tasks (prevents conflicts)
+        if (this.isAligning.get(agentId)) {
+            return;
+        }
+        
         const agentPos = this.canvasManager.getAgentPosition(agentId);
         if (!agentPos) return;
         
@@ -313,9 +341,54 @@ export class TaskManager {
         const totalGapsHeight = (taskCount - 1) * gapBetweenElements;
         const totalContentHeight = totalTaskHeight + totalGapsHeight;
         
-        // Position tasks so the LAST task's top border aligns exactly with agent's top border
-        // Start from: agent.y - (all previous tasks heights + gaps)
-        let startY = agentPos.y - totalContentHeight + taskHeights[taskCount - 1];
+        // Determine alignment based on task status:
+        // - If any task is 'running', align that task with agent top
+        // - If all tasks are completed, align the last completed task with agent top
+        // - Otherwise, align the first task with agent top
+        let alignTaskIndex = 0; // Default: align first task
+        
+        // Find running task
+        let runningTaskIndex = -1;
+        for (let i = 0; i < sortedTaskKeys.length; i++) {
+            const taskData = this.taskNodes.get(sortedTaskKeys[i]);
+            const statusEl = taskData?.element.querySelector('.task-node-status');
+            const status = statusEl?.textContent.toLowerCase();
+            if (status === 'running') {
+                runningTaskIndex = i;
+                break;
+            }
+        }
+        
+        if (runningTaskIndex >= 0) {
+            // Align running task with agent top
+            alignTaskIndex = runningTaskIndex;
+        } else {
+            // Check if all tasks are completed
+            let allCompleted = true;
+            for (const taskKey of sortedTaskKeys) {
+                const taskData = this.taskNodes.get(taskKey);
+                const statusEl = taskData?.element.querySelector('.task-node-status');
+                const status = statusEl?.textContent.toLowerCase();
+                if (status !== 'completed') {
+                    allCompleted = false;
+                    break;
+                }
+            }
+            
+            if (allCompleted && sortedTaskKeys.length > 0) {
+                // All completed: align the last task with agent top
+                alignTaskIndex = sortedTaskKeys.length - 1;
+            }
+            // else: keep default alignTaskIndex = 0 (first task)
+        }
+        
+        // Calculate where to position the first task so the aligned task matches agent top
+        let heightBeforeAlignedTask = 0;
+        for (let i = 0; i < alignTaskIndex; i++) {
+            heightBeforeAlignedTask += taskHeights[i] + gapBetweenElements;
+        }
+        
+        let startY = agentPos.y - heightBeforeAlignedTask;
         let currentY = startY;
         
         sortedTaskKeys.forEach((taskKey, index) => {
@@ -346,7 +419,13 @@ export class TaskManager {
         // Update canvas height to accommodate all tasks
         this.canvasManager.updateCanvasHeight();
         
-        // Don't draw connection lines - removed
+        // Update connection lines
+        if (this.connectionLines) {
+            // Use setTimeout to ensure DOM has updated positions
+            setTimeout(() => {
+                this.connectionLines.updateConnectionsForAgent(agentId);
+            }, 0);
+        }
     }
     
     /**
@@ -382,7 +461,7 @@ export class TaskManager {
         
         // Update task node class for border styling
         const element = taskData.element;
-        element.classList.remove('running', 'completed', 'failed', 'cancelled');
+        element.classList.remove('running', 'completed', 'failed', 'cancelled', 'created', 'halted');
         element.classList.add(status);
         
         // Add pulse animation when task becomes active
@@ -393,9 +472,122 @@ export class TaskManager {
             setTimeout(() => {
                 taskData.element.classList.remove('pulse-scale');
             }, 300);
+            
+            // Align the running task with the agent's top border
+            this.shiftTasksToRunning(agentId, taskId);
+        }
+        
+        // Update connection lines when status changes
+        // Use longer timeout to ensure DOM updates and positioning have completed
+        if (this.connectionLines) {
+            setTimeout(() => {
+                this.connectionLines.updateConnectionsForAgent(agentId);
+            }, 50);
         }
         
         console.log(`Task ${taskId} status: ${status}`);
+    }
+    
+    /**
+     * Shift tasks so the currently running task aligns with the agent's top border.
+     */
+    shiftTasksToRunning(agentId, runningTaskId) {
+        // Set alignment flag to prevent concurrent positioning
+        this.isAligning.set(agentId, true);
+        
+        const taskKeys = this.agentTasks.get(agentId);
+        if (!taskKeys || taskKeys.size === 0) {
+            this.isAligning.set(agentId, false);
+            return;
+        }
+        
+        const agentPos = this.canvasManager.getAgentPosition(agentId);
+        if (!agentPos) {
+            this.isAligning.set(agentId, false);
+            return;
+        }
+        
+        const agentElement = this.canvasManager.agents.get(agentId)?.element;
+        if (!agentElement) {
+            this.isAligning.set(agentId, false);
+            return;
+        }
+        
+        const agentWidth = agentElement.offsetWidth || 320;
+        const startX = agentPos.x + agentWidth + 40;
+        
+        // Sort tasks by ID
+        const sortedTaskKeys = Array.from(taskKeys).sort((a, b) => {
+            const taskA = this.taskNodes.get(a);
+            const taskB = this.taskNodes.get(b);
+            return taskA.taskId - taskB.taskId;
+        });
+        
+        // Find the index of the running task
+        let runningTaskIndex = -1;
+        for (let i = 0; i < sortedTaskKeys.length; i++) {
+            const taskData = this.taskNodes.get(sortedTaskKeys[i]);
+            if (taskData && taskData.taskId === runningTaskId) {
+                runningTaskIndex = i;
+                break;
+            }
+        }
+        
+        if (runningTaskIndex < 0) return;
+        
+        const gapBetweenElements = 20;
+        
+        // Calculate heights for all tasks
+        const taskHeights = [];
+        for (const taskKey of sortedTaskKeys) {
+            const taskData = this.taskNodes.get(taskKey);
+            if (!taskData) continue;
+            const height = taskData.element.offsetHeight || 300;
+            taskHeights.push(height);
+        }
+        
+        // Calculate where to position the first task so the running task aligns with agent top
+        let heightBeforeRunning = 0;
+        for (let i = 0; i < runningTaskIndex; i++) {
+            heightBeforeRunning += taskHeights[i] + gapBetweenElements;
+        }
+        
+        // Start Y position for first task
+        let startY = agentPos.y - heightBeforeRunning;
+        let currentY = startY;
+        
+        sortedTaskKeys.forEach((taskKey, index) => {
+            const taskData = this.taskNodes.get(taskKey);
+            if (!taskData) return;
+            
+            const element = taskData.element;
+            const taskHeight = taskHeights[index];
+            
+            // Position element
+            element.style.left = `${startX}px`;
+            element.style.top = `${currentY}px`;
+            
+            taskData.x = startX;
+            taskData.y = currentY;
+            
+            // Move to next position with gap
+            currentY += taskHeight + gapBetweenElements;
+        });
+        
+        // Update canvas height after animation (debounced)
+        this.canvasManager.updateCanvasHeight();
+        
+        // Update connection lines after shifting
+        if (this.connectionLines) {
+            setTimeout(() => {
+                this.connectionLines.updateConnectionsForAgent(agentId);
+            }, 0);
+        }
+        
+        // Clear alignment flag after animation completes (800ms transition time)
+        setTimeout(() => {
+            this.isAligning.set(agentId, false);
+        }, 850);
     }
     
     /**
@@ -411,7 +603,9 @@ export class TaskManager {
             if (append) {
                 contentEl.textContent += content;
             } else {
-                contentEl.textContent = content;
+                // Format as Markdown and render
+                const formattedContent = this.formatMarkdown(content);
+                contentEl.innerHTML = formattedContent;
             }
             
             // Auto-scroll to bottom
@@ -423,6 +617,43 @@ export class TaskManager {
         
         // Update canvas height to ensure scrolling works (debounced)
         this.canvasManager.updateCanvasHeight();
+    }
+    
+    /**
+     * Format Markdown content to HTML
+     */
+    formatMarkdown(content) {
+        if (!content) return '';
+        
+        let html = this.escapeHtml(content);
+        
+        // Headers (##, ###, etc.)
+        html = html.replace(/^### (.+)$/gm, '<h3 style="color: var(--color-text-primary); font-size: 14px; font-weight: 600; margin: 12px 0 8px 0;">$1</h3>');
+        html = html.replace(/^## (.+)$/gm, '<h2 style="color: var(--color-text-primary); font-size: 15px; font-weight: 700; margin: 14px 0 10px 0;">$1</h2>');
+        html = html.replace(/^# (.+)$/gm, '<h1 style="color: var(--color-text-primary); font-size: 16px; font-weight: 700; margin: 16px 0 12px 0;">$1</h1>');
+        
+        // Bold **text**
+        html = html.replace(/\*\*(.+?)\*\*/g, '<strong style="color: var(--color-text-primary); font-weight: 600;">$1</strong>');
+        
+        // Italic *text*
+        html = html.replace(/\*(.+?)\*/g, '<em style="color: var(--color-text-secondary); font-style: italic;">$1</em>');
+        
+        // Code blocks ```code```
+        html = html.replace(/```([^`]+)```/g, '<pre style="background: var(--color-bg-tertiary); padding: 8px; border-radius: 4px; margin: 8px 0; overflow-x: auto;"><code>$1</code></pre>');
+        
+        // Inline code `code`
+        html = html.replace(/`([^`]+)`/g, '<code style="background: var(--color-bg-tertiary); padding: 2px 4px; border-radius: 3px; font-family: var(--font-mono); font-size: 11px;">$1</code>');
+        
+        // Lists (- item or * item)
+        html = html.replace(/^[*-] (.+)$/gm, '<li style="margin-left: 20px; margin-bottom: 4px;">$1</li>');
+        
+        // Links [text](url)
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: var(--color-accent-primary); text-decoration: underline;" target="_blank">$1</a>');
+        
+        // Line breaks
+        html = html.replace(/\n/g, '<br>');
+        
+        return html;
     }
     
     /**
@@ -467,6 +698,11 @@ export class TaskManager {
         const taskKeys = this.agentTasks.get(agentId);
         if (!taskKeys) return;
         
+        // Remove connection lines first
+        if (this.connectionLines) {
+            this.connectionLines.removeConnectionsForAgent(agentId);
+        }
+        
         // Animate out each task with stagger
         const taskKeysArray = Array.from(taskKeys);
         taskKeysArray.forEach((taskKey, index) => {
@@ -480,11 +716,6 @@ export class TaskManager {
                     setTimeout(() => {
                         taskData.element.remove();
                         this.taskNodes.delete(taskKey);
-                        
-                        // Redraw lines after last task is removed
-                        if (index === taskKeysArray.length - 1) {
-                            this.drawAllConnectionLines();
-                        }
                     }, 400); // Match animation duration
                 }, index * 50); // 50ms stagger
             } else {

@@ -104,6 +104,14 @@ export class CanvasManager {
             
             currentY += height + gapBetweenAgents;
         }
+        
+        // Update connection lines after agents have moved
+        if (this.connectionLines) {
+            // Use setTimeout to ensure DOM has updated positions
+            setTimeout(() => {
+                this.connectionLines.updateAllConnections();
+            }, 0);
+        }
     }
     
     draw() {
@@ -306,8 +314,8 @@ export class CanvasManager {
         const scrollDistance = Math.abs(targetScrollTop - currentScroll);
         
         // Calculate duration based on distance (longer distance = longer duration)
-        // Min 800ms, max 2000ms
-        const duration = Math.min(2000, Math.max(800, scrollDistance / 2));
+        // Min 1500ms, max 4000ms - slower and more elegant
+        const duration = Math.min(4000, Math.max(1500, scrollDistance / 1.5));
         
         const startTime = performance.now();
         const startScroll = currentScroll;

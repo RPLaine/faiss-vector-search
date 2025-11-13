@@ -76,8 +76,8 @@ async def lifespan(app: FastAPI):
         # Initialize agent manager
         agent_manager = AgentManager()
         
-        # Initialize workflow executor
-        workflow_executor = WorkflowExecutor(llm_service, executor, main_loop)
+        # Initialize workflow executor (with agent_manager for state persistence)
+        workflow_executor = WorkflowExecutor(llm_service, executor, main_loop, agent_manager)
         
         logger.info("AI Journalist Demo system initialized successfully")
         
@@ -240,6 +240,9 @@ async def start_agent(agent_id: str, request_data: Optional[Dict[str, Any]] = No
     
     # Update status
     agent_manager.update_agent_status(agent_id, "running")
+    
+    # Save state to persist halt setting
+    agent_manager._save_state()
     
     # Broadcast start event
     await broadcast_event({

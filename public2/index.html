@@ -11,45 +11,49 @@
         <!-- Header -->
         <header class="header">
             <div class="header-content">
-                <h1 class="app-title">AI Journalist Agents</h1>
-                <div class="connection-status">
-                    <span class="status-indicator" id="statusIndicator"></span>
-                    <span class="status-text" id="statusText">Connecting...</span>
+                <div class="header-left">
+                    <h1 class="app-title">AI Journalist Agents</h1>
+                    <div class="connection-status">
+                        <span class="status-indicator" id="statusIndicator"></span>
+                        <span class="status-text" id="statusText">Connecting...</span>
+                    </div>
+                </div>
+                <div class="header-center">
+                    <div class="control-group">
+                        <button type="button" id="addAgentBtn" class="btn btn-primary">
+                            <span class="btn-icon">+</span>
+                            Create New Agent
+                        </button>
+                        <button type="button" id="clearCompletedBtn" class="btn btn-secondary">
+                            <span class="btn-icon">🗑</span>
+                            Clear Completed
+                        </button>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="agent-stats">
+                        <span class="stat-item">
+                            <span class="stat-label">Active:</span>
+                            <span class="stat-value" id="activeCount">0</span>
+                        </span>
+                        <span class="stat-item">
+                            <span class="stat-label">Completed:</span>
+                            <span class="stat-value" id="completedCount">0</span>
+                        </span>
+                        <span class="stat-item">
+                            <span class="stat-label">Total:</span>
+                            <span class="stat-value" id="totalCount">0</span>
+                        </span>
+                    </div>
                 </div>
             </div>
         </header>
 
-        <!-- Control Panel -->
-        <div class="control-panel">
-            <div class="control-group">
-                <button type="button" id="addAgentBtn" class="btn btn-primary">
-                    <span class="btn-icon">+</span>
-                    Create New Agent
-                </button>
-                <button type="button" id="clearCompletedBtn" class="btn btn-secondary">
-                    <span class="btn-icon">🗑</span>
-                    Clear Completed
-                </button>
-            </div>
-            <div class="agent-stats">
-                <span class="stat-item">
-                    <span class="stat-label">Active:</span>
-                    <span class="stat-value" id="activeCount">0</span>
-                </span>
-                <span class="stat-item">
-                    <span class="stat-label">Completed:</span>
-                    <span class="stat-value" id="completedCount">0</span>
-                </span>
-                <span class="stat-item">
-                    <span class="stat-label">Total:</span>
-                    <span class="stat-value" id="totalCount">0</span>
-                </span>
-            </div>
-        </div>
-
         <!-- Agent Grid -->
         <div class="agents-grid" id="agentsGrid">
             <canvas id="agentCanvas"></canvas>
+            <!-- SVG layer for connection lines (behind nodes) -->
+            <svg id="connectionLines" class="connection-lines"></svg>
             <!-- Agent detail cards will overlay on canvas -->
             <div id="agentNodesContainer"></div>
         </div>

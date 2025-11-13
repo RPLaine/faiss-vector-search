@@ -76,7 +76,7 @@ export class UIManager {
                 </label>
             </div>
             <div class="agent-node-content ${agent.expanded ? 'expanded' : ''}" id="content-container-${agent.id}">
-                <div class="content-text" id="content-${agent.id}">${agent.phase_0_response ? this.escapeHtml(agent.phase_0_response) : 'Waiting to start...'}</div>
+                <div class="content-text" id="content-${agent.id}">${agent.phase_0_response ? this.formatJSON(agent.phase_0_response) : 'Waiting to start...'}</div>
             </div>
         `;
         
@@ -112,8 +112,11 @@ export class UIManager {
         
         // Create ResizeObserver to watch for size changes
         const resizeObserver = new ResizeObserver(() => {
-            // Recalculate all positions when any agent size changes
-            this.canvasManager.recalculateAllPositions();
+            // Only update canvas height and task positions when agent content changes
+            // Do NOT recalculate agent positions to prevent unwanted movement
+            this.canvasManager.updateCanvasHeight();
+            // Trigger task repositioning through custom event
+            window.dispatchEvent(new CustomEvent('recalculateTaskPositions'));
         });
         
         // Start observing
@@ -227,17 +230,23 @@ export class UIManager {
                 agent.auto = auto;
             }
             
+            const requestBody = { halt };
+            console.log(`[Agent ${agentId}] START Request:`, requestBody);
+            
             const response = await fetch(`/api/agents/${agentId}/start`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ halt })
+                body: JSON.stringify(requestBody)
             });
+            
+            const responseData = await response.json();
+            console.log(`[Agent ${agentId}] START Response:`, responseData);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
             
-            console.log(`Agent ${agentId} started (halt: ${halt}, auto: ${auto})`);
+            console.log(`[Agent ${agentId}] Started (halt: ${halt}, auto: ${auto})`);
             
             // Clear content for streaming
             this.clearAgentContent(agentId);
@@ -245,24 +254,29 @@ export class UIManager {
             // Change button to Stop
             this.setActionButton(agentId, 'stop', '⏹️', 'Stop');
         } catch (error) {
-            console.error('Failed to start agent:', error);
+            console.error(`[Agent ${agentId}] Failed to start:`, error);
             alert(`Failed to start agent: ${error.message}`);
         }
     }
     
     async handleStopAgent(agentId) {
         try {
+            console.log(`[Agent ${agentId}] STOP Request`);
+            
             const response = await fetch(`/api/agents/${agentId}/stop`, {
                 method: 'POST'
             });
+            
+            const responseData = await response.json();
+            console.log(`[Agent ${agentId}] STOP Response:`, responseData);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
             
-            console.log(`Agent ${agentId} stopped`);
+            console.log(`[Agent ${agentId}] Stopped`);
         } catch (error) {
-            console.error('Failed to stop agent:', error);
+            console.error(`[Agent ${agentId}] Failed to stop:`, error);
             alert(`Failed to stop agent: ${error.message}`);
         }
     }
@@ -272,17 +286,23 @@ export class UIManager {
             const agent = window.app.agentManager.getAgent(agentId);
             const currentPhase = agent?.current_phase || 0;
             
+            const requestBody = { phase: currentPhase };
+            console.log(`[Agent ${agentId}] REDO Request:`, requestBody);
+            
             const response = await fetch(`/api/agents/${agentId}/redo`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phase: currentPhase })
+                body: JSON.stringify(requestBody)
             });
+            
+            const responseData = await response.json();
+            console.log(`[Agent ${agentId}] REDO Response:`, responseData);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
             
-            console.log(`Agent ${agentId} redoing phase ${currentPhase}`);
+            console.log(`[Agent ${agentId}] Redoing phase ${currentPhase}`);
             
             // Clear content for streaming
             this.clearAgentContent(agentId);
@@ -290,7 +310,7 @@ export class UIManager {
             // Change button back to Stop
             this.setActionButton(agentId, 'stop', '⏹️', 'Stop');
         } catch (error) {
-            console.error('Failed to redo phase:', error);
+            console.error(`[Agent ${agentId}] Failed to redo phase:`, error);
             alert(`Failed to redo phase: ${error.message}`);
         }
     }
@@ -320,17 +340,22 @@ export class UIManager {
                 }
             }
             
+            console.log(`[Agent ${agentId}] CONTINUE Request`);
+            
             const response = await fetch(`/api/agents/${agentId}/continue`, {
                 method: 'POST'
             });
+            
+            const responseData = await response.json();
+            console.log(`[Agent ${agentId}] CONTINUE Response:`, responseData);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
             
-            console.log(`Agent ${agentId} continued`);
+            console.log(`[Agent ${agentId}] Continued`);
         } catch (error) {
-            console.error('Failed to continue agent:', error);
+            console.error(`[Agent ${agentId}] Failed to continue:`, error);
             alert(`Failed to continue agent: ${error.message}`);
         }
     }
@@ -364,17 +389,22 @@ export class UIManager {
         if (!confirm('Delete this agent?')) return;
         
         try {
+            console.log(`[Agent ${agentId}] DELETE Request`);
+            
             const response = await fetch(`/api/agents/${agentId}`, {
                 method: 'DELETE'
             });
+            
+            const responseData = await response.json();
+            console.log(`[Agent ${agentId}] DELETE Response:`, responseData);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
             
-            console.log(`Agent ${agentId} deleted`);
+            console.log(`[Agent ${agentId}] Deleted`);
         } catch (error) {
-            console.error('Failed to delete agent:', error);
+            console.error(`[Agent ${agentId}] Failed to delete:`, error);
             alert(`Failed to delete agent: ${error.message}`);
         }
     }
@@ -590,14 +620,39 @@ export class UIManager {
             // During streaming, append chunks
             contentText.textContent += content;
         } else {
-            // Non-streaming update - set content directly
-            contentText.textContent = content;
+            // Non-streaming update - format and set content
+            const formattedContent = this.formatJSON(content);
+            contentText.innerHTML = formattedContent;
         }
         
         // Auto-scroll to bottom
         contentText.scrollTop = contentText.scrollHeight;
         
         console.log(`Agent ${agentId} - Phase ${phaseIndex} content update`);
+    }
+    
+    /**
+     * Format JSON content with syntax highlighting
+     */
+    formatJSON(content) {
+        try {
+            // Try to parse as JSON
+            const parsed = JSON.parse(content);
+            const formatted = JSON.stringify(parsed, null, 2);
+            
+            // Apply syntax highlighting
+            return formatted
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"([^"]+)":/g, '<span style="color: #60a5fa;">\"$1\"</span>:')
+                .replace(/: "([^"]*)"/g, ': <span style="color: #10b981;">\"$1\"</span>')
+                .replace(/: (\d+)/g, ': <span style="color: #f59e0b;">$1</span>')
+                .replace(/: (true|false|null)/g, ': <span style="color: #ef4444;">$1</span>');
+        } catch (e) {
+            // Not JSON, return as plain text
+            return this.escapeHtml(content);
+        }
     }
     
     _renderTasklist(container, content) {

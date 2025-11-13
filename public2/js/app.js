@@ -7,7 +7,7 @@
  * - Controller Layer: AgentController, TaskController
  * - Renderer Layer: AgentRenderer, TaskRenderer
  * - State Layer: AgentManager, TaskManager
- * - UI Coordination: UIManager, CanvasManager, ConnectionLinesManager
+ * - UI Coordination: UIManager, CanvasManager (includes connection lines)
  * 
  * App class responsibility: Dependency injection and initialization only.
  */
@@ -26,14 +26,14 @@ import { TaskRenderer } from './renderers/task-renderer.js';
 import { UIManager } from './ui-manager.js';
 import { TaskManager } from './task-manager.js';
 import { CanvasManager } from './canvas-manager.js';
-import { ConnectionLinesManager } from './connection-lines.js';
 
 class App {
     constructor() {
-        // State managers
+        // State managers (Note: TaskManager is injected into CanvasManager for connection lines)
         this.agentManager = new AgentManager();
-        this.canvasManager = new CanvasManager('agentCanvas');
-        this.taskManager = new TaskManager(this.canvasManager);
+        this.taskManager = new TaskManager(null); // canvasManager will be set below
+        this.canvasManager = new CanvasManager('agentCanvas', this.taskManager);
+        this.taskManager.canvasManager = this.canvasManager;
         
         // Services
         this.statsService = new StatsService(this.agentManager);
@@ -56,11 +56,6 @@ class App {
             this.canvasManager
         );
         this.uiManager.taskManager = this.taskManager;
-        
-        // Connection lines
-        this.connectionLines = new ConnectionLinesManager(this.canvasManager, this.taskManager);
-        this.taskManager.connectionLines = this.connectionLines;
-        this.canvasManager.connectionLines = this.connectionLines;
         
         // WebSocket service
         this.wsService = new WebSocketService('ws://localhost:8001/ws');

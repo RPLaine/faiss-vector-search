@@ -220,19 +220,19 @@ export class TaskController {
         });
         
         // Update connection lines after positioning (not during centralized recalculation)
-        if (this.taskManager.connectionLines) {
+        if (this.canvasManager) {
             if (immediate) {
                 // Update immediately if positioning is immediate
-                this.taskManager.connectionLines.updateConnectionsForAgent(agentId);
+                this.canvasManager.updateConnectionsForAgent(agentId);
             } else {
                 // Update connection lines during transitions (similar to agent positioning)
                 // Tasks have 400ms transition, update multiple times to keep lines in sync
-                this.taskManager.connectionLines.updateConnectionsForAgent(agentId);
+                this.canvasManager.updateConnectionsForAgent(agentId);
                 const updateIntervals = [50, 100, 150, 200, 250, 300, 350, 450];
                 updateIntervals.forEach(delay => {
                     setTimeout(() => {
-                        if (this.taskManager.connectionLines) {
-                            this.taskManager.connectionLines.updateConnectionsForAgent(agentId);
+                        if (this.canvasManager) {
+                            this.canvasManager.updateConnectionsForAgent(agentId);
                         }
                     }, delay);
                 });
@@ -265,9 +265,7 @@ export class TaskController {
         console.log(`[TaskController] Clearing ${taskKeys.length} tasks for agent ${agentId}`);
         
         // Remove connection lines first
-        if (this.taskManager.connectionLines) {
-            this.taskManager.connectionLines.removeConnectionsForAgent(agentId);
-        }
+        this.canvasManager.removeConnectionsForAgent(agentId);
         
         // Animate out tasks
         taskKeys.forEach((taskKey, index) => {

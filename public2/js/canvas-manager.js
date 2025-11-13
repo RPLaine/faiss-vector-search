@@ -1,14 +1,26 @@
 /**
  * Canvas Manager - Manages the agent canvas and node positioning
  * 
- * Camera/viewport system for scroll-free navigation
+ * Responsibilities:
+ * - Camera/viewport system for scroll-free navigation
+ * - Agent and task positioning (global and screen coordinates)
+ * - Canvas resize and dimension management
+ * - Coordinate recalculation and layout updates
+ * 
+ * Delegation:
+ * - Connection lines: ConnectionLinesManager
+ * - Drag interactions: DragHandler
+ * - Scroll interactions: ScrollHandler
+ * - CSS transitions: TransitionManager (injected)
  */
 
 import { ANIMATION_DURATIONS, POSITIONING_DELAYS, LAYOUT_DIMENSIONS } from './constants.js';
 import { ConnectionLinesManager } from './ui/connection-lines-manager.js';
+import { DragHandler } from './utils/drag-handler.js';
+import { ScrollHandler } from './utils/scroll-handler.js';
 
 export class CanvasManager {
-    constructor(canvasId, taskManager) {
+    constructor(canvasId, taskManager, transitionManager) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
         this.agents = new Map(); // agent_id -> {globalX, globalY, element}
@@ -18,183 +30,35 @@ export class CanvasManager {
         // Camera/viewport system for scroll-free navigation
         this.camera = {
             x: 0,  // Camera X offset (changed by mouse drag)
-            y: 0   // Camera Y offset (changed by mouse wheel and drag)
+            y: 0   // Camera Y offset (changed by mouse wheel)
         };
         
-        // Mouse drag state
-        this.isDragging = false;
-        this.dragStartX = 0;
-        this.dragStartY = 0;
-        this.cameraStartX = 0;
-        this.cameraStartY = 0;
-        this.dragAnimationFrame = null; // RAF handle for smooth updates
+        // Transition manager (injected dependency)
+        this.transitionManager = transitionManager;
         
         // Connection lines manager (delegated to separate class)
         this.taskManager = taskManager;
         this.connectionLinesManager = new ConnectionLinesManager('connectionLines', this, taskManager);
-        this.dragStartY = 0;
-        this.cameraStartX = 0;
-        this.cameraStartY = 0;
-        this.dragAnimationFrame = null; // RAF handle for smooth updates
         
-        // Connection lines manager (delegated to separate class)
-        this.taskManager = taskManager;
-        this.connectionLinesManager = new ConnectionLinesManager('connectionLines', this, taskManager);
+        // Drag handler (delegated to separate class)
+        this.dragHandler = new DragHandler(this.canvas, this);
+        
+        // Scroll handler (delegated to separate class)
+        this.scrollHandler = new ScrollHandler(this);
         
         this.resize();
         window.addEventListener('resize', () => this.resize());
-        this.setupScrollHandler();
-        this.setupDragHandler();
     }
     
     /**
-     * Setup mouse wheel handler for camera-based scrolling
+     * Delegate transition management to TransitionManager
      */
-    setupScrollHandler() {
-        const container = this.canvas.parentElement;
-        
-        container.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            
-            // Ensure transitions are enabled for smooth scrolling
-            this.enableTransitions();
-            
-            // Update camera Y position (positive delta = scroll down = move camera up)
-            this.camera.y += e.deltaY * 0.5; // Scale for smoother scrolling
-            
-            // Update all element positions based on new camera position
-            this.updateAllElementPositions();
-            this.connectionLinesManager.updateAllConnections();
-        }, { passive: false });
+    addNoTransitionClass() {
+        this.transitionManager.disableAllTransitions();
     }
     
-    /**
-     * Setup mouse drag handler for camera panning
-     */
-    setupDragHandler() {
-        const container = this.canvas.parentElement;
-        
-        // Mouse down - start drag
-        container.addEventListener('mousedown', (e) => {
-            // Only start drag if clicking on canvas background (not on elements)
-            if (e.target !== this.canvas && e.target !== container) {
-                return;
-            }
-            
-            this.isDragging = true;
-            this.dragStartX = e.clientX;
-            this.dragStartY = e.clientY;
-            this.cameraStartX = this.camera.x;
-            this.cameraStartY = this.camera.y;
-            
-            // Disable transitions on all elements for immediate updates
-            this.disableTransitions();
-            
-            // Change cursor
-            container.style.cursor = 'grabbing';
-            
-            // Prevent text selection during drag
-            e.preventDefault();
-        });
-        
-        // Mouse move - update camera if dragging
-        window.addEventListener('mousemove', (e) => {
-            if (!this.isDragging) return;
-            
-            // Calculate drag delta
-            const deltaX = e.clientX - this.dragStartX;
-            const deltaY = e.clientY - this.dragStartY;
-            
-            // Update camera position (drag right = camera moves left = positive delta, negative camera change)
-            this.camera.x = this.cameraStartX - deltaX;
-            this.camera.y = this.cameraStartY - deltaY;
-            
-            // Request animation frame for smooth updates
-            if (!this.dragAnimationFrame) {
-                this.dragAnimationFrame = requestAnimationFrame(() => {
-                    // Update all element positions immediately
-                    this.updateAllElementPositions();
-                    
-                    // Update connection lines immediately
-                    this.connectionLinesManager.updateAllConnections();
-                    
-                    // Clear RAF handle for next frame
-                    this.dragAnimationFrame = null;
-                });
-            }
-        });
-        
-        // Mouse up - end drag
-        window.addEventListener('mouseup', () => {
-            if (this.isDragging) {
-                this.isDragging = false;
-                
-                // Cancel any pending animation frame
-                if (this.dragAnimationFrame) {
-                    cancelAnimationFrame(this.dragAnimationFrame);
-                    this.dragAnimationFrame = null;
-                }
-                
-                // Re-enable transitions after drag completes
-                this.enableTransitions();
-                
-                // Final update of connections
-                this.connectionLinesManager.updateAllConnections();
-                
-                container.style.cursor = '';
-            }
-        });
-        
-        // Set initial cursor style
-        container.style.cursor = 'grab';
-    }
-    
-    /**
-     * Disable transitions on all elements for immediate drag updates
-     */
-    disableTransitions() {
-        // Disable agent element transitions
-        for (const [agentId, agent] of this.agents.entries()) {
-            if (agent.element) {
-                agent.element.classList.add('no-transition');
-            }
-        }
-        
-        // Disable task element transitions
-        if (this.taskManager && this.taskManager.taskNodes) {
-            for (const [taskKey, taskData] of this.taskManager.taskNodes.entries()) {
-                if (taskData && taskData.element) {
-                    taskData.element.classList.add('no-transition');
-                }
-            }
-        }
-        
-        // Disable connection line transitions (delegated)
-        this.connectionLinesManager.disableTransitions();
-    }
-    
-    /**
-     * Re-enable transitions after drag completes
-     */
-    enableTransitions() {
-        // Re-enable agent element transitions
-        for (const [agentId, agent] of this.agents.entries()) {
-            if (agent.element) {
-                agent.element.classList.remove('no-transition');
-            }
-        }
-        
-        // Re-enable task element transitions
-        if (this.taskManager && this.taskManager.taskNodes) {
-            for (const [taskKey, taskData] of this.taskManager.taskNodes.entries()) {
-                if (taskData && taskData.element) {
-                    taskData.element.classList.remove('no-transition');
-                }
-            }
-        }
-        
-        // Re-enable connection line transitions (delegated)
-        this.connectionLinesManager.enableTransitions();
+    removeNoTransitionClass() {
+        this.transitionManager.enableAllTransitions();
     }
     
     /**
@@ -347,6 +211,9 @@ export class CanvasManager {
         // Add agent to map first (initialize with global coords)
         this.agents.set(agentId, { globalX: 0, globalY: 0, element });
         
+        // Register with transition manager
+        this.transitionManager.registerAgent(agentId, element);
+        
         // Disable transition for initial positioning
         element.classList.add('no-transition');
         
@@ -366,6 +233,9 @@ export class CanvasManager {
     }
     
     removeAgent(agentId) {
+        // Unregister from transition manager
+        this.transitionManager.unregisterAgent(agentId);
+        
         // Remove agent from canvas tracking
         this.agents.delete(agentId);
         this.recalculateAgentPositions();

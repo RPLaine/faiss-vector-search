@@ -2,7 +2,7 @@
  * AI Journalist Agents Demo - Main Application
  * 
  * Clean Architecture:
- * - Service Layer: APIService, WebSocketService, StatsService, FormHandler, LoggerService
+ * - Service Layer: APIService, WebSocketService, StatsService, FormHandler, LoggerService, ModalManager, TransitionManager
  * - Handler Layer: WebSocketEventHandler
  * - Controller Layer: AgentController, TaskController
  * - Renderer Layer: AgentRenderer, TaskRenderer
@@ -18,6 +18,8 @@ import { APIService } from './services/api-service.js';
 import { StatsService } from './services/stats-service.js';
 import { FormHandler } from './services/form-handler.js';
 import { LoggerService } from './services/logger-service.js';
+import { ModalManager } from './services/modal-manager.js';
+import { TransitionManager } from './services/transition-manager.js';
 import { WebSocketEventHandler } from './handlers/websocket-event-handler.js';
 import { AgentController } from './controllers/agent-controller.js';
 import { TaskController } from './controllers/task-controller.js';
@@ -29,10 +31,15 @@ import { CanvasManager } from './canvas-manager.js';
 
 class App {
     constructor() {
+        // Services (order matters for dependencies)
+        this.transitionManager = new TransitionManager();
+        this.modalManager = new ModalManager();
+        this.modalManager.setupGlobalClosers();
+        
         // State managers (Note: TaskManager is injected into CanvasManager for connection lines)
         this.agentManager = new AgentManager();
-        this.taskManager = new TaskManager(null); // canvasManager will be set below
-        this.canvasManager = new CanvasManager('agentCanvas', this.taskManager);
+        this.taskManager = new TaskManager(null, this.transitionManager); // canvasManager will be set below
+        this.canvasManager = new CanvasManager('agentCanvas', this.taskManager, this.transitionManager);
         this.taskManager.canvasManager = this.canvasManager;
         
         // Services
@@ -57,7 +64,8 @@ class App {
             this.agentController,
             this.taskController,
             this.agentRenderer,
-            this.canvasManager
+            this.canvasManager,
+            this.modalManager
         );
         this.uiManager.taskManager = this.taskManager;
         this.uiManager.agentManager = this.agentManager; // Inject AgentManager
@@ -101,7 +109,7 @@ class App {
     
     setupUIHandlers() {
         this.formHandler.setupEventListeners({
-            onAddAgent: () => this.uiManager.openCreateAgentModal(),
+            onAddAgent: () => this.modalManager.openCreateAgentModal(),
             onClearCompleted: async () => await this.agentController.clearCompleted(),
             onCreateAgent: async () => await this.handleCreateAgent(),
             onEditAgent: async () => await this.handleEditAgent()
@@ -110,7 +118,7 @@ class App {
     
     async handleCreateAgent() {
         try {
-            const formData = this.formHandler.getCreateAgentData();
+            const formData = this.modalManager.getCreateAgentData();
             await this.agentController.createAgent(
                 formData.name,
                 formData.context,
@@ -118,8 +126,8 @@ class App {
                 false
             );
             
-            this.uiManager.closeCreateAgentModal();
-            this.formHandler.resetCreateAgentForm();
+            this.modalManager.closeCreateAgentModal();
+            this.modalManager.resetCreateAgentForm();
             
         } catch (error) {
             this.loggerService.error('Failed to create agent:', error);
@@ -129,14 +137,14 @@ class App {
     
     async handleEditAgent() {
         try {
-            const formData = this.formHandler.getEditAgentData();
+            const formData = this.modalManager.getEditAgentData();
             await this.agentController.updateAgent(formData.agentId, {
                 name: formData.name,
                 context: formData.context,
                 temperature: formData.temperature
             });
             
-            this.uiManager.closeEditAgentModal();
+            this.modalManager.closeEditAgentModal();
             
         } catch (error) {
             this.loggerService.error('Failed to update agent:', error);
@@ -153,12 +161,3 @@ if (document.readyState === 'loading') {
 } else {
     window.app = new App();
 }
-
-// Global functions for modals
-window.closeCreateAgentModal = () => {
-    document.getElementById('createAgentModal').classList.remove('active');
-};
-
-window.closeEditAgentModal = () => {
-    document.getElementById('editAgentModal').classList.remove('active');
-};

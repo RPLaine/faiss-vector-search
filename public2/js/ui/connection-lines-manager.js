@@ -3,8 +3,11 @@
  * 
  * Responsibilities:
  * - Create and update SVG path elements for connections
- * - Handle transition modes (immediate vs smooth)
  * - Clean up orphaned connections
+ * - Calculate bendy paths between nodes
+ * 
+ * Delegation:
+ * - CSS transitions: TransitionManager (via CanvasManager)
  */
 
 export class ConnectionLinesManager {
@@ -13,31 +16,7 @@ export class ConnectionLinesManager {
         this.canvasManager = canvasManager;
         this.taskManager = taskManager;
         this.lines = new Map(); // connection_key -> SVG path element
-        this.transitionsEnabled = true; // Controls smooth vs immediate updates
-    }
-    
-    /**
-     * Enable smooth transitions for scrolling
-     */
-    enableTransitions() {
-        this.transitionsEnabled = true;
-        for (const [key, path] of this.lines.entries()) {
-            if (path) {
-                path.classList.remove('no-transition');
-            }
-        }
-    }
-    
-    /**
-     * Disable transitions for immediate drag updates
-     */
-    disableTransitions() {
-        this.transitionsEnabled = false;
-        for (const [key, path] of this.lines.entries()) {
-            if (path) {
-                path.classList.add('no-transition');
-            }
-        }
+        this.transitionManager = canvasManager.transitionManager; // Reference for registration
     }
     
     /**
@@ -162,6 +141,11 @@ export class ConnectionLinesManager {
             path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             path.classList.add('connection-line');
             
+            // Register with transition manager
+            if (this.transitionManager) {
+                this.transitionManager.registerConnection(key, path);
+            }
+            
             // Apply initial animation for new connections
             if (isInitialCreation) {
                 path.classList.add('initial-animation');
@@ -176,11 +160,6 @@ export class ConnectionLinesManager {
                 }, 800);
             }
             
-            // Apply no-transition immediately if transitions are disabled
-            if (!this.transitionsEnabled) {
-                path.classList.add('no-transition');
-            }
-            
             this.svg.appendChild(path);
             this.lines.set(key, path);
         }
@@ -190,7 +169,7 @@ export class ConnectionLinesManager {
         path.setAttribute('d', pathData);
         
         // Update status class
-        path.className.baseVal = `connection-line ${statusClass}${!this.transitionsEnabled ? ' no-transition' : ''}${isNewPath && isInitialCreation ? ' initial-animation' : ''}`;
+        path.className.baseVal = `connection-line ${statusClass}${isNewPath && isInitialCreation ? ' initial-animation' : ''}`;
     }
     
     /**
@@ -258,6 +237,11 @@ export class ConnectionLinesManager {
     removeConnection(key) {
         const path = this.lines.get(key);
         if (path) {
+            // Unregister from transition manager
+            if (this.transitionManager) {
+                this.transitionManager.unregisterConnection(key);
+            }
+            
             path.remove();
             this.lines.delete(key);
         }

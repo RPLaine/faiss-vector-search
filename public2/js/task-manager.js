@@ -17,8 +17,9 @@ import { TaskLayoutCalculator } from './utils/task-layout-calculator.js';
 import { POSITIONING_DELAYS, LAYOUT_DIMENSIONS } from './constants.js';
 
 export class TaskManager {
-    constructor(canvasManager) {
+    constructor(canvasManager, transitionManager) {
         this.canvasManager = canvasManager;
+        this.transitionManager = transitionManager;
         this.taskNodes = new Map(); // task_key -> {element, agentId, taskId, globalX, globalY}
         this.agentTasks = new Map(); // agent_id -> Set of task_keys
         this.isAligning = new Map(); // agent_id -> boolean (prevents conflicts during alignment)
@@ -57,6 +58,11 @@ export class TaskManager {
      */
     addTask(taskKey, taskData) {
         this.taskNodes.set(taskKey, taskData);
+        
+        // Register with transition manager if element exists
+        if (taskData.element && this.transitionManager) {
+            this.transitionManager.registerTask(taskKey, taskData.element);
+        }
     }
     
     /**
@@ -70,6 +76,11 @@ export class TaskManager {
      * Remove a task
      */
     removeTask(taskKey) {
+        // Unregister from transition manager
+        if (this.transitionManager) {
+            this.transitionManager.unregisterTask(taskKey);
+        }
+        
         this.taskNodes.delete(taskKey);
     }
     

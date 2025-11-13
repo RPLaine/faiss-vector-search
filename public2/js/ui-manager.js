@@ -4,22 +4,24 @@
  * Responsibilities:
  * - Coordinate between controllers and renderers
  * - Handle UI events and delegate to controllers
- * - Manage modal state
+ * - Update UI based on state changes
  * 
  * NOT responsible for:
  * - Direct DOM manipulation (delegated to renderers)
  * - Business logic (delegated to controllers)
  * - API calls (delegated to controllers → APIService)
+ * - Modal management (delegated to ModalManager)
  */
 
 import { SCROLL_DELAYS } from './constants.js';
 
 export class UIManager {
-    constructor(agentController, taskController, agentRenderer, canvasManager) {
+    constructor(agentController, taskController, agentRenderer, canvasManager, modalManager) {
         this.agentController = agentController;
         this.taskController = taskController;
         this.agentRenderer = agentRenderer;
         this.canvasManager = canvasManager;
+        this.modalManager = modalManager;
         this.taskManager = null; // Will be set externally
         this.agentManager = null; // Will be set externally for agent queries
     }
@@ -141,14 +143,9 @@ export class UIManager {
             return;
         }
         
-        // Populate edit modal
-        document.getElementById('editAgentId').value = agentId;
-        document.getElementById('editAgentName').value = agent.name || '';
-        document.getElementById('editAgentContext').value = agent.context || '';
-        document.getElementById('editAgentTemperature').value = agent.temperature || 0.3;
-        document.getElementById('editTempValue').textContent = agent.temperature || 0.3;
-        
-        this.openEditAgentModal();
+        // Populate and open edit modal via ModalManager
+        this.modalManager.populateEditAgentModal(agent);
+        this.modalManager.openEditAgentModal();
     }
     
     async handleDeleteAgent(agentId) {
@@ -276,27 +273,5 @@ export class UIManager {
     completeAgent(agentId, data) {
         this.updateAgentStatus(agentId, 'completed');
         console.log(`Agent ${agentId} completed:`, data);
-    }
-    
-    // ========================================
-    // Modal Management
-    // ========================================
-    
-    openCreateAgentModal() {
-        document.getElementById('createAgentModal').classList.add('active');
-        document.getElementById('agentName').focus();
-    }
-    
-    closeCreateAgentModal() {
-        document.getElementById('createAgentModal').classList.remove('active');
-    }
-    
-    openEditAgentModal() {
-        document.getElementById('editAgentModal').classList.add('active');
-        document.getElementById('editAgentName').focus();
-    }
-    
-    closeEditAgentModal() {
-        document.getElementById('editAgentModal').classList.remove('active');
     }
 }

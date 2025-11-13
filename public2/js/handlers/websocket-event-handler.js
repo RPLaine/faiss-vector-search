@@ -87,16 +87,7 @@ export class WebSocketEventHandler {
             }
         });
         
-        // Scroll to first agent after loading
-        if (agentCount > 0) {
-            const firstAgent = data.data.agents[0];
-            const scrollDelay = SCROLL_DELAYS.SCROLL_AFTER_LOAD + 
-                               (maxTaskCount * SCROLL_DELAYS.SCROLL_TASK_MULTIPLIER) + 
-                               SCROLL_DELAYS.SCROLL_BUFFER;
-            setTimeout(() => {
-                this.canvasManager.scrollAgentToCenter(firstAgent.id);
-            }, scrollDelay);
-        }
+        // No autoscroll on page load - user can navigate freely
         
         this.statsService.update();
     }
@@ -352,9 +343,12 @@ export class WebSocketEventHandler {
         const agents = this.agentManager.getAllAgents();
         agents.forEach(agent => {
             if (agent.status === 'completed' || agent.status === 'failed') {
-                this.agentManager.removeAgent(agent.id);
-                this.uiManager.removeAgent(agent.id);
+                // Remove tasks and connections first
                 this.taskController.removeTasksForAgent(agent.id);
+                // Then remove agent UI
+                this.uiManager.removeAgent(agent.id);
+                // Finally remove from data model
+                this.agentManager.removeAgent(agent.id);
             }
         });
         this.statsService.update();

@@ -272,6 +272,17 @@ body {
     transition: stroke 0.3s ease, d 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
+.connection-line.no-transition {
+    transition: none !important;
+}
+
+/* Initial creation animation for connection lines */
+.connection-line.initial-animation {
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+    animation: connectionDraw 0.8s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
 .connection-line.incomplete {
     stroke: #404040;
     stroke-dasharray: none;
@@ -687,6 +698,13 @@ body {
     transition: none !important;
 }
 
+/* Initial creation animation - same style as agent nodes */
+.task-node.initial-animation {
+    opacity: 0;
+    transform: scale(0.8);
+    animation: taskAppear 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
 .task-node.animating-in {
     opacity: 0;
     transform: translateX(-50px) scale(0.95);
@@ -1094,6 +1112,34 @@ body {
     100% {
         opacity: 1;
         transform: scale(1) translateY(0);
+    }
+}
+
+/* Task appear animation - matches agent animation */
+@keyframes taskAppear {
+    0% {
+        opacity: 0;
+        transform: scale(0.8) translateY(-20px);
+    }
+    60% {
+        opacity: 1;
+        transform: scale(1.05) translateY(0);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Connection line draw animation */
+@keyframes connectionDraw {
+    0% {
+        stroke-dashoffset: 1000;
+        opacity: 0.5;
+    }
+    100% {
+        stroke-dashoffset: 0;
+        opacity: 1;
     }
 }
 

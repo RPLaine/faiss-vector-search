@@ -1,16 +1,11 @@
 /**
- * Canvas Manager - Manages the agent canvas, node positioning, and connection lines
+ * Canvas Manager - Manages the agent canvas and node positioning
  * 
- * Merged functionality from ConnectionLinesManager for unified spatial layout management.
- * 
- * Line colors based on task status:
- * - Incomplete: grey (#404040)
- * - Processing: blue animated (#2563eb)
- * - Complete: green (#10b981)
- * - Failed: red (#ef4444)
+ * Camera/viewport system for scroll-free navigation
  */
 
 import { ANIMATION_DURATIONS, POSITIONING_DELAYS, LAYOUT_DIMENSIONS } from './constants.js';
+import { ConnectionLinesManager } from './ui/connection-lines-manager.js';
 
 export class CanvasManager {
     constructor(canvasId, taskManager) {
@@ -32,11 +27,19 @@ export class CanvasManager {
         this.dragStartY = 0;
         this.cameraStartX = 0;
         this.cameraStartY = 0;
+        this.dragAnimationFrame = null; // RAF handle for smooth updates
         
-        // Connection lines (merged from ConnectionLinesManager)
+        // Connection lines manager (delegated to separate class)
         this.taskManager = taskManager;
-        this.svg = document.getElementById('connectionLines');
-        this.lines = new Map(); // connection_key -> SVG path element
+        this.connectionLinesManager = new ConnectionLinesManager('connectionLines', this, taskManager);
+        this.dragStartY = 0;
+        this.cameraStartX = 0;
+        this.cameraStartY = 0;
+        this.dragAnimationFrame = null; // RAF handle for smooth updates
+        
+        // Connection lines manager (delegated to separate class)
+        this.taskManager = taskManager;
+        this.connectionLinesManager = new ConnectionLinesManager('connectionLines', this, taskManager);
         
         this.resize();
         window.addEventListener('resize', () => this.resize());
@@ -53,12 +56,15 @@ export class CanvasManager {
         container.addEventListener('wheel', (e) => {
             e.preventDefault();
             
+            // Ensure transitions are enabled for smooth scrolling
+            this.enableTransitions();
+            
             // Update camera Y position (positive delta = scroll down = move camera up)
             this.camera.y += e.deltaY * 0.5; // Scale for smoother scrolling
             
             // Update all element positions based on new camera position
             this.updateAllElementPositions();
-            this.updateAllConnections();
+            this.connectionLinesManager.updateAllConnections();
         }, { passive: false });
     }
     
@@ -81,6 +87,9 @@ export class CanvasManager {
             this.cameraStartX = this.camera.x;
             this.cameraStartY = this.camera.y;
             
+            // Disable transitions on all elements for immediate updates
+            this.disableTransitions();
+            
             // Change cursor
             container.style.cursor = 'grabbing';
             
@@ -100,21 +109,92 @@ export class CanvasManager {
             this.camera.x = this.cameraStartX - deltaX;
             this.camera.y = this.cameraStartY - deltaY;
             
-            // Update all element positions
-            this.updateAllElementPositions();
-            this.updateAllConnections();
+            // Request animation frame for smooth updates
+            if (!this.dragAnimationFrame) {
+                this.dragAnimationFrame = requestAnimationFrame(() => {
+                    // Update all element positions immediately
+                    this.updateAllElementPositions();
+                    
+                    // Update connection lines immediately
+                    this.connectionLinesManager.updateAllConnections();
+                    
+                    // Clear RAF handle for next frame
+                    this.dragAnimationFrame = null;
+                });
+            }
         });
         
         // Mouse up - end drag
         window.addEventListener('mouseup', () => {
             if (this.isDragging) {
                 this.isDragging = false;
+                
+                // Cancel any pending animation frame
+                if (this.dragAnimationFrame) {
+                    cancelAnimationFrame(this.dragAnimationFrame);
+                    this.dragAnimationFrame = null;
+                }
+                
+                // Re-enable transitions after drag completes
+                this.enableTransitions();
+                
+                // Final update of connections
+                this.connectionLinesManager.updateAllConnections();
+                
                 container.style.cursor = '';
             }
         });
         
         // Set initial cursor style
         container.style.cursor = 'grab';
+    }
+    
+    /**
+     * Disable transitions on all elements for immediate drag updates
+     */
+    disableTransitions() {
+        // Disable agent element transitions
+        for (const [agentId, agent] of this.agents.entries()) {
+            if (agent.element) {
+                agent.element.classList.add('no-transition');
+            }
+        }
+        
+        // Disable task element transitions
+        if (this.taskManager && this.taskManager.taskNodes) {
+            for (const [taskKey, taskData] of this.taskManager.taskNodes.entries()) {
+                if (taskData && taskData.element) {
+                    taskData.element.classList.add('no-transition');
+                }
+            }
+        }
+        
+        // Disable connection line transitions (delegated)
+        this.connectionLinesManager.disableTransitions();
+    }
+    
+    /**
+     * Re-enable transitions after drag completes
+     */
+    enableTransitions() {
+        // Re-enable agent element transitions
+        for (const [agentId, agent] of this.agents.entries()) {
+            if (agent.element) {
+                agent.element.classList.remove('no-transition');
+            }
+        }
+        
+        // Re-enable task element transitions
+        if (this.taskManager && this.taskManager.taskNodes) {
+            for (const [taskKey, taskData] of this.taskManager.taskNodes.entries()) {
+                if (taskData && taskData.element) {
+                    taskData.element.classList.remove('no-transition');
+                }
+            }
+        }
+        
+        // Re-enable connection line transitions (delegated)
+        this.connectionLinesManager.enableTransitions();
     }
     
     /**
@@ -176,7 +256,7 @@ export class CanvasManager {
         }
         
         // Update SVG dimensions to match viewport
-        this.updateSVGDimensions();
+        this.connectionLinesManager.updateSVGDimensions(viewportWidth, viewportHeight);
         
         // Recalculate positions after resize (global coords don't change, but centering might)
         this.recalculateAllPositions();
@@ -238,16 +318,13 @@ export class CanvasManager {
             currentGlobalY += height + gapBetweenAgents;
         }
         
-        // Update connection lines immediately
-        this.updateAllConnections();
+        // Note: Connection lines are NOT updated here during agent positioning.
+        // They will be updated after tasks are created and positioned.
+        // This ensures proper order: agents → tasks → connections.
         
-        // Also update connection lines during and after agent transitions
-        // Use multiple updates to keep lines in sync with animated movement
-        POSITIONING_DELAYS.AGENT_POSITION_UPDATES.forEach(delay => {
-            setTimeout(() => {
-                this.updateAllConnections();
-            }, delay);
-        });
+        // Connection lines will be updated by:
+        // 1. task-controller when tasks are positioned (initial creation)
+        // 2. recalculateAllPositions when full layout recalculation is needed
     }
     
     draw() {
@@ -289,7 +366,7 @@ export class CanvasManager {
     }
     
     removeAgent(agentId) {
-        this.removeConnectionsForAgent(agentId);
+        // Remove agent from canvas tracking
         this.agents.delete(agentId);
         this.recalculateAgentPositions();
         this.draw();
@@ -320,7 +397,7 @@ export class CanvasManager {
             // Step 3: Wait for task positioning to complete, then update connection lines
             requestAnimationFrame(() => {
                 // Update all connection lines last
-                this.updateAllConnections();
+                this.connectionLinesManager.updateAllConnections();
                 
                 this.isRecalculating = false;
                 console.log('[CanvasManager] Recalculation complete');
@@ -393,7 +470,7 @@ export class CanvasManager {
             
             // Update all positions and connections
             this.updateAllElementPositions();
-            this.updateAllConnections();
+            this.connectionLinesManager.updateAllConnections();
             
             if (progress < 1) {
                 requestAnimationFrame(animateCamera);
@@ -401,239 +478,5 @@ export class CanvasManager {
         };
         
         requestAnimationFrame(animateCamera);
-    }
-    
-    // ========================================
-    // Connection Lines Management (merged from ConnectionLinesManager)
-    // ========================================
-    
-    /**
-     * Update SVG viewBox to match canvas dimensions
-     */
-    updateSVGDimensions() {
-        if (this.svg && this.canvas) {
-            // SVG matches viewport size (not scroll area)
-            this.svg.setAttribute('width', this.canvas.width);
-            this.svg.setAttribute('height', this.canvas.height);
-            this.svg.setAttribute('viewBox', `0 0 ${this.canvas.width} ${this.canvas.height}`);
-        }
-    }
-    
-    /**
-     * Create or update all connection lines for an agent and its tasks
-     */
-    updateConnectionsForAgent(agentId) {
-        if (!this.taskManager) return;
-        
-        const taskKeys = this.taskManager.agentTasks.get(agentId);
-        if (!taskKeys || taskKeys.size === 0) {
-            // No tasks, remove any existing connections
-            this.removeConnectionsForAgent(agentId);
-            return;
-        }
-        
-        const agentPos = this.getAgentPosition(agentId); // Returns global coords
-        if (!agentPos) return;
-        
-        const agentElement = this.agents.get(agentId)?.element;
-        if (!agentElement) return;
-        
-        // Use getBoundingClientRect for accurate rendered dimensions
-        const agentRect = agentElement.getBoundingClientRect();
-        
-        // Calculate agent width and height from bounding rect
-        const agentWidth = agentRect.width;
-        const agentHeight = agentRect.height;
-        
-        // Calculate agent center in global coordinates
-        const agentCenterGlobalX = agentPos.x + (agentWidth / 2);
-        const agentCenterGlobalY = agentPos.y + (agentHeight / 2);
-        
-        // Convert to screen coordinates for SVG
-        const agentCenterScreen = this.globalToScreen(agentCenterGlobalX, agentCenterGlobalY);
-        
-        // Sort tasks by ID to get proper order
-        const sortedTaskKeys = Array.from(taskKeys).sort((a, b) => {
-            const taskA = this.taskManager.taskNodes.get(a);
-            const taskB = this.taskManager.taskNodes.get(b);
-            return taskA.taskId - taskB.taskId;
-        });
-        
-        // Connect EVERY task to the agent (center to center)
-        sortedTaskKeys.forEach((taskKey) => {
-            const taskData = this.taskManager.taskNodes.get(taskKey);
-            if (!taskData || !taskData.element) return;
-            
-            const taskElement = taskData.element;
-            
-            // Use getBoundingClientRect for accurate rendered dimensions
-            const taskRect = taskElement.getBoundingClientRect();
-            const taskWidth = taskRect.width;
-            const taskHeight = taskRect.height;
-            
-            // Calculate task center in global coordinates
-            const taskCenterGlobalX = taskData.globalX + (taskWidth / 2);
-            const taskCenterGlobalY = taskData.globalY + (taskHeight / 2);
-            
-            // Convert to screen coordinates for SVG
-            const taskCenterScreen = this.globalToScreen(taskCenterGlobalX, taskCenterGlobalY);
-            
-            // Create connection from agent to this task (using screen coords)
-            const connectionKey = `agent-${agentId}-to-task-${taskData.taskId}`;
-            this.createConnection(
-                connectionKey,
-                agentCenterScreen.x,
-                agentCenterScreen.y,
-                taskCenterScreen.x,
-                taskCenterScreen.y,
-                this.getStatusClass(taskData.element)
-            );
-        });
-        
-        // Clean up any orphaned connections
-        this.cleanupOrphanedConnections(agentId, sortedTaskKeys);
-    }
-    
-    /**
-     * Create or update a single connection line
-     */
-    createConnection(key, x1, y1, x2, y2, statusClass) {
-        if (!this.svg) return;
-        
-        let path = this.lines.get(key);
-        
-        if (!path) {
-            // Create new path element
-            path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.classList.add('connection-line');
-            this.svg.appendChild(path);
-            this.lines.set(key, path);
-        }
-        
-        // Update path data with bendy curve
-        const pathData = this.createBendyPath(x1, y1, x2, y2);
-        path.setAttribute('d', pathData);
-        
-        // Update status class
-        path.className.baseVal = `connection-line ${statusClass}`;
-    }
-    
-    /**
-     * Create a bendy SVG path between two points
-     * Uses cubic bezier curves for smooth, organic connections
-     * Emphasizes vertical direction at start, horizontal direction at end
-     */
-    createBendyPath(x1, y1, x2, y2) {
-        const dx = x2 - x1;
-        const dy = y2 - y1;
-        
-        // Calculate horizontal curve strength based on distance
-        const horizontalStrength = Math.min(Math.abs(dx) * 0.5, 100);
-        
-        // Calculate vertical curve strength - much stronger for dramatic bending at start
-        // Use 80% of vertical distance for strong emphasis on vertical movement
-        const verticalStrength = Math.abs(dy) * 0.8;
-        
-        // First control point: move right AND strongly in the vertical direction from start
-        const cp1x = x1 + horizontalStrength;
-        const cp1y = y1 + (dy > 0 ? verticalStrength : -verticalStrength);
-        
-        // Second control point: almost entirely horizontal approach to end point
-        // Move much further horizontally and keep Y at target level for horizontal entry
-        const cp2x = x2 - horizontalStrength * 5; // Strong horizontal emphasis
-        const cp2y = y2; // No vertical offset - line arrives horizontally
-        
-        return `M ${x1} ${y1} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x2} ${y2}`;
-    }
-    
-    /**
-     * Get status class from task element
-     */
-    getStatusClass(taskElement) {
-        const statusEl = taskElement.querySelector('.task-node-status');
-        if (!statusEl) return 'incomplete';
-        
-        // Check if element has status class
-        if (statusEl.classList.contains('running')) return 'processing';
-        if (statusEl.classList.contains('completed')) return 'complete';
-        if (statusEl.classList.contains('failed')) return 'failed';
-        
-        return 'incomplete';
-    }
-    
-    /**
-     * Remove all connections for an agent
-     */
-    removeConnectionsForAgent(agentId) {
-        const keysToRemove = [];
-        
-        for (const [key, path] of this.lines.entries()) {
-            if (key.includes(`agent-${agentId}`) || key.includes(`-agent-${agentId}`)) {
-                path.remove();
-                keysToRemove.push(key);
-            }
-        }
-        
-        keysToRemove.forEach(key => this.lines.delete(key));
-    }
-    
-    /**
-     * Remove specific connection
-     */
-    removeConnection(key) {
-        const path = this.lines.get(key);
-        if (path) {
-            path.remove();
-            this.lines.delete(key);
-        }
-    }
-    
-    /**
-     * Clean up orphaned connections that no longer have corresponding tasks
-     */
-    cleanupOrphanedConnections(agentId, currentTaskKeys) {
-        if (!this.taskManager) return;
-        
-        const keysToRemove = [];
-        const taskIds = currentTaskKeys.map(key => {
-            const taskData = this.taskManager.taskNodes.get(key);
-            return taskData ? taskData.taskId : null;
-        }).filter(id => id !== null);
-        
-        for (const [key, path] of this.lines.entries()) {
-            // Check if this connection belongs to this agent
-            if (!key.includes(`agent-${agentId}`) && !key.includes(`-agent-${agentId}`)) continue;
-            
-            // Extract task IDs from connection key
-            const taskIdMatches = key.match(/task-(\d+)/g);
-            if (taskIdMatches) {
-                const connectionTaskIds = taskIdMatches.map(match => {
-                    const idMatch = match.match(/task-(\d+)/);
-                    return idMatch ? parseInt(idMatch[1]) : null;
-                }).filter(id => id !== null);
-                
-                // If any task in this connection no longer exists, remove it
-                const hasOrphanedTask = connectionTaskIds.some(id => !taskIds.includes(id));
-                if (hasOrphanedTask) {
-                    path.remove();
-                    keysToRemove.push(key);
-                }
-            }
-        }
-        
-        keysToRemove.forEach(key => this.lines.delete(key));
-    }
-    
-    /**
-     * Update all connections (e.g., after window resize or layout change)
-     */
-    updateAllConnections() {
-        if (!this.taskManager) return;
-        
-        this.updateSVGDimensions();
-        
-        for (const agentId of this.taskManager.agentTasks.keys()) {
-            this.updateConnectionsForAgent(agentId);
-        }
     }
 }

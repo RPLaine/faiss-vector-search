@@ -104,8 +104,10 @@ export class TaskController {
         
         // Position tasks after DOM elements have rendered
         // Use requestAnimationFrame to ensure offsetHeight is calculated
+        // IMPORTANT: Connection lines are created/updated AFTER task positioning
+        // This ensures proper render order: agents → tasks → connections
         requestAnimationFrame(() => {
-            this.positionTasksForAgent(agentId, true);
+            this.positionTasksForAgent(agentId, true, true); // immediate=true, isInitialCreation=true
         });
         
         console.log(`[TaskController] Created ${taskKeys.length} tasks for agent ${agentId}`);
@@ -200,8 +202,11 @@ export class TaskController {
     
     /**
      * Position tasks for an agent
+     * @param {string} agentId - The agent ID
+     * @param {boolean} immediate - Whether to position immediately without transition
+     * @param {boolean} isInitialCreation - Whether this is initial task creation (for animations)
      */
-    positionTasksForAgent(agentId, immediate = false) {
+    positionTasksForAgent(agentId, immediate = false, isInitialCreation = false) {
         const taskKeys = this.taskManager.getAgentTasks(agentId);
         if (!taskKeys || taskKeys.length === 0) return;
         
@@ -227,19 +232,23 @@ export class TaskController {
             this.renderer.setPosition(taskData.element, screenPos.x, screenPos.y, immediate);
         });
         
-        // Update connection lines after positioning (not during centralized recalculation)
-        if (this.canvasManager) {
+        // CRITICAL: Connection lines are drawn AFTER all task nodes are positioned
+        // This ensures proper rendering order: agent nodes → task nodes → connection lines
+        // Connection lines are NOT updated during centralized recalculation (handled separately)
+        if (this.canvasManager && this.canvasManager.connectionLinesManager) {
             if (immediate) {
                 // Update immediately if positioning is immediate
-                this.canvasManager.updateConnectionsForAgent(agentId);
+                // Pass isInitialCreation flag for animation on first creation
+                this.canvasManager.connectionLinesManager.updateConnectionsForAgent(agentId, isInitialCreation);
             } else {
                 // Update connection lines during transitions (similar to agent positioning)
                 // Tasks have transition, update multiple times to keep lines in sync
-                this.canvasManager.updateConnectionsForAgent(agentId);
+                this.canvasManager.connectionLinesManager.updateConnectionsForAgent(agentId, isInitialCreation);
                 POSITIONING_DELAYS.TASK_CONNECTION_UPDATES.forEach(delay => {
                     setTimeout(() => {
-                        if (this.canvasManager) {
-                            this.canvasManager.updateConnectionsForAgent(agentId);
+                        if (this.canvasManager && this.canvasManager.connectionLinesManager) {
+                            // Don't animate on subsequent updates
+                            this.canvasManager.connectionLinesManager.updateConnectionsForAgent(agentId, false);
                         }
                     }, delay);
                 });
@@ -268,7 +277,7 @@ export class TaskController {
         console.log(`[TaskController] Clearing ${taskKeys.length} tasks for agent ${agentId}`);
         
         // Remove connection lines first
-        this.canvasManager.removeConnectionsForAgent(agentId);
+        this.canvasManager.connectionLinesManager.removeConnectionsForAgent(agentId);
         
         // Animate out tasks
         taskKeys.forEach((taskKey, index) => {

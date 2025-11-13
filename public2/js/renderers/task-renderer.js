@@ -24,7 +24,7 @@ export class TaskRenderer {
      */
     renderTask(agentId, task, index, totalTasks) {
         const node = DOMUtils.createElement('div', {
-            className: `task-node animating-in ${task.status || 'created'}`,
+            className: `task-node ${task.status || 'created'} initial-animation`,
             id: `task-${agentId}-${task.id}`,
             dataset: {
                 agentId: agentId,
@@ -36,11 +36,11 @@ export class TaskRenderer {
         
         this.container.appendChild(node);
         
-        // Animate in with stagger
+        // Remove animation class after animation completes, with stagger delay
+        const staggerDelay = ANIMATION_DURATIONS.TASK_STAGGER_DELAY * index;
         setTimeout(() => {
-            node.classList.remove('animating-in');
-            node.classList.add('visible');
-        }, ANIMATION_DURATIONS.TASK_ANIMATION_IN * (index + 1));
+            node.classList.remove('initial-animation');
+        }, ANIMATION_DURATIONS.AGENT_INITIAL_ANIMATION + staggerDelay);
         
         return node;
     }

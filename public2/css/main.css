@@ -748,6 +748,8 @@ body {
 
 .task-node.failed {
     border-color: var(--color-accent-danger);
+    border-width: 2px;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
 }
 
 .task-node.focused {
@@ -878,6 +880,7 @@ body {
     min-height: 60px;
     display: flex;
     flex-direction: column;
+    opacity: 1;
 }
 
 .task-node-validation.show {

@@ -29,4 +29,36 @@ export class AgentManager {
             Object.assign(agent, updates);
         }
     }
+    
+    updateAgentStatus(agentId, status) {
+        const agent = this.agents.get(agentId);
+        if (agent) {
+            agent.status = status;
+        }
+    }
+    
+    updateAgentTasklist(agentId, tasklist) {
+        const agent = this.agents.get(agentId);
+        if (agent) {
+            agent.tasklist = tasklist;
+        }
+    }
+    
+    completeAgent(agentId, article, wordCount, generationTime) {
+        const agent = this.agents.get(agentId);
+        if (agent) {
+            agent.status = 'completed';
+            agent.article = article;
+            agent.word_count = wordCount;
+            agent.generation_time = generationTime;
+        }
+    }
+    
+    failAgent(agentId, error) {
+        const agent = this.agents.get(agentId);
+        if (agent) {
+            agent.status = 'failed';
+            agent.error = error;
+        }
+    }
 }

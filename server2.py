@@ -444,6 +444,63 @@ async def redo_phase(agent_id: str, request_data: Dict[str, Any]):
     return {"success": True, "agent_id": agent_id, "phase": current_phase}
 
 
+@app.post("/api/agents/{agent_id}/redo-task")
+async def redo_failed_task(agent_id: str):
+    """Redo the first failed task for a halted agent."""
+    if not agent_manager:
+        raise HTTPException(status_code=503, detail="Agent manager not initialized")
+    
+    agent = agent_manager.get_agent(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    if agent.get("status") != "halted":
+        raise HTTPException(status_code=409, detail="Agent is not halted")
+    
+    # Find first failed task
+    tasklist = agent.get("tasklist", {})
+    tasks = tasklist.get("tasks", [])
+    
+    failed_task = None
+    for task in tasks:
+        validation = task.get("validation", {})
+        if task.get("status") == "completed" and not validation.get("is_valid", True):
+            failed_task = task
+            break
+        elif task.get("status") == "failed":
+            failed_task = task
+            break
+    
+    if not failed_task:
+        raise HTTPException(status_code=404, detail="No failed task found")
+    
+    # Reset the failed task
+    failed_task["status"] = "created"
+    failed_task["output"] = None
+    failed_task["validation"] = None
+    failed_task.pop("completed_at", None)
+    
+    # Mark that we're redoing a specific task
+    agent["redo_task_id"] = failed_task["id"]
+    
+    # Update status to running
+    agent_manager.update_agent_status(agent_id, "running")
+    
+    # Broadcast task reset event
+    await broadcast_event({
+        "type": "task_reset",
+        "data": {
+            "agent_id": agent_id,
+            "task_id": failed_task["id"]
+        }
+    })
+    
+    # Restart the workflow to execute the task
+    asyncio.create_task(run_agent(agent_id))
+    
+    return {"success": True, "agent_id": agent_id, "task_id": failed_task["id"]}
+
+
 async def run_agent(agent_id: str):
     """Run an AI journalist agent to write an article."""
     if not agent_manager or not workflow_executor:

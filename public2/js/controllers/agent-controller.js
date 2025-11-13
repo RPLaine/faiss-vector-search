@@ -91,7 +91,7 @@ export class AgentController {
         }
         
         // If agent is completed or failed, use /start to restart
-        // If agent is halted, use /redo to redo current phase
+        // If agent is halted, check for failed tasks to redo or redo current phase
         if (agent.status === 'completed' || agent.status === 'failed') {
             const confirmMsg = `Restart this agent from the beginning?`;
             if (!confirm(confirmMsg)) return;
@@ -110,25 +110,48 @@ export class AgentController {
             this.renderer.setActionButton(agentId, 'stop', '⏹️', 'Stop');
             
             console.log(`[Agent ${agentId}] Restart initiated`);
-        } else {
-            // Agent is halted, use redo endpoint
-            const phaseToRedo = agent.current_phase || 0;
-            const confirmMsg = `Redo phase ${phaseToRedo}? This will restart from this phase.`;
-            if (!confirm(confirmMsg)) return;
+        } else if (agent.status === 'halted') {
+            // Check if there are failed tasks
+            const hasFailedTasks = window.app.taskManager.hasFailedTasks(agentId);
             
-            console.log(`[Agent ${agentId}] Redoing phase ${phaseToRedo}`);
-            
-            const result = await APIService.redoPhase(agentId, phaseToRedo);
-            
-            if (!result.success) {
-                throw new Error(result.error);
+            if (hasFailedTasks) {
+                // Redo the first failed task
+                const failedTask = window.app.taskManager.getFirstFailedTask(agentId);
+                const confirmMsg = `Redo failed task "${failedTask.element.querySelector('h4').textContent}"?`;
+                if (!confirm(confirmMsg)) return;
+                
+                console.log(`[Agent ${agentId}] Redoing failed task ${failedTask.taskId}`);
+                
+                const result = await APIService.redoFailedTask(agentId);
+                
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
+                
+                // Update UI - task will be reset via WebSocket event
+                this.renderer.setActionButton(agentId, 'stop', '⏹️', 'Stop');
+                
+                console.log(`[Agent ${agentId}] Task redo initiated`);
+            } else {
+                // No failed tasks, redo current phase
+                const phaseToRedo = agent.current_phase || 0;
+                const confirmMsg = `Redo phase ${phaseToRedo}? This will restart from this phase.`;
+                if (!confirm(confirmMsg)) return;
+                
+                console.log(`[Agent ${agentId}] Redoing phase ${phaseToRedo}`);
+                
+                const result = await APIService.redoPhase(agentId, phaseToRedo);
+                
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
+                
+                // Update UI
+                this.renderer.clearContent(agentId);
+                this.renderer.setActionButton(agentId, 'stop', '⏹️', 'Stop');
+                
+                console.log(`[Agent ${agentId}] Redo initiated`);
             }
-            
-            // Update UI
-            this.renderer.clearContent(agentId);
-            this.renderer.setActionButton(agentId, 'stop', '⏹️', 'Stop');
-            
-            console.log(`[Agent ${agentId}] Redo initiated`);
         }
     }
     

@@ -223,11 +223,19 @@ class WorkflowExecutor:
                             })
                     
                     for task in sorted_tasks:
-                        # Skip already completed/failed tasks
-                        task_status = task.get("status", "created")
-                        if task_status in ["completed", "failed", "cancelled"]:
-                            logger.info(f"Agent {agent_id} - Skipping task {task['id']} (status: {task_status})")
-                            continue
+                        # If redoing a specific task, skip others
+                        redo_task_id = agent.get("redo_task_id")
+                        if redo_task_id is not None:
+                            if task["id"] != redo_task_id:
+                                continue
+                            # Clear the redo flag once we found the task
+                            agent.pop("redo_task_id", None)
+                        else:
+                            # Skip already completed/failed tasks in normal flow
+                            task_status = task.get("status", "created")
+                            if task_status in ["completed", "failed", "cancelled"]:
+                                logger.info(f"Agent {agent_id} - Skipping task {task['id']} (status: {task_status})")
+                                continue
                         
                         # Check halt before each task
                         if agent.get("halt", False):
@@ -250,16 +258,22 @@ class WorkflowExecutor:
                             )
                             
                             # Store result back in the task object
-                            task["status"] = "completed"
+                            # Set status to 'failed' if validation indicates failure
+                            validation = task_result.get("validation", {})
+                            if validation.get("is_valid", True):
+                                task["status"] = "completed"
+                            else:
+                                task["status"] = "failed"
+                            
                             task["output"] = task_result.get("output", "")
-                            task["validation"] = task_result.get("validation", {})
+                            task["validation"] = validation
                             task["completed_at"] = task_result.get("completed_at", "")
                             
                             # Save state to persist task completion
                             if self.agent_manager:
                                 self.agent_manager._save_state()
                             
-                            logger.info(f"Agent {agent_id} completed task {task['id']}: {task['name']}")
+                            logger.info(f"Agent {agent_id} completed task {task['id']}: {task['name']} (status: {task['status']})")
                             
                             # Check halt after task completes (before moving to next task)
                             if agent.get("halt", False):

@@ -292,4 +292,46 @@ export class TaskManager {
         
         return null;
     }
+    
+    /**
+     * Check if agent has any failed tasks
+     */
+    hasFailedTasks(agentId) {
+        const tasks = this.getSortedTasksForAgent(agentId);
+        
+        for (const taskData of tasks) {
+            if (!taskData || !taskData.element) continue;
+            
+            const statusEl = taskData.element.querySelector('.task-node-status');
+            if (!statusEl) continue;
+            
+            const status = statusEl.textContent.toLowerCase();
+            if (status === 'failed') {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Get the first failed task for an agent
+     */
+    getFirstFailedTask(agentId) {
+        const tasks = this.getSortedTasksForAgent(agentId);
+        
+        for (const taskData of tasks) {
+            if (!taskData || !taskData.element) continue;
+            
+            const statusEl = taskData.element.querySelector('.task-node-status');
+            if (!statusEl) continue;
+            
+            const status = statusEl.textContent.toLowerCase();
+            if (status === 'failed') {
+                return taskData;
+            }
+        }
+        
+        return null;
+    }
 }

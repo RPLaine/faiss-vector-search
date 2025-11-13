@@ -190,13 +190,21 @@ export class UIManager {
         // Update button visibility based on status
         const agent = window.app.agentManager.getAgent(agentId);
         const haltEnabled = agent?.halt || false;
+        const hasFailedTasks = this.taskManager.hasFailedTasks(agentId);
         
         if (status === 'running') {
             this.agentRenderer.setActionButton(agentId, 'stop', '⏹️', 'Stop');
             this.agentRenderer.hideButton(agentId, '.btn-continue');
             this.agentRenderer.showControl(agentId, '.halt-control');
         } else if (status === 'halted') {
-            this.agentRenderer.setActionButton(agentId, 'redo', '🔄', 'Redo');
+            // Show "Redo" button only if there are failed tasks
+            if (hasFailedTasks) {
+                this.agentRenderer.setActionButton(agentId, 'redo', '🔄', 'Redo');
+                this.agentRenderer.showButton(agentId, '.btn-action');
+            } else {
+                this.agentRenderer.hideButton(agentId, '.btn-action');
+            }
+            
             if (haltEnabled) {
                 this.agentRenderer.showButton(agentId, '.btn-continue');
             }

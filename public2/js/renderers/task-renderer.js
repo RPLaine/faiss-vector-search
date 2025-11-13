@@ -48,8 +48,16 @@ export class TaskRenderer {
      * Get task HTML template
      */
     _getTaskTemplate(agentId, task, index, totalTasks) {
-        const taskStatus = task.status || 'created';
+        // Determine task status - if validation failed, task status is failed
+        let taskStatus = task.status || 'created';
+        if (task.validation && !task.validation.is_valid) {
+            taskStatus = 'failed';
+        }
+        
         const taskOutput = task.output || 'Waiting to start...';
+        
+        // Generate validation HTML
+        const validationHtml = this._getValidationHTML(task);
         
         return `
             <div class="task-node-header">
@@ -75,9 +83,7 @@ export class TaskRenderer {
                     </div>
                     <div class="task-node-section">
                         <div class="task-node-section-title">Validation</div>
-                        <div class="task-node-validation" id="task-validation-${agentId}-${task.id}">
-                            <div class="validation-result">Not yet validated</div>
-                        </div>
+                        ${validationHtml}
                     </div>
                 </div>
                 <div class="task-node-output-column">
@@ -87,6 +93,32 @@ export class TaskRenderer {
                             <div class="content-text">${MarkdownFormatter.formatMarkdown(taskOutput)}</div>
                         </div>
                     </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    /**
+     * Get validation HTML based on task validation data
+     */
+    _getValidationHTML(task) {
+        if (!task.validation) {
+            return `
+                <div class="task-node-validation" id="task-validation-${task.agentId || ''}-${task.id}">
+                    <div class="validation-result">Not yet validated</div>
+                </div>
+            `;
+        }
+        
+        const { is_valid, score, reason } = task.validation;
+        const validationClass = is_valid ? 'valid' : 'invalid';
+        
+        return `
+            <div class="task-node-validation ${validationClass} show" id="task-validation-${task.agentId || ''}-${task.id}">
+                <div class="validation-result">
+                    <strong>${is_valid ? '✓ Valid' : '✗ Invalid'}</strong>
+                    <span class="validation-score">Score: ${score}/100</span>
+                    <div class="validation-reason">${MarkdownFormatter.escapeHtml(reason)}</div>
                 </div>
             </div>
         `;
@@ -173,18 +205,10 @@ export class TaskRenderer {
             <div class="validation-reason">${MarkdownFormatter.escapeHtml(reason)}</div>
         `;
         
-        // Animate in (already visible if spinner was shown)
+        // Animate in and keep visible permanently
         requestAnimationFrame(() => {
             validationEl.classList.add('show');
         });
-        
-        // If validation is successful, fade out after 2 seconds
-        if (isValid) {
-            setTimeout(() => {
-                validationEl.classList.remove('show');
-                validationEl.classList.add('fading-out');
-            }, 2000);
-        }
     }
     
     /**

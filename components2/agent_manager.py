@@ -44,6 +44,16 @@ class AgentManager:
                         agent.pop("task", None)  # Remove task reference
                         agent.pop("continue", None)
                         agent.pop("cancelled", None)
+                    
+                    # Fix task statuses based on validation results
+                    tasklist = agent.get("tasklist", {})
+                    tasks = tasklist.get("tasks", [])
+                    for task in tasks:
+                        validation = task.get("validation", {})
+                        # If task is marked as completed but validation failed, set status to failed
+                        if task.get("status") == "completed" and not validation.get("is_valid", True):
+                            task["status"] = "failed"
+                            logger.info(f"Corrected status for task {task.get('id')} in agent {agent_id} to 'failed' due to invalid validation")
                 
                 logger.info(f"Loaded {len(self._agents)} agents from state file")
             except Exception as e:

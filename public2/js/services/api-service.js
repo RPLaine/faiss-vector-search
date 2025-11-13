@@ -90,6 +90,10 @@ export class APIService {
         return this._request('POST', `/agents/${agentId}/redo`, { phase });
     }
     
+    static async redoFailedTask(agentId) {
+        return this._request('POST', `/agents/${agentId}/redo-task`);
+    }
+    
     // Agent Configuration Operations
     
     static async setAgentAuto(agentId, auto) {

@@ -24,7 +24,7 @@ export class TaskRenderer {
      */
     renderTask(agentId, task, index, totalTasks) {
         const node = DOMUtils.createElement('div', {
-            className: `task-node ${task.status || 'created'} initial-animation`,
+            className: `task-node card-base ${task.status || 'created'} initial-animation`,
             id: `task-${agentId}-${task.id}`,
             dataset: {
                 agentId: agentId,
@@ -66,7 +66,7 @@ export class TaskRenderer {
                     <h4>${MarkdownFormatter.escapeHtml(task.name)}</h4>
                     <div class="task-node-order">Task ${index + 1} of ${totalTasks}</div>
                 </div>
-                <div class="task-node-status ${taskStatus}">${taskStatus}</div>
+                <div class="task-node-status status-badge ${taskStatus}">${taskStatus}</div>
             </div>
             <div class="task-node-body">
                 <div class="task-node-info-column">
@@ -90,7 +90,7 @@ export class TaskRenderer {
                 <div class="task-node-output-column">
                     <div class="task-node-section">
                         <div class="task-node-section-title">Output</div>
-                        <div class="task-node-content" id="task-content-${agentId}-${task.id}">
+                        <div class="task-node-content content-container" id="task-content-${agentId}-${task.id}">
                             <div class="content-text">${MarkdownFormatter.formatMarkdown(taskOutput)}</div>
                         </div>
                     </div>
@@ -131,7 +131,7 @@ export class TaskRenderer {
     updateStatus(element, status) {
         const statusEl = element.querySelector('.task-node-status');
         if (statusEl) {
-            statusEl.className = `task-node-status ${status}`;
+            statusEl.className = `task-node-status status-badge ${status}`;
             statusEl.textContent = status;
         }
         

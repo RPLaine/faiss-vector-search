@@ -39,7 +39,7 @@ export class TaskController {
             // Calculate new positions
             const positions = this.taskManager.calculateTaskPositions(agentId, agentPos);
             
-            // Apply positions to DOM immediately (centralized recalculation handles timing)
+            // Apply positions to DOM with smooth transition (not immediate)
             positions.forEach(({ taskKey, x, y }) => {
                 const taskData = this.taskManager.getTask(taskKey);
                 if (!taskData) return;
@@ -51,8 +51,8 @@ export class TaskController {
                 // Convert to screen coordinates
                 const screenPos = this.taskManager.canvasManager.globalToScreen(x, y);
                 
-                // Apply to DOM immediately (no animation during recalculation)
-                this.renderer.setPosition(taskData.element, screenPos.x, screenPos.y, true);
+                // Apply to DOM with smooth transition (immediate = false for viewport resize smoothness)
+                this.renderer.setPosition(taskData.element, screenPos.x, screenPos.y, false);
             });
         }
         

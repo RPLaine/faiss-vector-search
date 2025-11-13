@@ -239,6 +239,20 @@ body {
     background-position: 0 0;
 }
 
+/* Card Base - Shared styling for all nodes */
+.card-base {
+    position: absolute;
+    background: var(--color-bg-secondary);
+    border: 2px solid var(--color-border);
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    pointer-events: auto;
+}
+
+.card-base.no-transition {
+    transition: none !important;
+}
+
 #agentCanvas {
     position: absolute;
     top: 0;
@@ -342,12 +356,12 @@ body {
     background: var(--color-bg-secondary);
     border: 2px solid var(--color-border);
     border-radius: var(--border-radius-lg);
-    padding: var(--space-lg);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    pointer-events: auto;
     min-width: 320px;
     max-width: 320px;
-    pointer-events: auto;
+    padding: var(--space-lg);
     transition: border-color 0.5s ease, box-shadow 0.5s ease, top 0.8s cubic-bezier(0.4, 0.0, 0.2, 1), left 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .agent-node.no-transition {
@@ -422,51 +436,7 @@ body {
     margin-bottom: var(--space-md);
 }
 
-.agent-node-controls {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: var(--space-sm);
-    align-items: center;
-    margin-bottom: var(--space-md);
-}
-
-.agent-node-controls .btn {
-    justify-content: center;
-    padding: var(--space-sm) var(--space-md);
-    font-size: 12px;
-    white-space: nowrap;
-}
-
-.agent-node-controls .auto-control {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-xs);
-    font-size: 11px;
-    color: var(--color-text-secondary);
-    padding: var(--space-sm);
-    cursor: pointer;
-    -webkit-user-select: none;    user-select: none;
-    background: var(--color-bg-primary);
-    border-radius: var(--border-radius);
-    transition: background var(--transition-fast);
-}
-
-.agent-node-controls .auto-control:hover {
-    background: var(--color-bg-tertiary);
-}
-
-.agent-node-controls input[type="checkbox"] {
-    cursor: pointer;
-    width: 14px;
-    height: 14px;
-}
-
 .agent-node-content {
-    padding: var(--space-md);
-    background: var(--color-bg-primary);
-    border-radius: var(--border-radius);
-    border: 1px solid var(--color-border);
     transition: all var(--transition-normal);
 }
 
@@ -480,6 +450,8 @@ body {
     word-wrap: break-word;
     transition: max-height var(--transition-normal);
     padding-right: 2px; /* Small gap for scrollbar */
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: var(--color-border) transparent; /* Firefox */
 }
 
 .content-text::-webkit-scrollbar {
@@ -498,12 +470,6 @@ body {
 
 .content-text::-webkit-scrollbar-thumb:hover {
     background: var(--color-border-light);
-}
-
-/* Firefox scrollbar styling */
-.content-text {
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-border) transparent;
 }
 
 /* Agent Content Text - Specific Overrides */
@@ -593,37 +559,12 @@ body {
 .agent-node-status {
     padding: var(--space-xs) var(--space-sm);
     border-radius: 999px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
     text-align: center;
-}
-
-.agent-node-status.created {
-    background: var(--color-bg-tertiary);
-    color: var(--color-text-muted);
-}
-
-.agent-node-status.running {
-    background: rgba(37, 99, 235, 0.2);
-    color: var(--color-accent-primary);
-    animation: pulse 2s infinite;
 }
 
 .agent-node-status.halted {
     background: var(--color-accent-success);
     color: white;
-}
-
-.agent-node-status.completed {
-    background: rgba(16, 185, 129, 0.2);
-    color: var(--color-accent-success);
-}
-
-.agent-node-status.failed {
-    background: rgba(239, 68, 68, 0.2);
-    color: var(--color-accent-danger);
 }
 
 .agent-node-status.tasklist_error {
@@ -682,16 +623,16 @@ body {
 /* Task Nodes */
 .task-node {
     position: absolute;
-    display: flex;
-    flex-direction: column;
-    width: 900px;
     background: var(--color-bg-secondary);
     border: 2px solid var(--color-border);
     border-radius: var(--border-radius);
-    padding: var(--space-md);
-    transition: border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, top 0.8s cubic-bezier(0.4, 0.0, 0.2, 1), left 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    width: 900px;
+    padding: var(--space-md);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, top 0.8s cubic-bezier(0.4, 0.0, 0.2, 1), left 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
 .task-node.no-transition {
@@ -775,31 +716,6 @@ body {
 .task-node-status {
     padding: 4px 8px;
     border-radius: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    white-space: nowrap;
-}
-
-.task-node-status.created {
-    background: var(--color-bg-tertiary);
-    color: var(--color-text-muted);
-}
-
-.task-node-status.running {
-    background: rgba(37, 99, 235, 0.2);
-    color: var(--color-accent-primary);
-    animation: pulse 2s infinite;
-}
-
-.task-node-status.completed {
-    background: rgba(16, 185, 129, 0.2);
-    color: var(--color-accent-success);
-}
-
-.task-node-status.failed {
-    background: rgba(239, 68, 68, 0.2);
-    color: var(--color-accent-danger);
 }
 
 .task-node-status.cancelled {
@@ -853,10 +769,6 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: var(--space-md);
-    background: var(--color-bg-primary);
-    border-radius: var(--border-radius);
-    border: 1px solid var(--color-border);
 }
 
 /* Task Content Text - Specific Overrides */
@@ -1103,11 +1015,11 @@ body {
 @keyframes agentAppear {
     0% {
         opacity: 0;
-        transform: scale(0.8) translateY(-20px);
+        transform: scale(0.9) translateY(-20px);
     }
     60% {
         opacity: 1;
-        transform: scale(1.05) translateY(0);
+        transform: scale(1.01) translateY(0);
     }
     100% {
         opacity: 1;
@@ -1119,11 +1031,11 @@ body {
 @keyframes taskAppear {
     0% {
         opacity: 0;
-        transform: scale(0.8) translateY(-20px);
+        transform: scale(0.9) translateY(-20px);
     }
     60% {
         opacity: 1;
-        transform: scale(1.05) translateY(0);
+        transform: scale(1.01) translateY(0);
     }
     100% {
         opacity: 1;
@@ -1220,6 +1132,44 @@ body {
 }
 
 /* Utility Classes */
+/* Status Badge Base - Shared by agent-node-status and task-node-status */
+.status-badge {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.status-badge.created {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-muted);
+}
+
+.status-badge.running {
+    background: rgba(37, 99, 235, 0.2);
+    color: var(--color-accent-primary);
+    animation: pulse 2s infinite;
+}
+
+.status-badge.completed {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--color-accent-success);
+}
+
+.status-badge.failed {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--color-accent-danger);
+}
+
+/* Content Container Base */
+.content-container {
+    padding: var(--space-md);
+    background: var(--color-bg-primary);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--color-border);
+}
+
 .hidden {
     display: none !important;
 }

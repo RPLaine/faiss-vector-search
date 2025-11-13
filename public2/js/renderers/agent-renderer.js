@@ -24,7 +24,7 @@ export class AgentRenderer {
      */
     renderAgent(agent, eventHandlers = {}) {
         const node = DOMUtils.createElement('div', {
-            className: `agent-node ${agent.status || 'created'} initial-animation`,
+            className: `agent-node card-base ${agent.status || 'created'} initial-animation`,
             id: `agent-${agent.id}`,
             dataset: { agentId: agent.id }
         });
@@ -56,7 +56,7 @@ export class AgentRenderer {
                     <h3>${MarkdownFormatter.escapeHtml(agent.name)}</h3>
                     ${agent.context ? `<div class="agent-node-context">${MarkdownFormatter.escapeHtml(agent.context)}</div>` : ''}
                 </div>
-                <div class="agent-node-status ${agent.status}">${agent.status}</div>
+                <div class="agent-node-status status-badge ${agent.status}">${agent.status}</div>
             </div>
             <div class="agent-node-meta">
                 <span>Temp: ${agent.temperature || 'N/A'}</span>
@@ -91,7 +91,7 @@ export class AgentRenderer {
                     Expand
                 </label>
             </div>
-            <div class="agent-node-content ${agent.expanded ? 'expanded' : ''}" id="content-container-${agent.id}">
+            <div class="agent-node-content content-container ${agent.expanded ? 'expanded' : ''}" id="content-container-${agent.id}">
                 <div class="content-text" id="content-${agent.id}">${agent.phase_0_response ? MarkdownFormatter.formatJSON(agent.phase_0_response) : 'Waiting to start...'}</div>
             </div>
         `;
@@ -160,7 +160,7 @@ export class AgentRenderer {
         };
         const displayStatus = statusDisplayMap[status] || status;
         
-        statusEl.className = `agent-node-status ${status}`;
+        statusEl.className = `agent-node-status status-badge ${status}`;
         statusEl.textContent = displayStatus;
         
         // Update node border color

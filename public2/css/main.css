@@ -69,7 +69,7 @@ body {
 .header {
     background: var(--color-bg-secondary);
     border-bottom: 1px solid var(--color-border);
-    padding: var(--space-xl);
+    padding: var(--space-md) var(--space-xl);
     position: sticky;
     top: 0;
     z-index: 100;
@@ -885,6 +885,17 @@ body {
     transform: translateY(0);
 }
 
+.task-node-validation.fading-out {
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.4s ease;
+}
+
+.task-node-validation.validating {
+    background: rgba(37, 99, 235, 0.1);
+    border: 1px solid rgba(37, 99, 235, 0.3);
+}
+
 .task-node-validation.valid {
     background: rgba(16, 185, 129, 0.1);
     border: 1px solid rgba(16, 185, 129, 0.3);
@@ -919,6 +930,20 @@ body {
     color: var(--color-text-secondary);
     margin-top: var(--space-xs);
     font-style: italic;
+}
+
+.validation-spinner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: 12px;
+    color: var(--color-accent-primary);
+}
+
+.validation-spinner .spinner-icon {
+    font-size: 16px;
+    animation: spin 1s linear infinite;
+    display: inline-block;
 }
 
 /* Removed empty state - grid always visible with texture */

@@ -1,15 +1,29 @@
 /**
- * UI Manager - Handles all UI updates with canvas-based agent nodes
+ * UI Manager (Refactored) - UI Coordination Layer
+ * 
+ * Responsibilities:
+ * - Coordinate between controllers and renderers
+ * - Handle UI events and delegate to controllers
+ * - Manage modal state
+ * 
+ * NOT responsible for:
+ * - Direct DOM manipulation (delegated to renderers)
+ * - Business logic (delegated to controllers)
+ * - API calls (delegated to controllers → APIService)
  */
 
-import { CanvasManager } from './canvas-manager.js';
-
 export class UIManager {
-    constructor() {
-        this.agentNodes = new Map();
-        this.canvasManager = new CanvasManager('agentCanvas');
-        this.taskManager = null;  // Will be set by App
+    constructor(agentController, taskController, agentRenderer, canvasManager) {
+        this.agentController = agentController;
+        this.taskController = taskController;
+        this.agentRenderer = agentRenderer;
+        this.canvasManager = canvasManager;
+        this.taskManager = null; // Will be set externally
     }
+    
+    // ========================================
+    // Connection State
+    // ========================================
     
     setConnected(connected) {
         const indicator = document.getElementById('statusIndicator');
@@ -26,155 +40,62 @@ export class UIManager {
         }
     }
     
+    // ========================================
+    // Agent Rendering (Delegated)
+    // ========================================
+    
     renderAgent(agent) {
-        const container = document.getElementById('agentNodesContainer');
+        // Define event handlers for agent node
+        const eventHandlers = {
+            onAction: (agentId) => this.handleActionButton(agentId),
+            onContinue: (agentId) => this.handleContinueAgent(agentId),
+            onEdit: (agentId) => this.handleEditAgent(agentId),
+            onDelete: (agentId) => this.handleDeleteAgent(agentId),
+            onAutoToggle: (agentId, enabled) => this.handleAutoToggle(agentId, enabled),
+            onHaltToggle: (agentId, enabled) => this.handleHaltToggle(agentId, enabled),
+            onExpandToggle: (agentId, enabled) => this.handleExpandToggle(agentId, enabled)
+        };
         
-        const node = document.createElement('div');
-        node.className = 'agent-node';
-        node.id = `agent-${agent.id}`;
-        node.dataset.agentId = agent.id;
+        // Render using renderer
+        const node = this.agentRenderer.renderAgent(agent, eventHandlers);
         
-        node.innerHTML = `
-            <div class="agent-node-header">
-                <div class="agent-node-info">
-                    <h3>${this.escapeHtml(agent.name)}</h3>
-                    ${agent.context ? `<div class="agent-node-context">${this.escapeHtml(agent.context)}</div>` : ''}
-                </div>
-                <div class="agent-node-status ${agent.status}">${agent.status}</div>
-            </div>
-            <div class="agent-node-meta">
-                <span>Temp: ${agent.temperature || 'N/A'}</span>
-            </div>
-            <div class="agent-node-controls">
-                <button type="button" class="btn btn-primary btn-action" data-agent-id="${agent.id}" data-action="start">
-                    <span class="btn-icon">▶️</span>
-                    <span class="btn-text">Start</span>
-                </button>
-                <button type="button" class="btn btn-primary btn-continue" data-agent-id="${agent.id}" style="display: none;">
-                    <span class="btn-icon">⏩</span>
-                    Continue
-                </button>
-                <button type="button" class="btn btn-secondary btn-edit" data-agent-id="${agent.id}">
-                    <span class="btn-icon">✏️</span>
-                    Edit
-                </button>
-                <button type="button" class="btn btn-secondary btn-delete" data-agent-id="${agent.id}">
-                    <span class="btn-icon">🗑️</span>
-                    Delete
-                </button>
-                <label class="auto-control">
-                    <input type="checkbox" class="auto-checkbox" data-agent-id="${agent.id}" ${agent.auto ? 'checked' : ''}>
-                    Auto
-                </label>
-                <label class="auto-control halt-control" data-agent-id="${agent.id}">
-                    <input type="checkbox" class="halt-checkbox" data-agent-id="${agent.id}" ${agent.halt ? 'checked' : ''}>
-                    Halt
-                </label>
-                <label class="auto-control">
-                    <input type="checkbox" class="expand-checkbox" data-agent-id="${agent.id}" ${agent.expanded ? 'checked' : ''}>
-                    Expand
-                </label>
-            </div>
-            <div class="agent-node-content ${agent.expanded ? 'expanded' : ''}" id="content-container-${agent.id}">
-                <div class="content-text" id="content-${agent.id}">${agent.phase_0_response ? this.formatJSON(agent.phase_0_response) : 'Waiting to start...'}</div>
-            </div>
-        `;
-        
-        container.appendChild(node);
-        this.agentNodes.set(agent.id, node);
-        
-        // Position node at center using canvas manager
+        // Position node using canvas manager
         this.canvasManager.addAgent(agent.id, node);
         
-        // Add event listeners
-        this.attachNodeEventListeners(node, agent.id);
+        // Observe content changes for layout updates
+        this._observeContentChanges(agent.id, node);
         
-        // Observe content area size changes to recalculate position
-        this.observeContentChanges(agent.id, node);
-        
-        // Apply status-specific UI changes (important for restored agents)
-        // Defer to avoid blocking the main thread during initial render
+        // Apply status-specific UI changes for restored agents
         if (agent.status && agent.status !== 'created') {
             requestAnimationFrame(() => {
                 this.updateAgentStatus(agent.id, agent.status);
             });
         }
-        
-        // Remove initial animation class after animation completes
-        setTimeout(() => {
-            node.classList.remove('initial-animation');
-        }, 800); // Match animation duration
     }
     
-    observeContentChanges(agentId, node) {
+    _observeContentChanges(agentId, node) {
         const contentContainer = node.querySelector(`#content-container-${agentId}`);
         if (!contentContainer) return;
         
-        // Create ResizeObserver to watch for size changes
         const resizeObserver = new ResizeObserver(() => {
-            // Only update canvas height and task positions when agent content changes
-            // Do NOT recalculate agent positions to prevent unwanted movement
-            this.canvasManager.updateCanvasHeight();
-            // Trigger task repositioning through custom event
-            window.dispatchEvent(new CustomEvent('recalculateTaskPositions'));
+            // Delegate to centralized canvas recalculation
+            this.canvasManager.recalculateAllPositions();
         });
         
-        // Start observing
         resizeObserver.observe(contentContainer);
         
-        // Store observer reference for cleanup
         if (!node._observers) {
             node._observers = [];
         }
         node._observers.push(resizeObserver);
     }
     
-    attachNodeEventListeners(node, agentId) {
-        // Action button (Start/Stop/Redo)
-        const actionBtn = node.querySelector('.btn-action');
-        if (actionBtn) {
-            actionBtn.addEventListener('click', () => this.handleActionButton(agentId));
-        }
-        
-        // Continue button
-        const continueBtn = node.querySelector('.btn-continue');
-        if (continueBtn) {
-            continueBtn.addEventListener('click', () => this.handleContinueAgent(agentId));
-        }
-        
-        // Edit button
-        const editBtn = node.querySelector('.btn-edit');
-        if (editBtn) {
-            editBtn.addEventListener('click', () => this.handleEditAgent(agentId));
-        }
-        
-        // Delete button
-        const deleteBtn = node.querySelector('.btn-delete');
-        if (deleteBtn) {
-            deleteBtn.addEventListener('click', () => this.handleDeleteAgent(agentId));
-        }
-        
-        // Auto checkbox
-        const autoCheckbox = node.querySelector('.auto-checkbox');
-        if (autoCheckbox) {
-            autoCheckbox.addEventListener('change', (e) => this.handleAutoToggle(agentId, e.target.checked));
-        }
-        
-        // Halt checkbox
-        const haltCheckbox = node.querySelector('.halt-checkbox');
-        if (haltCheckbox) {
-            haltCheckbox.addEventListener('change', (e) => this.handleHaltToggle(agentId, e.target.checked));
-        }
-        
-        // Expand checkbox
-        const expandCheckbox = node.querySelector('.expand-checkbox');
-        if (expandCheckbox) {
-            expandCheckbox.addEventListener('change', (e) => this.handleExpandToggle(agentId, e.target.checked));
-        }
-    }
+    // ========================================
+    // Agent Event Handlers (Delegate to Controller)
+    // ========================================
     
     async handleActionButton(agentId) {
-        const node = this.agentNodes.get(agentId);
+        const node = document.getElementById(`agent-${agentId}`);
         if (!node) return;
         
         const actionBtn = node.querySelector('.btn-action');
@@ -182,420 +103,143 @@ export class UIManager {
         
         const action = actionBtn.dataset.action;
         
-        if (action === 'start') {
-            await this.handleStartAgent(agentId);
-        } else if (action === 'stop') {
-            await this.handleStopAgent(agentId);
-        } else if (action === 'redo') {
-            await this.handleRedoPhase(agentId);
-        }
-    }
-    
-    setActionButton(agentId, action, icon, text) {
-        const node = this.agentNodes.get(agentId);
-        if (!node) return;
-        
-        const actionBtn = node.querySelector('.btn-action');
-        if (!actionBtn) return;
-        
-        actionBtn.dataset.action = action;
-        const iconSpan = actionBtn.querySelector('.btn-icon');
-        const textSpan = actionBtn.querySelector('.btn-text');
-        
-        if (iconSpan) iconSpan.textContent = icon;
-        if (textSpan) textSpan.textContent = text;
-        
-        // Update button style based on action
-        if (action === 'stop') {
-            actionBtn.classList.remove('btn-primary');
-            actionBtn.classList.add('btn-danger');
-        } else {
-            actionBtn.classList.remove('btn-danger');
-            actionBtn.classList.add('btn-primary');
-        }
-    }
-    
-    async handleStartAgent(agentId) {
         try {
-            // Get halt and auto settings from checkboxes
-            const node = this.agentNodes.get(agentId);
-            const haltCheckbox = node?.querySelector('.halt-checkbox');
-            const autoCheckbox = node?.querySelector('.auto-checkbox');
-            const halt = haltCheckbox?.checked || false;
-            const auto = autoCheckbox?.checked || false;
-            
-            // Update agent auto state in agent manager
-            const agent = window.app.agentManager.getAgent(agentId);
-            if (agent) {
-                agent.auto = auto;
+            if (action === 'start') {
+                await this.agentController.startAgent(agentId);
+            } else if (action === 'stop') {
+                await this.agentController.stopAgent(agentId);
+            } else if (action === 'redo') {
+                await this.agentController.redoPhase(agentId);
             }
-            
-            const requestBody = { halt };
-            console.log(`[Agent ${agentId}] START Request:`, requestBody);
-            
-            const response = await fetch(`/api/agents/${agentId}/start`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
-            });
-            
-            const responseData = await response.json();
-            console.log(`[Agent ${agentId}] START Response:`, responseData);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-            
-            console.log(`[Agent ${agentId}] Started (halt: ${halt}, auto: ${auto})`);
-            
-            // Clear content for streaming
-            this.clearAgentContent(agentId);
-            
-            // Change button to Stop
-            this.setActionButton(agentId, 'stop', '⏹️', 'Stop');
         } catch (error) {
-            console.error(`[Agent ${agentId}] Failed to start:`, error);
-            alert(`Failed to start agent: ${error.message}`);
-        }
-    }
-    
-    async handleStopAgent(agentId) {
-        try {
-            console.log(`[Agent ${agentId}] STOP Request`);
-            
-            const response = await fetch(`/api/agents/${agentId}/stop`, {
-                method: 'POST'
-            });
-            
-            const responseData = await response.json();
-            console.log(`[Agent ${agentId}] STOP Response:`, responseData);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-            
-            console.log(`[Agent ${agentId}] Stopped`);
-        } catch (error) {
-            console.error(`[Agent ${agentId}] Failed to stop:`, error);
-            alert(`Failed to stop agent: ${error.message}`);
-        }
-    }
-    
-    async handleRedoPhase(agentId) {
-        try {
-            const agent = window.app.agentManager.getAgent(agentId);
-            const currentPhase = agent?.current_phase || 0;
-            
-            const requestBody = { phase: currentPhase };
-            console.log(`[Agent ${agentId}] REDO Request:`, requestBody);
-            
-            const response = await fetch(`/api/agents/${agentId}/redo`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
-            });
-            
-            const responseData = await response.json();
-            console.log(`[Agent ${agentId}] REDO Response:`, responseData);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-            
-            console.log(`[Agent ${agentId}] Redoing phase ${currentPhase}`);
-            
-            // Clear content for streaming
-            this.clearAgentContent(agentId);
-            
-            // Change button back to Stop
-            this.setActionButton(agentId, 'stop', '⏹️', 'Stop');
-        } catch (error) {
-            console.error(`[Agent ${agentId}] Failed to redo phase:`, error);
-            alert(`Failed to redo phase: ${error.message}`);
+            console.error(`Action '${action}' failed:`, error);
+            alert(`Failed to ${action} agent: ${error.message}`);
         }
     }
     
     async handleContinueAgent(agentId) {
         try {
-            const agent = window.app.agentManager.getAgent(agentId);
-            
-            // If agent is halted and has tasks, shift tasks and focus the next unexecuted task
-            if (agent && agent.status === 'halted' && agent.tasklist && agent.tasklist.tasks && agent.tasklist.tasks.length > 0) {
-                const nextTask = this.taskManager.getNextUnexecutedTask(agentId);
-                if (nextTask) {
-                    // Shift tasks up so the next unexecuted task aligns with agent top border
-                    this.taskManager.shiftTasksToNextUnexecuted(agentId);
-                    
-                    // Focus on the next unexecuted task after animation
-                    setTimeout(() => {
-                        this.taskManager.focusTask(agentId, nextTask.taskId);
-                        console.log(`Focusing on next unexecuted task ${nextTask.taskId} for agent ${agentId}`);
-                    }, 550); // Wait for shift animation to complete
-                } else {
-                    // All tasks are executed, focus on first task
-                    const firstTask = this.taskManager.getFirstTask(agentId);
-                    if (firstTask) {
-                        this.taskManager.focusTask(agentId, firstTask.taskId);
-                    }
-                }
-            }
-            
-            console.log(`[Agent ${agentId}] CONTINUE Request`);
-            
-            const response = await fetch(`/api/agents/${agentId}/continue`, {
-                method: 'POST'
-            });
-            
-            const responseData = await response.json();
-            console.log(`[Agent ${agentId}] CONTINUE Response:`, responseData);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-            
-            console.log(`[Agent ${agentId}] Continued`);
+            await this.agentController.continueAgent(agentId);
         } catch (error) {
-            console.error(`[Agent ${agentId}] Failed to continue:`, error);
+            console.error('Continue failed:', error);
             alert(`Failed to continue agent: ${error.message}`);
         }
     }
     
     handleEditAgent(agentId) {
-        // Get agent data from agent manager
         const agent = window.app.agentManager.getAgent(agentId);
         if (!agent) {
             alert('Agent not found');
             return;
         }
         
-        // Check if agent is running
         if (agent.status === 'running') {
-            alert('Cannot edit a running agent. Please wait for it to complete or stop it first.');
+            alert('Cannot edit a running agent. Please stop it first.');
             return;
         }
         
-        // Populate edit modal with current agent data
+        // Populate edit modal
         document.getElementById('editAgentId').value = agentId;
         document.getElementById('editAgentName').value = agent.name || '';
         document.getElementById('editAgentContext').value = agent.context || '';
         document.getElementById('editAgentTemperature').value = agent.temperature || 0.3;
         document.getElementById('editTempValue').textContent = agent.temperature || 0.3;
         
-        // Open modal
         this.openEditAgentModal();
     }
     
     async handleDeleteAgent(agentId) {
-        if (!confirm('Delete this agent?')) return;
-        
         try {
-            console.log(`[Agent ${agentId}] DELETE Request`);
-            
-            const response = await fetch(`/api/agents/${agentId}`, {
-                method: 'DELETE'
-            });
-            
-            const responseData = await response.json();
-            console.log(`[Agent ${agentId}] DELETE Response:`, responseData);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-            
-            console.log(`[Agent ${agentId}] Deleted`);
+            const deleted = await this.agentController.deleteAgent(agentId);
+            // Deletion is handled by WebSocket event
         } catch (error) {
-            console.error(`[Agent ${agentId}] Failed to delete:`, error);
+            console.error('Delete failed:', error);
             alert(`Failed to delete agent: ${error.message}`);
         }
     }
     
     async handleAutoToggle(agentId, enabled) {
-        // Update frontend agent state immediately
-        const agent = window.app.agentManager.getAgent(agentId);
-        if (agent) {
-            agent.auto = enabled;
-        }
-        
-        // Update backend asynchronously (without blocking UI)
-        fetch(`/api/agents/${agentId}/auto`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json; charset=utf-8' },
-            body: JSON.stringify({ auto: enabled })
-        }).then(response => {
-            if (!response.ok) {
-                console.warn(`Failed to update auto state on server: ${response.status}`);
-            }
-            console.log(`Agent ${agentId} auto:`, enabled);
-        }).catch(error => {
-            console.error('Failed to update auto state:', error);
-        });
+        await this.agentController.toggleAuto(agentId, enabled);
     }
     
     async handleHaltToggle(agentId, enabled) {
-        // Update frontend agent state immediately
-        const agent = window.app.agentManager.getAgent(agentId);
-        if (agent) {
-            agent.halt = enabled;
-        }
-        
-        console.log(`Agent ${agentId} halt:`, enabled);
-        
-        // Update backend asynchronously (without blocking UI)
-        fetch(`/api/agents/${agentId}/halt`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json; charset=utf-8' },
-            body: JSON.stringify({ halt: enabled })
-        }).then(response => {
-            if (!response.ok) {
-                console.warn(`Failed to update halt state on server: ${response.status}`);
-            }
-        }).catch(error => {
-            console.error('Failed to update halt state:', error);
-        });
+        await this.agentController.toggleHalt(agentId, enabled);
     }
     
     async handleExpandToggle(agentId, enabled) {
-        const node = this.agentNodes.get(agentId);
-        if (!node) return;
+        await this.agentController.toggleExpanded(agentId, enabled);
         
-        const contentContainer = node.querySelector(`#content-container-${agentId}`);
-        if (contentContainer) {
-            if (enabled) {
-                contentContainer.classList.add('expanded');
-            } else {
-                contentContainer.classList.remove('expanded');
-            }
-        }
-        
-        // Update frontend agent state immediately
-        const agent = window.app.agentManager.getAgent(agentId);
-        if (agent) {
-            agent.expanded = enabled;
-        }
-        
-        // Wait for CSS transition to complete, then recenter
-        // Use requestAnimationFrame to avoid blocking
+        // Wait for CSS transition, then recenter
         requestAnimationFrame(() => {
             setTimeout(() => {
-                this.canvasManager.recenterAgent(agentId);
-            }, 50);
-        });
-        
-        // Update backend agent state asynchronously (without blocking UI)
-        fetch(`/api/agents/${agentId}/expand`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json; charset=utf-8' },
-            body: JSON.stringify({ expanded: enabled })
-        }).then(response => {
-            if (!response.ok) {
-                console.warn(`Failed to update expand state on server: ${response.status}`);
-            }
-            console.log(`Agent ${agentId} expand:`, enabled);
-        }).catch(error => {
-            console.error('Failed to update expand state:', error);
+                this.canvasManager.scrollAgentToCenter(agentId);
+            }, 400);
         });
     }
     
+    // ========================================
+    // Agent UI Updates (Delegate to Renderer)
+    // ========================================
+    
     updateAgentStatus(agentId, status) {
-        console.log(`updateAgentStatus called: ${agentId}, status: ${status}`);
-        const node = this.agentNodes.get(agentId);
-        if (!node) {
-            console.warn(`Node not found for agent: ${agentId}`);
-            return;
-        }
+        console.log(`updateAgentStatus: ${agentId}, status: ${status}`);
         
-        const statusEl = node.querySelector('.agent-node-status');
+        // Update renderer
+        this.agentRenderer.updateStatus(agentId, status);
         
-        // Map internal status to display text
-        const statusDisplayMap = {
-            'halted': 'Phase Complete',
-            'tasklist_error': 'Tasklist Error'
-        };
-        const displayStatus = statusDisplayMap[status] || status;
-        
-        console.log(`Updating status badge to: ${displayStatus} (${status})`);
-        statusEl.className = `agent-node-status ${status}`;
-        statusEl.textContent = displayStatus;
-        
-        // Update node border color (use 'active' class for 'running' status to trigger animation)
-        const nodeClass = status === 'running' ? 'active' : status;
-        node.className = `agent-node ${nodeClass}`;
-        
-        // Update action button, continue button, and halt checkbox visibility based on status
+        // Update button visibility based on status
         const agent = window.app.agentManager.getAgent(agentId);
         const haltEnabled = agent?.halt || false;
         
-        console.log(`Status is halted: ${status === 'halted'}, agent exists: ${!!agent}`);
-        
         if (status === 'running') {
-            // Show Stop button, hide Continue button, show Halt checkbox
-            this.setActionButton(agentId, 'stop', '⏹️', 'Stop');
-            this.hideButton(agentId, '.btn-continue');
-            this.showControl(agentId, '.halt-control');
+            this.agentRenderer.setActionButton(agentId, 'stop', '⏹️', 'Stop');
+            this.agentRenderer.hideButton(agentId, '.btn-continue');
+            this.agentRenderer.showControl(agentId, '.halt-control');
         } else if (status === 'halted') {
-            // Show Redo button, show Continue button, hide Halt checkbox
-            this.setActionButton(agentId, 'redo', '🔄', 'Redo');
-            this.showButton(agentId, '.btn-continue');
-            this.hideControl(agentId, '.halt-control');
-        } else if (status === 'tasklist_error') {
-            // Show Redo button, hide Continue button, show Halt checkbox
-            this.setActionButton(agentId, 'redo', '🔄', 'Redo');
-            this.hideButton(agentId, '.btn-continue');
-            this.showControl(agentId, '.halt-control');
-        } else if (status === 'completed') {
-            // Show Start button, hide Continue button, show Halt checkbox
-            this.setActionButton(agentId, 'start', '▶️', 'Start');
-            this.hideButton(agentId, '.btn-continue');
-            this.showControl(agentId, '.halt-control');
-        } else if (status === 'created') {
-            // Show Start button, hide Continue button, show Halt checkbox
-            this.setActionButton(agentId, 'start', '▶️', 'Start');
-            this.hideButton(agentId, '.btn-continue');
-            this.showControl(agentId, '.halt-control');
-        } else if (status === 'failed') {
-            // Show Start button, hide Continue button, show Halt checkbox
-            this.setActionButton(agentId, 'start', '▶️', 'Start');
-            this.hideButton(agentId, '.btn-continue');
-            this.showControl(agentId, '.halt-control');
+            this.agentRenderer.setActionButton(agentId, 'redo', '🔄', 'Redo');
+            if (haltEnabled) {
+                this.agentRenderer.showButton(agentId, '.btn-continue');
+            }
+            this.agentRenderer.hideControl(agentId, '.halt-control');
+        } else if (status === 'completed' || status === 'failed') {
+            // For completed/failed agents, button should say "Restart"
+            this.agentRenderer.setActionButton(agentId, 'redo', '🔄', 'Restart');
+            this.agentRenderer.hideButton(agentId, '.btn-continue');
+            this.agentRenderer.showControl(agentId, '.halt-control');
+        } else {
+            this.agentRenderer.setActionButton(agentId, 'start', '▶️', 'Start');
+            this.agentRenderer.hideButton(agentId, '.btn-continue');
+            this.agentRenderer.showControl(agentId, '.halt-control');
         }
     }
     
-    showButton(agentId, selector) {
-        const node = this.agentNodes.get(agentId);
-        if (!node) return;
-        const btn = node.querySelector(selector);
-        if (btn) {
-            btn.classList.remove('hidden');
-            btn.classList.add('visible');
-        }
+    updateAgentFields(agent) {
+        this.agentRenderer.updateFields(agent);
     }
     
-    hideButton(agentId, selector) {
-        const node = this.agentNodes.get(agentId);
-        if (!node) return;
-        const btn = node.querySelector(selector);
-        if (btn) {
-            btn.classList.remove('visible');
-            btn.classList.add('hidden');
-        }
+    clearAgentContent(agentId) {
+        this.agentRenderer.clearContent(agentId);
     }
     
-    showControl(agentId, selector) {
-        const node = this.agentNodes.get(agentId);
-        if (!node) return;
-        const control = node.querySelector(selector);
-        if (control) control.classList.remove('hidden');
+    updatePhaseContent(agentId, phaseIndex, content, append = false) {
+        this.agentRenderer.updateContent(agentId, content, append);
     }
     
-    hideControl(agentId, selector) {
-        const node = this.agentNodes.get(agentId);
-        if (!node) return;
-        const control = node.querySelector(selector);
-        if (control) control.classList.add('hidden');
+    showAgentError(agentId, error) {
+        this.agentRenderer.updateStatus(agentId, 'failed');
+        this.agentRenderer.showError(agentId, error);
     }
+    
+    removeAgent(agentId) {
+        this.agentRenderer.removeAgent(agentId);
+        this.canvasManager.removeAgent(agentId);
+    }
+    
+    // ========================================
+    // Workflow Updates (Placeholder)
+    // ========================================
     
     updateWorkflowPhase(agentId, phaseIndex, status = 'active') {
-        // Log phase updates for debugging
         const phaseNames = [
             'Create Tasklist',
             'Get Sources',
@@ -609,105 +253,12 @@ export class UIManager {
         console.log(`Agent ${agentId} - Phase ${phaseIndex}: ${phaseNames[phaseIndex] || 'Unknown'} (${status})`);
     }
     
-    updatePhaseContent(agentId, phaseIndex, content, append = false) {
-        const node = this.agentNodes.get(agentId);
-        if (!node) return;
-        
-        const contentText = node.querySelector(`#content-${agentId}`);
-        if (!contentText) return;
-        
-        if (append) {
-            // During streaming, append chunks
-            contentText.textContent += content;
-        } else {
-            // Non-streaming update - format and set content
-            const formattedContent = this.formatJSON(content);
-            contentText.innerHTML = formattedContent;
-        }
-        
-        // Auto-scroll to bottom
-        contentText.scrollTop = contentText.scrollHeight;
-        
-        console.log(`Agent ${agentId} - Phase ${phaseIndex} content update`);
-    }
-    
-    /**
-     * Format JSON content with syntax highlighting
-     */
-    formatJSON(content) {
-        try {
-            // Try to parse as JSON
-            const parsed = JSON.parse(content);
-            const formatted = JSON.stringify(parsed, null, 2);
-            
-            // Apply syntax highlighting
-            return formatted
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"([^"]+)":/g, '<span style="color: #60a5fa;">\"$1\"</span>:')
-                .replace(/: "([^"]*)"/g, ': <span style="color: #10b981;">\"$1\"</span>')
-                .replace(/: (\d+)/g, ': <span style="color: #f59e0b;">$1</span>')
-                .replace(/: (true|false|null)/g, ': <span style="color: #ef4444;">$1</span>');
-        } catch (e) {
-            // Not JSON, return as plain text
-            return this.escapeHtml(content);
-        }
-    }
-    
-    _renderTasklist(container, content) {
-        // Try to parse as JSON tasklist
-        try {
-            // Extract JSON if wrapped in code blocks
-            let jsonText = content;
-            if (content.includes('```json')) {
-                const start = content.indexOf('```json') + 7;
-                const end = content.indexOf('```', start);
-                jsonText = content.substring(start, end).trim();
-            } else if (content.includes('```')) {
-                const start = content.indexOf('```') + 3;
-                const end = content.indexOf('```', start);
-                jsonText = content.substring(start, end).trim();
-            }
-            
-            const tasklist = JSON.parse(jsonText);
-            
-            // Render as formatted tasklist
-            let html = `<div class="tasklist">`;
-            html += `<div class="tasklist-goal"><strong>Goal:</strong> ${this.escapeHtml(tasklist.goal)}</div>`;
-            html += `<div class="tasklist-header">${tasklist.tasks.length} Tasks:</div>`;
-            html += `<ol class="tasklist-items">`;
-            
-            tasklist.tasks.forEach(task => {
-                html += `<li class="task-item">`;
-                html += `<div class="task-name">${this.escapeHtml(task.name)}</div>`;
-                html += `<div class="task-description">${this.escapeHtml(task.description)}</div>`;
-                if (task.expected_output) {
-                    html += `<div class="task-output"><em>Expected: ${this.escapeHtml(task.expected_output)}</em></div>`;
-                }
-                html += `</li>`;
-            });
-            
-            html += `</ol></div>`;
-            container.innerHTML = html;
-            
-        } catch (e) {
-            // Not valid JSON, render as plain text
-            container.textContent = content;
-        }
-    }
-    
-    completeWorkflow(agentId) {
-        // Placeholder for future workflow visualization
-        console.log(`Agent ${agentId} - Workflow completed`);
-    }
-    
     startAgentStreaming(agentId) {
-        // Not needed with new simple layout
+        // Placeholder
     }
     
     appendAgentChunk(agentId, chunk) {
-        // Placeholder - could show progress indicator
+        // Placeholder
         console.log(`Agent ${agentId} - Chunk received`);
     }
     
@@ -716,45 +267,9 @@ export class UIManager {
         console.log(`Agent ${agentId} completed:`, data);
     }
     
-    clearAgentContent(agentId) {
-        const contentDiv = document.getElementById(`content-${agentId}`);
-        if (contentDiv) {
-            contentDiv.textContent = '';
-        }
-    }
-    
-    showAgentError(agentId, error) {
-        const node = this.agentNodes.get(agentId);
-        if (!node) return;
-        
-        this.updateAgentStatus(agentId, 'failed');
-        
-        // Show error message in node
-        const meta = node.querySelector('.agent-node-meta');
-        if (meta) {
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'error-message';
-            errorDiv.textContent = `Error: ${error}`;
-            meta.appendChild(errorDiv);
-        }
-    }
-    
-    removeAgent(agentId) {
-        const node = this.agentNodes.get(agentId);
-        if (node) {
-            // Disconnect observers before removing
-            if (node._observers) {
-                node._observers.forEach(observer => observer.disconnect());
-            }
-            
-            node.classList.add('removing');
-            setTimeout(() => {
-                node.remove();
-                this.agentNodes.delete(agentId);
-                this.canvasManager.removeAgent(agentId);
-            }, 300);
-        }
-    }
+    // ========================================
+    // Modal Management
+    // ========================================
     
     openCreateAgentModal() {
         document.getElementById('createAgentModal').classList.add('active');
@@ -772,61 +287,5 @@ export class UIManager {
     
     closeEditAgentModal() {
         document.getElementById('editAgentModal').classList.remove('active');
-    }
-    
-    updateAgentFields(agent) {
-        const node = this.agentNodes.get(agent.id);
-        if (!node) {
-            console.warn(`Node not found for agent: ${agent.id}, cannot update fields`);
-            return;
-        }
-        
-        // Update agent name
-        const nameEl = node.querySelector('.agent-node-info h3');
-        if (nameEl) {
-            nameEl.textContent = this.escapeHtml(agent.name);
-        }
-        
-        // Update context if it exists
-        const contextEl = node.querySelector('.agent-node-context');
-        if (agent.context) {
-            if (contextEl) {
-                contextEl.textContent = this.escapeHtml(agent.context);
-            } else {
-                // Add context element if it doesn't exist
-                const infoEl = node.querySelector('.agent-node-info');
-                if (infoEl) {
-                    const newContextEl = document.createElement('div');
-                    newContextEl.className = 'agent-node-context';
-                    newContextEl.textContent = this.escapeHtml(agent.context);
-                    infoEl.appendChild(newContextEl);
-                }
-            }
-        } else {
-            // Remove context element if context is empty
-            if (contextEl) {
-                contextEl.remove();
-            }
-        }
-        
-        // Update temperature
-        const metaEl = node.querySelector('.agent-node-meta');
-        if (metaEl) {
-            metaEl.innerHTML = `<span>Temp: ${agent.temperature || 'N/A'}</span>`;
-        }
-        
-        // Update auto checkbox state
-        const autoCheckbox = node.querySelector('.auto-checkbox');
-        if (autoCheckbox) {
-            autoCheckbox.checked = agent.auto || false;
-        }
-        
-        console.log(`Updated agent ${agent.id} fields smoothly`);
-    }
-    
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     }
 }

@@ -167,7 +167,8 @@ export class CanvasManager {
     }
     
     /**
-     * Recalculate all positions (agents and tasks)
+     * Recalculate all positions (agents and tasks) in correct order
+     * Order: Canvas size → Agent positions → Task positions → Connection lines
      */
     recalculateAllPositions() {
         // Avoid nested RAF calls if already in progress
@@ -175,11 +176,35 @@ export class CanvasManager {
         this.isRecalculating = true;
         
         requestAnimationFrame(() => {
+            // Step 1: Update canvas size first (measures viewport)
+            const container = this.canvas.parentElement;
+            const viewportHeight = container.clientHeight;
+            const viewportWidth = container.clientWidth;
+            
+            console.log(`[CanvasManager] Recalculating - viewport: ${viewportWidth}x${viewportHeight}`);
+            
+            // Step 2: Calculate and apply agent positions
+            this.recalculateAgentPositions();
+            
+            // Step 3: Calculate and apply task positions
+            // Dispatch event synchronously for TaskController to handle
+            const taskRecalculationEvent = new CustomEvent('recalculateTaskPositions', {
+                detail: { immediate: true }
+            });
+            window.dispatchEvent(taskRecalculationEvent);
+            
+            // Step 4: Wait for task positioning to complete, then update canvas height and connection lines
             requestAnimationFrame(() => {
-                this.recalculateAgentPositions();
-                // Trigger task repositioning through custom event
-                window.dispatchEvent(new CustomEvent('recalculateTaskPositions'));
+                // Update canvas height based on all positioned elements
+                this.updateCanvasHeightImmediate();
+                
+                // Update all connection lines last
+                if (this.connectionLines) {
+                    this.connectionLines.updateAllConnections();
+                }
+                
                 this.isRecalculating = false;
+                console.log('[CanvasManager] Recalculation complete');
             });
         });
     }
@@ -236,67 +261,79 @@ export class CanvasManager {
         
         // Debounce the update to prevent rapid recalculations
         this.heightUpdateTimeout = setTimeout(() => {
-            const container = this.canvas.parentElement;
-            const nodesContainer = document.getElementById('agentNodesContainer');
-            
-            if (!nodesContainer) return;
-            
-            const viewportHeight = container.clientHeight;
-            let maxContentHeight = viewportHeight;
-            const children = nodesContainer.children;
-            let topMostY = 0;
-            let bottomMostY = 0;
-            
-            // Find both the highest and lowest points
-            for (const child of children) {
-                const computedTop = parseInt(child.style.top) || 0;
-                const elementHeight = child.offsetHeight || 0;
-                const elementBottom = computedTop + elementHeight;
-                
-                topMostY = Math.min(topMostY, computedTop);
-                bottomMostY = Math.max(bottomMostY, elementBottom);
-            }
-            
-            // Calculate total required height including content above viewport
-            if (bottomMostY > 0 || topMostY < 0) {
-                // Add padding (50px top, 100px bottom)
-                const totalContentHeight = (bottomMostY - topMostY) + 150;
-                
-                // Ensure enough space below content to center agent in viewport
-                // Add at least half viewport height below the bottom-most content
-                const minHeightForCentering = totalContentHeight + (viewportHeight / 2);
-                maxContentHeight = Math.max(viewportHeight, minHeightForCentering);
-                
-                // If content starts above 0, adjust the canvas and container
-                if (topMostY < 0) {
-                    const offset = Math.abs(topMostY) + 50; // Add 50px padding at top
-                    
-                    // Shift all children down by the offset
-                    for (const child of children) {
-                        const currentTop = parseInt(child.style.top) || 0;
-                        child.style.top = `${currentTop + offset}px`;
-                    }
-                    
-                    // Update stored agent positions
-                    for (const [agentId, agent] of this.agents.entries()) {
-                        agent.y += offset;
-                        agent.element.style.top = `${agent.y}px`;
-                    }
-                    
-                    maxContentHeight += offset;
-                }
-            }
-            
-            // Only update if height changed significantly (more than 10px)
-            if (Math.abs(this.canvas.height - maxContentHeight) > 10) {
-                this.canvas.height = maxContentHeight;
-                if (nodesContainer) {
-                    nodesContainer.style.height = `${maxContentHeight}px`;
-                }
-            }
-            
+            this.updateCanvasHeightImmediate();
             this.heightUpdateTimeout = null;
         }, 150); // 150ms debounce delay
+    }
+    
+    /**
+     * Update canvas height immediately without debounce
+     * Used during coordinated recalculations
+     */
+    updateCanvasHeightImmediate() {
+        const container = this.canvas.parentElement;
+        const nodesContainer = document.getElementById('agentNodesContainer');
+        
+        if (!nodesContainer) return;
+        
+        const viewportHeight = container.clientHeight;
+        let maxContentHeight = viewportHeight;
+        const children = nodesContainer.children;
+        let topMostY = 0;
+        let bottomMostY = 0;
+        
+        console.log(`[CanvasManager] Updating canvas height - ${children.length} elements`);
+        
+        // Find both the highest and lowest points
+        for (const child of children) {
+            const computedTop = parseInt(child.style.top) || 0;
+            const elementHeight = child.offsetHeight || 0;
+            const elementBottom = computedTop + elementHeight;
+            
+            topMostY = Math.min(topMostY, computedTop);
+            bottomMostY = Math.max(bottomMostY, elementBottom);
+        }
+        
+        console.log(`[CanvasManager] Content bounds: top=${topMostY}, bottom=${bottomMostY}, height=${bottomMostY - topMostY}`);
+        
+        // Calculate total required height including content above viewport
+        if (bottomMostY > 0 || topMostY < 0) {
+            // Add padding (50px top, 100px bottom)
+            const totalContentHeight = (bottomMostY - topMostY) + 150;
+            
+            // Ensure enough space below content to center agent in viewport
+            // Add at least half viewport height below the bottom-most content
+            const minHeightForCentering = totalContentHeight + (viewportHeight / 2);
+            maxContentHeight = Math.max(viewportHeight, minHeightForCentering);
+            
+            // If content starts above 0, adjust the canvas and container
+            if (topMostY < 0) {
+                const offset = Math.abs(topMostY) + 50; // Add 50px padding at top
+                
+                // Shift all children down by the offset
+                for (const child of children) {
+                    const currentTop = parseInt(child.style.top) || 0;
+                    child.style.top = `${currentTop + offset}px`;
+                }
+                
+                // Update stored agent positions
+                for (const [agentId, agent] of this.agents.entries()) {
+                    agent.y += offset;
+                    agent.element.style.top = `${agent.y}px`;
+                }
+                
+                maxContentHeight += offset;
+            }
+        }
+        
+        // Only update if height changed significantly (more than 10px)
+        if (Math.abs(this.canvas.height - maxContentHeight) > 10) {
+            console.log(`[CanvasManager] Canvas height changed: ${this.canvas.height} → ${maxContentHeight}`);
+            this.canvas.height = maxContentHeight;
+            if (nodesContainer) {
+                nodesContainer.style.height = `${maxContentHeight}px`;
+            }
+        }
     }
     
     /**

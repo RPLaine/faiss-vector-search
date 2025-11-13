@@ -106,6 +106,13 @@ export class WebSocketEventHandler {
         this.agentManager.addAgent(agent);
         this.uiManager.renderAgent(agent);
         this.statsService.update();
+        
+        // Scroll to center the newly created agent
+        // Delay to allow agent positioning to complete
+        // Agent positioning takes ~100ms (2 RAF + 50ms), add buffer
+        setTimeout(() => {
+            this.canvasManager.scrollAgentToCenter(agent.id);
+        }, 200);
     }
     
     handleAgentUpdated(data) {

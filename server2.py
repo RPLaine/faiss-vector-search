@@ -24,7 +24,8 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 import uuid
 
-from components.services import ConfigurationProvider, LLMService
+from components.services import ConfigurationProvider
+from components2.llm_service import LLMService
 from components2 import AgentManager, WorkflowExecutor
 
 # Configure logging

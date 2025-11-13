@@ -99,6 +99,11 @@ export class UIManager {
                 this.updateAgentStatus(agent.id, agent.status);
             });
         }
+        
+        // Remove initial animation class after animation completes
+        setTimeout(() => {
+            node.classList.remove('initial-animation');
+        }, 800); // Match animation duration
     }
     
     observeContentChanges(agentId, node) {
@@ -107,13 +112,8 @@ export class UIManager {
         
         // Create ResizeObserver to watch for size changes
         const resizeObserver = new ResizeObserver(() => {
-            // Recenter the agent node when content size changes
-            this.canvasManager.recenterAgent(agentId);
-            
-            // Reposition tasks if task manager is available
-            if (this.taskManager) {
-                this.taskManager.repositionTasksForAgent(agentId);
-            }
+            // Recalculate all positions when any agent size changes
+            this.canvasManager.recalculateAllPositions();
         });
         
         // Start observing
@@ -299,13 +299,18 @@ export class UIManager {
         try {
             const agent = window.app.agentManager.getAgent(agentId);
             
-            // If agent is halted and has tasks, focus the next unexecuted task
+            // If agent is halted and has tasks, shift tasks and focus the next unexecuted task
             if (agent && agent.status === 'halted' && agent.tasklist && agent.tasklist.tasks && agent.tasklist.tasks.length > 0) {
                 const nextTask = this.taskManager.getNextUnexecutedTask(agentId);
                 if (nextTask) {
-                    // Focus on the next unexecuted task
-                    this.taskManager.focusTask(agentId, nextTask.taskId);
-                    console.log(`Focusing on next unexecuted task ${nextTask.taskId} for agent ${agentId}`);
+                    // Shift tasks up so the next unexecuted task aligns with agent top border
+                    this.taskManager.shiftTasksToNextUnexecuted(agentId);
+                    
+                    // Focus on the next unexecuted task after animation
+                    setTimeout(() => {
+                        this.taskManager.focusTask(agentId, nextTask.taskId);
+                        console.log(`Focusing on next unexecuted task ${nextTask.taskId} for agent ${agentId}`);
+                    }, 550); // Wait for shift animation to complete
                 } else {
                     // All tasks are executed, focus on first task
                     const firstTask = this.taskManager.getFirstTask(agentId);
@@ -529,28 +534,34 @@ export class UIManager {
         const node = this.agentNodes.get(agentId);
         if (!node) return;
         const btn = node.querySelector(selector);
-        if (btn) btn.style.display = 'inline-flex';
+        if (btn) {
+            btn.classList.remove('hidden');
+            btn.classList.add('visible');
+        }
     }
     
     hideButton(agentId, selector) {
         const node = this.agentNodes.get(agentId);
         if (!node) return;
         const btn = node.querySelector(selector);
-        if (btn) btn.style.display = 'none';
+        if (btn) {
+            btn.classList.remove('visible');
+            btn.classList.add('hidden');
+        }
     }
     
     showControl(agentId, selector) {
         const node = this.agentNodes.get(agentId);
         if (!node) return;
         const control = node.querySelector(selector);
-        if (control) control.style.display = '';
+        if (control) control.classList.remove('hidden');
     }
     
     hideControl(agentId, selector) {
         const node = this.agentNodes.get(agentId);
         if (!node) return;
         const control = node.querySelector(selector);
-        if (control) control.style.display = 'none';
+        if (control) control.classList.add('hidden');
     }
     
     updateWorkflowPhase(agentId, phaseIndex, status = 'active') {
@@ -667,9 +678,7 @@ export class UIManager {
         const meta = node.querySelector('.agent-node-meta');
         if (meta) {
             const errorDiv = document.createElement('div');
-            errorDiv.style.color = 'var(--color-accent-danger)';
-            errorDiv.style.fontSize = '11px';
-            errorDiv.style.marginTop = 'var(--space-sm)';
+            errorDiv.className = 'error-message';
             errorDiv.textContent = `Error: ${error}`;
             meta.appendChild(errorDiv);
         }
@@ -683,8 +692,7 @@ export class UIManager {
                 node._observers.forEach(observer => observer.disconnect());
             }
             
-            node.style.opacity = '0';
-            node.style.transform = 'scale(0.9)';
+            node.classList.add('removing');
             setTimeout(() => {
                 node.remove();
                 this.agentNodes.delete(agentId);

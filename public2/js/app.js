@@ -44,6 +44,9 @@ class App {
         this.wsService.on('connection_established', (data) => {
             // Load existing agents (only if not already rendered)
             if (data.data.agents) {
+                const agentCount = data.data.agents.length;
+                let maxTaskCount = 0;
+                
                 data.data.agents.forEach(agent => {
                     // Only add and render if agent doesn't already exist
                     if (!this.agentManager.getAgent(agent.id)) {
@@ -53,9 +56,20 @@ class App {
                         // If agent has a tasklist, create task nodes
                         if (agent.tasklist && agent.tasklist.tasks) {
                             this.taskManager.createTasksForAgent(agent.id, agent.tasklist);
+                            maxTaskCount = Math.max(maxTaskCount, agent.tasklist.tasks.length);
                         }
                     }
                 });
+                
+                // After all agents are loaded, scroll the first agent to center
+                // Wait for: agent animation (800ms) + task animations (200ms * taskCount) + positioning (500ms)
+                if (agentCount > 0) {
+                    const firstAgent = data.data.agents[0];
+                    const scrollDelay = 800 + (maxTaskCount * 200) + 1000; // Total animation time + buffer
+                    setTimeout(() => {
+                        this.uiManager.canvasManager.scrollAgentToCenter(firstAgent.id);
+                    }, scrollDelay);
+                }
             }
             
             this.updateStats();
@@ -524,10 +538,10 @@ class App {
                     inline: 'center'
                 });
                 
-                // Optional: Add a highlight effect
-                taskData.element.style.boxShadow = '0 0 20px rgba(37, 99, 235, 0.6)';
+                // Add a highlight effect using focused class
+                taskData.element.classList.add('focused');
                 setTimeout(() => {
-                    taskData.element.style.boxShadow = '';
+                    taskData.element.classList.remove('focused');
                 }, 2000);
                 
                 console.log(`Scrolled to first task (ID: ${minTaskId}) for agent ${agentId}`);

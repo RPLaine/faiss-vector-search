@@ -11,7 +11,7 @@ from typing import Dict, Any, Optional, Callable
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 
-from components.services import LLMService
+from components2.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
 

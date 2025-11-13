@@ -13,7 +13,7 @@ from typing import Dict, Any, Optional, Callable, Union
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 
-from components.services import LLMService
+from components2.llm_service import LLMService
 from components2.task_executor import TaskExecutor
 
 logger = logging.getLogger(__name__)

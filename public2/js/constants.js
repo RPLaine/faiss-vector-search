@@ -21,6 +21,10 @@ export const ANIMATION_DURATIONS = {
     TASK_TRANSITION: 400,
     TASK_ANIMATION_OUT: 400,
     
+    // Connection line animations
+    CONNECTION_STAGGER_DELAY: 100,      // Delay between connection line animations
+    CONNECTION_INITIAL_ANIMATION: 800,  // Duration of initial draw animation
+    
     // UI animations
     FADE_IN: 300,
     FADE_OUT: 300,

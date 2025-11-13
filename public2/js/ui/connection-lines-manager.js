@@ -10,12 +10,15 @@
  * - CSS transitions: TransitionManager (via CanvasManager)
  */
 
+import { ANIMATION_DURATIONS } from '../constants.js';
+
 export class ConnectionLinesManager {
     constructor(svgId, canvasManager, taskManager) {
         this.svg = document.getElementById(svgId);
         this.canvasManager = canvasManager;
         this.taskManager = taskManager;
         this.lines = new Map(); // connection_key -> SVG path element
+        this.animationTimeouts = new Map(); // connection_key -> timeout ID for cleanup
         this.transitionManager = canvasManager.transitionManager; // Reference for registration
     }
     
@@ -95,11 +98,11 @@ export class ConnectionLinesManager {
             const connectionKey = `agent-${agentId}-to-task-${taskData.taskId}`;
             
             // Stagger the animation for initial creation
-            const staggerDelay = isInitialCreation ? index * 100 : 0;
+            const staggerDelay = isInitialCreation ? index * ANIMATION_DURATIONS.CONNECTION_STAGGER_DELAY : 0;
             
             if (isInitialCreation && staggerDelay > 0) {
                 // Delay the creation for staggered animation effect
-                setTimeout(() => {
+                const timeoutId = setTimeout(() => {
                     this.createConnection(
                         connectionKey,
                         agentCenterScreen.x,
@@ -110,6 +113,8 @@ export class ConnectionLinesManager {
                         true // isInitialCreation
                     );
                 }, staggerDelay);
+                // Store timeout ID for cleanup
+                this.animationTimeouts.set(connectionKey, timeoutId);
             } else {
                 this.createConnection(
                     connectionKey,
@@ -139,7 +144,8 @@ export class ConnectionLinesManager {
         if (!path) {
             // Create new path element
             path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.classList.add('connection-line');
+            // Use className.baseVal for consistency with SVG API
+            path.className.baseVal = 'connection-line';
             
             // Register with transition manager
             if (this.transitionManager) {
@@ -148,16 +154,23 @@ export class ConnectionLinesManager {
             
             // Apply initial animation for new connections
             if (isInitialCreation) {
-                path.classList.add('initial-animation');
+                path.className.baseVal = 'connection-line initial-animation';
                 
-                // Remove animation class after animation completes (800ms)
+                // Remove animation class after animation completes
                 // Also reset stroke-dasharray/dashoffset to allow proper styling
-                setTimeout(() => {
-                    path.classList.remove('initial-animation');
-                    // Reset dasharray/dashoffset so status classes can apply properly
-                    path.style.strokeDasharray = '';
-                    path.style.strokeDashoffset = '';
-                }, 800);
+                const timeoutId = setTimeout(() => {
+                    // Only run if path still exists in DOM
+                    if (this.lines.has(key)) {
+                        const currentClass = path.className.baseVal;
+                        path.className.baseVal = currentClass.replace(/\s*initial-animation\s*/g, '').trim();
+                        // Reset dasharray/dashoffset so status classes can apply properly
+                        path.style.strokeDasharray = '';
+                        path.style.strokeDashoffset = '';
+                    }
+                }, ANIMATION_DURATIONS.CONNECTION_INITIAL_ANIMATION);
+                
+                // Store timeout ID for cleanup
+                this.animationTimeouts.set(key, timeoutId);
             }
             
             this.svg.appendChild(path);
@@ -171,8 +184,14 @@ export class ConnectionLinesManager {
         // Update status class while preserving transition-related classes
         const currentClass = path.className.baseVal;
         const hasNoTransition = currentClass.includes('no-transition');
-        const newBaseClass = `connection-line ${statusClass}${isNewPath && isInitialCreation ? ' initial-animation' : ''}`;
-        path.className.baseVal = hasNoTransition ? `${newBaseClass} no-transition` : newBaseClass;
+        const hasInitialAnimation = currentClass.includes('initial-animation');
+        
+        // Build new class preserving special classes
+        let newClass = `connection-line ${statusClass}`;
+        if (hasNoTransition) newClass += ' no-transition';
+        if (hasInitialAnimation) newClass += ' initial-animation';
+        
+        path.className.baseVal = newClass;
     }
     
     /**
@@ -226,6 +245,18 @@ export class ConnectionLinesManager {
         
         for (const [key, path] of this.lines.entries()) {
             if (key.includes(`agent-${agentId}`) || key.includes(`-agent-${agentId}`)) {
+                // Clear any pending animation timeouts
+                const timeoutId = this.animationTimeouts.get(key);
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                    this.animationTimeouts.delete(key);
+                }
+                
+                // Unregister from transition manager
+                if (this.transitionManager) {
+                    this.transitionManager.unregisterConnection(key);
+                }
+                
                 path.remove();
                 keysToRemove.push(key);
             }
@@ -240,6 +271,13 @@ export class ConnectionLinesManager {
     removeConnection(key) {
         const path = this.lines.get(key);
         if (path) {
+            // Clear any pending animation timeouts
+            const timeoutId = this.animationTimeouts.get(key);
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+                this.animationTimeouts.delete(key);
+            }
+            
             // Unregister from transition manager
             if (this.transitionManager) {
                 this.transitionManager.unregisterConnection(key);
@@ -277,6 +315,18 @@ export class ConnectionLinesManager {
                 // If any task in this connection no longer exists, remove it
                 const hasOrphanedTask = connectionTaskIds.some(id => !taskIds.includes(id));
                 if (hasOrphanedTask) {
+                    // Clear any pending animation timeouts
+                    const timeoutId = this.animationTimeouts.get(key);
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                        this.animationTimeouts.delete(key);
+                    }
+                    
+                    // Unregister from transition manager
+                    if (this.transitionManager) {
+                        this.transitionManager.unregisterConnection(key);
+                    }
+                    
                     path.remove();
                     keysToRemove.push(key);
                 }

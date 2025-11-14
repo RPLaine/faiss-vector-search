@@ -84,6 +84,7 @@ export class CanvasManager {
     
     /**
      * Update all element DOM positions based on current camera position
+     * Centralized handler for both agents and tasks
      */
     updateAllElementPositions() {
         // Update all agent positions
@@ -93,12 +94,16 @@ export class CanvasManager {
             agent.element.style.top = `${screenPos.y}px`;
         }
         
-        // Update all task positions via event
+        // Update all task positions directly (no events needed)
         if (this.taskManager) {
-            const event = new CustomEvent('updateTaskScreenPositions', {
-                detail: { camera: this.camera }
-            });
-            window.dispatchEvent(event);
+            for (const [taskKey, taskData] of this.taskManager.taskNodes.entries()) {
+                if (!taskData.element) continue;
+                
+                // Convert global to screen coordinates
+                const screenPos = this.globalToScreen(taskData.globalX, taskData.globalY);
+                taskData.element.style.left = `${screenPos.x}px`;
+                taskData.element.style.top = `${screenPos.y}px`;
+            }
         }
     }
     
@@ -151,7 +156,7 @@ export class CanvasManager {
         let totalHeight = 0;
         
         for (const [agentId, agent] of this.agents.entries()) {
-            const height = agent.element.offsetHeight || 200;
+            const height = agent.element.offsetHeight || LAYOUT_DIMENSIONS.AGENT_DEFAULT_HEIGHT;
             const isSelected = this.agentManager ? this.agentManager.isAgentSelected(agentId) : false;
             agentData.push({ agentId, agent, height, isSelected });
             totalHeight += height;
@@ -228,7 +233,7 @@ export class CanvasManager {
                 // Enable transitions after initial positioning
                 setTimeout(() => {
                     element.classList.remove('no-transition');
-                }, 50);
+                }, POSITIONING_DELAYS.AGENT_INITIAL_POSITION_ENABLE);
             });
         });
         
@@ -310,7 +315,7 @@ export class CanvasManager {
         if (!agent) return;
         
         const agentElement = agent.element;
-        const agentHeight = agentElement.offsetHeight || 200;
+        const agentHeight = agentElement.offsetHeight || LAYOUT_DIMENSIONS.AGENT_DEFAULT_HEIGHT;
         const viewportHeight = this.canvas.height;
         
         // Calculate target camera Y to center the agent
@@ -326,7 +331,10 @@ export class CanvasManager {
         // Smooth camera animation
         const startCameraY = this.camera.y;
         const cameraChange = targetCameraY - startCameraY;
-        const duration = Math.min(4000, Math.max(1500, Math.abs(cameraChange) / 1.5));
+        const duration = Math.min(
+            SCROLL_DELAYS.SCROLL_ANIMATION_MAX, 
+            Math.max(SCROLL_DELAYS.SCROLL_ANIMATION_MIN, Math.abs(cameraChange) / 1.5)
+        );
         
         const startTime = performance.now();
         

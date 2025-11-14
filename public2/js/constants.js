@@ -29,6 +29,7 @@ export const ANIMATION_DURATIONS = {
     FADE_IN: 300,
     FADE_OUT: 300,
     PULSE: 300,
+    GENERIC_STAGGER: 50,                // Default stagger delay for generic animations
     
     // Smooth scrolling
     SCROLL_SMOOTH: 800,
@@ -43,6 +44,7 @@ export const POSITIONING_DELAYS = {
     // Agent positioning
     AGENT_POSITION_DELAY: 200,          // Wait for agent positioning to complete (2 RAF + 50ms buffer)
     AGENT_POSITION_UPDATES: [100, 200, 300, 400, 500, 600, 700, 850], // Connection line updates during transition
+    AGENT_INITIAL_POSITION_ENABLE: 50,  // Delay before enabling transitions after initial positioning
     
     // Task positioning
     TASK_POSITION_DELAY: 200,           // Wait for task DOM rendering
@@ -53,7 +55,13 @@ export const POSITIONING_DELAYS = {
     VALIDATION_REPOSITION_DELAY: 400,   // Reposition after validation UI appears
     
     // Canvas height updates
-    CANVAS_HEIGHT_DEBOUNCE: 150         // Debounce delay for canvas height recalculation
+    CANVAS_HEIGHT_DEBOUNCE: 150,        // Debounce delay for canvas height recalculation
+    
+    // Resize observer debouncing
+    RESIZE_OBSERVER_DEBOUNCE: 50,       // Debounce ResizeObserver callbacks
+    
+    // Expand/collapse handling
+    EXPAND_TRANSITION_REENABLE: 100     // Delay before re-enabling transitions after expand
 };
 
 // ========================================
@@ -70,7 +78,12 @@ export const SCROLL_DELAYS = {
     SCROLL_BUFFER: 300,                 // Extra buffer time
     
     // Expand/collapse recentering
-    RECENTER_AFTER_EXPAND: 400          // Wait for expand transition
+    RECENTER_AFTER_EXPAND: 400,         // Wait for expand transition
+    
+    // Scroll animation durations
+    SCROLL_ANIMATION_MIN: 1500,         // Minimum scroll animation duration
+    SCROLL_ANIMATION_MAX: 4000,         // Maximum scroll animation duration
+    SCROLL_DEBOUNCE: 150                // Scroll handler debounce delay
 };
 
 // ========================================
@@ -81,6 +94,7 @@ export const LAYOUT_DIMENSIONS = {
     // Agent dimensions
     AGENT_WIDTH: 320,                   // Default agent node width
     AGENT_ESTIMATED_WIDTH: 400,         // Estimated width for calculations
+    AGENT_DEFAULT_HEIGHT: 200,          // Default agent height when unknown
     
     // Task dimensions
     TASK_WIDTH: 900,                    // Default task node width

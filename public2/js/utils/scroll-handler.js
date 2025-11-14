@@ -8,6 +8,8 @@
  * - Manage transition states during scroll
  */
 
+import { SCROLL_DELAYS } from '../constants.js';
+
 export class ScrollHandler {
     constructor(canvasManager) {
         this.canvasManager = canvasManager;
@@ -41,7 +43,7 @@ export class ScrollHandler {
             clearTimeout(this.scrollTimeout);
             this.scrollTimeout = setTimeout(() => {
                 this.canvasManager.removeNoTransitionClass();
-            }, 150);
+            }, SCROLL_DELAYS.SCROLL_DEBOUNCE);
         }, { passive: false });
     }
 }

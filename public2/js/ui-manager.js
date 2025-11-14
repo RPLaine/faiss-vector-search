@@ -13,7 +13,7 @@
  * - Modal management (delegated to ModalManager)
  */
 
-import { SCROLL_DELAYS } from './constants.js';
+import { SCROLL_DELAYS, POSITIONING_DELAYS } from './constants.js';
 import { APIService } from './services/api-service.js';
 
 export class UIManager {
@@ -96,9 +96,20 @@ export class UIManager {
         const contentContainer = node.querySelector(`#content-container-${agentId}`);
         if (!contentContainer) return;
         
+        let resizeTimeout = null;
         const resizeObserver = new ResizeObserver(() => {
-            // Delegate to centralized canvas recalculation
-            this.canvasManager.recalculateAllPositions();
+            // Skip recalculation if transitions are disabled (manual expand/collapse in progress)
+            if (this.canvasManager.transitionManager && 
+                !this.canvasManager.transitionManager.transitionsEnabled) {
+                return;
+            }
+            
+            // Debounce: Wait for resize to stabilize before recalculating positions
+            // This prevents excessive recalculations during CSS transitions
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                this.canvasManager.recalculateAllPositions();
+            }, POSITIONING_DELAYS.RESIZE_OBSERVER_DEBOUNCE);
         });
         
         resizeObserver.observe(contentContainer);
@@ -181,14 +192,25 @@ export class UIManager {
     }
     
     async handleExpandToggle(agentId, enabled) {
+        // Disable transitions for immediate repositioning
+        this.canvasManager.addNoTransitionClass();
+        
         await this.agentController.toggleExpanded(agentId, enabled);
         
-        // Wait for CSS transition, then recenter
-        requestAnimationFrame(() => {
-            setTimeout(() => {
-                this.canvasManager.scrollAgentToCenter(agentId);
-            }, SCROLL_DELAYS.RECENTER_AFTER_EXPAND);
-        });
+        // Wait for DOM to update with new content height
+        await new Promise(resolve => requestAnimationFrame(() => {
+            requestAnimationFrame(resolve);
+        }));
+        
+        // Recalculate positions immediately (no animation)
+        this.canvasManager.recalculateAllPositions();
+        
+        // Re-enable transitions after recalculation completes
+        setTimeout(() => {
+            this.canvasManager.removeNoTransitionClass();
+            // Then recenter the agent smoothly
+            this.canvasManager.scrollAgentToCenter(agentId);
+        }, POSITIONING_DELAYS.EXPAND_TRANSITION_REENABLE);
     }
     
     handleSelectAgent(agentId) {

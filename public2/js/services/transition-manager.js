@@ -17,6 +17,7 @@ export class TransitionManager {
         this.agentElements = new Map(); // agentId -> element
         this.taskElements = new Map();  // taskKey -> element
         this.connectionElements = new Map(); // connectionKey -> SVG path element
+        this.transitionsEnabled = true; // Track current state
     }
     
     // ========================================
@@ -55,6 +56,8 @@ export class TransitionManager {
      * Disable all transitions for immediate updates (during drag/scroll)
      */
     disableAllTransitions() {
+        this.transitionsEnabled = false;
+        
         // Disable agent transitions
         for (const [, element] of this.agentElements.entries()) {
             if (element) {
@@ -84,6 +87,8 @@ export class TransitionManager {
      * Enable all transitions for smooth animations (after drag/scroll)
      */
     enableAllTransitions() {
+        this.transitionsEnabled = true;
+        
         // Enable agent transitions
         for (const [, element] of this.agentElements.entries()) {
             if (element) {

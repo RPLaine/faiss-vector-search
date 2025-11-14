@@ -2,12 +2,14 @@
  * WebSocket Service for AI Journalist Agents
  */
 
+import { NETWORK } from './constants.js';
+
 export class WebSocketService {
     constructor(url) {
         this.url = url;
         this.ws = null;
-        this.reconnectDelay = 1000;
-        this.maxReconnectDelay = 30000;
+        this.reconnectDelay = NETWORK.WS_RECONNECT_INITIAL;
+        this.maxReconnectDelay = NETWORK.WS_RECONNECT_MAX;
         this.eventHandlers = new Map();
         this.connected = false;
         this.connectionStateCallback = null;
@@ -24,7 +26,7 @@ export class WebSocketService {
             this.ws.onopen = () => {
                 console.log('WebSocket connected');
                 this.connected = true;
-                this.reconnectDelay = 1000;
+                this.reconnectDelay = NETWORK.WS_RECONNECT_INITIAL;
                 if (this.connectionStateCallback) {
                     this.connectionStateCallback(true);
                 }

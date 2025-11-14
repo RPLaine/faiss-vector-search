@@ -2,11 +2,13 @@
  * Animation Utils - Helper functions for animations and transitions
  */
 
+import { ANIMATION_DURATIONS } from '../constants.js';
+
 export class AnimationUtils {
     /**
      * Add a temporary class for animation, then remove it
      */
-    static animateClass(element, className, duration = 300) {
+    static animateClass(element, className, duration = ANIMATION_DURATIONS.FADE_IN) {
         if (!element) return Promise.resolve();
         
         return new Promise((resolve) => {
@@ -21,7 +23,7 @@ export class AnimationUtils {
     /**
      * Fade in an element
      */
-    static fadeIn(element, duration = 300) {
+    static fadeIn(element, duration = ANIMATION_DURATIONS.FADE_IN) {
         if (!element) return Promise.resolve();
         
         return new Promise((resolve) => {
@@ -43,7 +45,7 @@ export class AnimationUtils {
     /**
      * Fade out an element
      */
-    static fadeOut(element, duration = 300) {
+    static fadeOut(element, duration = ANIMATION_DURATIONS.FADE_OUT) {
         if (!element) return Promise.resolve();
         
         return new Promise((resolve) => {
@@ -62,14 +64,14 @@ export class AnimationUtils {
     /**
      * Pulse animation (scale effect)
      */
-    static pulse(element, duration = 300) {
+    static pulse(element, duration = ANIMATION_DURATIONS.PULSE) {
         return this.animateClass(element, 'pulse-scale', duration);
     }
     
     /**
      * Staggered animation for multiple elements
      */
-    static stagger(elements, animationFn, delay = 50) {
+    static stagger(elements, animationFn, delay = ANIMATION_DURATIONS.GENERIC_STAGGER) {
         if (!elements || elements.length === 0) return Promise.resolve();
         
         const promises = elements.map((element, index) => {
@@ -86,7 +88,7 @@ export class AnimationUtils {
     /**
      * Smooth scroll to position with easing
      */
-    static smoothScroll(container, targetY, duration = 800) {
+    static smoothScroll(container, targetY, duration = ANIMATION_DURATIONS.SCROLL_SMOOTH) {
         if (!container) return Promise.resolve();
         
         return new Promise((resolve) => {

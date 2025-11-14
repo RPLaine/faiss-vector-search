@@ -24,29 +24,8 @@ export class TaskManager {
         this.agentTasks = new Map(); // agent_id -> Set of task_keys
         this.isAligning = new Map(); // agent_id -> boolean (prevents conflicts during alignment)
         
-        // Listen for camera position updates to update task screen positions
-        window.addEventListener('updateTaskScreenPositions', (e) => {
-            this.updateAllTaskScreenPositions(e.detail.camera);
-        });
-        
-        // Note: Centralized recalculation is handled by TaskController
-        // which listens to 'recalculateTaskPositions' events
-    }
-    
-    /**
-     * Update all task DOM positions based on camera position
-     */
-    updateAllTaskScreenPositions(camera) {
-        for (const [taskKey, taskData] of this.taskNodes.entries()) {
-            if (!taskData.element) continue;
-            
-            // Convert global to screen coordinates
-            const screenX = taskData.globalX - camera.x;
-            const screenY = taskData.globalY - camera.y;
-            
-            taskData.element.style.left = `${screenX}px`;
-            taskData.element.style.top = `${screenY}px`;
-        }
+        // Note: DOM position updates are handled centrally by CanvasManager.updateAllElementPositions()
+        // Centralized recalculation is handled by TaskController listening to 'recalculateTaskPositions' events
     }
     
     // ========================================

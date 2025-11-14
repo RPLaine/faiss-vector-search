@@ -157,7 +157,6 @@ export class ControlPanelManager {
             this._setActionButton('stop', '⏹️', 'Stop');
             this._showButton(this.actionBtn);
             this._hideButton(this.continueBtn);
-            this._showControl(this.haltLabel);
         } else if (status === 'halted' || status === 'stopped' || hasInterruptedWorkflow) {
             // Agent is halted, stopped, OR has interrupted workflow (cancelled mid-execution)
             // In all cases: show Redo + Continue buttons
@@ -172,19 +171,19 @@ export class ControlPanelManager {
             
             // Show Continue button - user can continue from where they left off
             this._showButton(this.continueBtn);
-            this._hideControl(this.haltLabel);
         } else if (status === 'completed' || status === 'failed') {
             this._setActionButton('redo', '🔄', 'Restart');
             this._showButton(this.actionBtn);
             this._hideButton(this.continueBtn);
-            this._showControl(this.haltLabel);
         } else {
             // Default: created status with no tasks started
             this._setActionButton('start', '▶️', 'Start');
             this._showButton(this.actionBtn);
             this._hideButton(this.continueBtn);
-            this._showControl(this.haltLabel);
         }
+        
+        // Halt checkbox is always visible
+        this._showControl(this.haltLabel);
     }
     
     /**
@@ -194,12 +193,14 @@ export class ControlPanelManager {
         this._disableControls();
         this._setActionButton('start', '▶️', 'Start');
         this._hideButton(this.continueBtn);
-        this._showControl(this.haltLabel);
         
         // Clear checkboxes
         if (this.autoCheckbox) this.autoCheckbox.checked = false;
         if (this.haltCheckbox) this.haltCheckbox.checked = false;
         if (this.expandCheckbox) this.expandCheckbox.checked = false;
+        
+        // Halt checkbox is always visible
+        this._showControl(this.haltLabel);
     }
     
     /**

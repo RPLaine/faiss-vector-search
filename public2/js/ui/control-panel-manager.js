@@ -118,11 +118,12 @@ export class ControlPanelManager {
      */
     updateForAgent(agent) {
         if (!agent) {
-            this._clearPanel();
+            this.hide();
             return;
         }
         
-        // Enable all controls
+        // Show panel and enable all controls
+        this.show();
         this._enableControls();
         
         // Update checkboxes
@@ -153,16 +154,21 @@ export class ControlPanelManager {
             ? this.taskManager.hasInterruptedWorkflow(agent.id)
             : false;
         
+        // Check for failed/cancelled tasks that can be retried
+        const hasFailedOrCancelledTasks = this.taskManager 
+            ? this.taskManager.hasFailedOrCancelledTasks(agent.id)
+            : false;
+        
+        // Never show Continue button if agent is actually running
         if (status === 'running') {
             this._setActionButton('stop', '⏹️', 'Stop');
             this._showButton(this.actionBtn);
             this._hideButton(this.continueBtn);
-        } else if (status === 'halted' || status === 'stopped' || hasInterruptedWorkflow) {
-            // Agent is halted, stopped, OR has interrupted workflow (cancelled mid-execution)
-            // In all cases: show Redo + Continue buttons
+        } else if (status === 'halted') {
+            // Agent is halted - show Redo + Continue buttons
             
-            // Show "Redo" button if there are failed tasks OR if this is a stopped/interrupted workflow
-            if (hasFailedTasks || status === 'stopped' || hasInterruptedWorkflow) {
+            // Show "Redo" button if there are failed tasks
+            if (hasFailedTasks) {
                 this._setActionButton('redo', '🔄', 'Redo');
                 this._showButton(this.actionBtn);
             } else {
@@ -170,6 +176,15 @@ export class ControlPanelManager {
             }
             
             // Show Continue button - user can continue from where they left off
+            this._showButton(this.continueBtn);
+        } else if (status === 'stopped' || hasInterruptedWorkflow) {
+            // Agent is stopped OR has interrupted workflow
+            
+            // Show Redo button alongside Continue
+            this._setActionButton('redo', '🔄', 'Redo');
+            this._showButton(this.actionBtn);
+            
+            // Show Continue button - will retry from first failed/cancelled task
             this._showButton(this.continueBtn);
         } else if (status === 'completed' || status === 'failed') {
             this._setActionButton('redo', '🔄', 'Restart');
@@ -184,6 +199,28 @@ export class ControlPanelManager {
         
         // Halt checkbox is always visible
         this._showControl(this.haltLabel);
+    }
+    
+    /**
+     * Hide the control panel with smooth transition
+     */
+    hide() {
+        if (this.panel) {
+            this.panel.classList.add('hidden');
+            // Clear panel state after transition completes (400ms for medium transition)
+            setTimeout(() => {
+                this._clearPanel();
+            }, 400);
+        }
+    }
+    
+    /**
+     * Show the control panel with smooth transition
+     */
+    show() {
+        if (this.panel) {
+            this.panel.classList.remove('hidden');
+        }
     }
     
     /**

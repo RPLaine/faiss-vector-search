@@ -19,8 +19,9 @@
 import { POSITIONING_DELAYS } from '../constants.js';
 
 export class ControlPanelHandler {
-    constructor(agentController, modalManager, controlPanelManager, agentManager, canvasManager) {
+    constructor(agentController, haltController, modalManager, controlPanelManager, agentManager, canvasManager) {
         this.agentController = agentController;
+        this.haltController = haltController;
         this.modalManager = modalManager;
         this.controlPanelManager = controlPanelManager;
         this.agentManager = agentManager; // For querying agent state
@@ -106,7 +107,8 @@ export class ControlPanelHandler {
      * Handle halt checkbox toggle
      */
     async handleHaltToggle(agentId, enabled) {
-        await this.agentController.toggleHalt(agentId, enabled);
+        // Delegate to HaltController for all halt logic
+        await this.haltController.toggleHalt(agentId, enabled);
     }
     
     /**

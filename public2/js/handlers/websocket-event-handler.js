@@ -34,6 +34,7 @@ export class WebSocketEventHandler {
         wsService.on('agent_started', (data) => this.handleAgentStarted(data));
         wsService.on('agent_halted', (data) => this.handleAgentHalted(data));
         wsService.on('agent_continued', (data) => this.handleAgentContinued(data));
+        wsService.on('agent_redo', (data) => this.handleAgentRedo(data));
         wsService.on('agent_completed', (data) => this.handleAgentCompleted(data));
         wsService.on('agent_failed', (data) => this.handleAgentFailed(data));
         wsService.on('agent_stopped', (data) => this.handleAgentStopped(data));
@@ -128,6 +129,22 @@ export class WebSocketEventHandler {
         this.statsService.update();
     }
     
+    handleAgentRedo(data) {
+        console.log('[WebSocket] agent_redo:', data);
+        const agentId = data.data.agent_id;
+        const phase = data.data.phase;
+        
+        this.agentManager.updateAgentStatus(agentId, 'running');
+        this.uiManager.updateAgentStatus(agentId, 'running');
+        
+        // Clear tasks if redoing phase 0 (tasklist generation)
+        if (phase === 0) {
+            this.taskController.clearTasksForAgent(agentId);
+        }
+        
+        this.statsService.update();
+    }
+    
     handleAgentCompleted(data) {
         console.log('[WebSocket] agent_completed:', data);
         const { agent_id, article, word_count, generation_time } = data.data;
@@ -162,9 +179,18 @@ export class WebSocketEventHandler {
         console.log('[WebSocket] agent_deleted:', data);
         const agentId = data.data.agent_id;
         
+        // Check if the deleted agent was selected
+        const wasSelected = this.agentManager.isAgentSelected(agentId);
+        
         this.agentManager.removeAgent(agentId);
         this.uiManager.removeAgent(agentId);
         this.taskController.removeTasksForAgent(agentId);
+        
+        // If the deleted agent was selected, clear selection and hide control panel
+        if (wasSelected && this.uiManager.selectionHandler) {
+            this.uiManager.selectionHandler.clearSelection();
+        }
+        
         this.statsService.update();
     }
     
@@ -323,8 +349,16 @@ export class WebSocketEventHandler {
     
     handleAgentsCleared(data) {
         const agents = this.agentManager.getAllAgents();
+        const selectedAgentId = this.agentManager.getSelectedAgentId();
+        let selectedAgentRemoved = false;
+        
         agents.forEach(agent => {
             if (agent.status === 'completed' || agent.status === 'failed') {
+                // Track if selected agent is being removed
+                if (agent.id === selectedAgentId) {
+                    selectedAgentRemoved = true;
+                }
+                
                 // Remove tasks and connections first
                 this.taskController.removeTasksForAgent(agent.id);
                 // Then remove agent UI
@@ -333,6 +367,12 @@ export class WebSocketEventHandler {
                 this.agentManager.removeAgent(agent.id);
             }
         });
+        
+        // If selected agent was removed, clear selection and hide control panel
+        if (selectedAgentRemoved && this.uiManager.selectionHandler) {
+            this.uiManager.selectionHandler.clearSelection();
+        }
+        
         this.statsService.update();
     }
 }

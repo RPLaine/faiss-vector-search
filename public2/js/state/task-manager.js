@@ -230,6 +230,48 @@ export class TaskManager {
     }
     
     /**
+     * Check if agent has any failed or cancelled tasks
+     */
+    hasFailedOrCancelledTasks(agentId) {
+        const tasks = this.getSortedTasksForAgent(agentId);
+        
+        for (const taskData of tasks) {
+            if (!taskData || !taskData.element) continue;
+            
+            const statusEl = taskData.element.querySelector('.task-node-status');
+            if (!statusEl) continue;
+            
+            const status = statusEl.textContent.toLowerCase();
+            if (status === 'failed' || status === 'cancelled') {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Get the first failed or cancelled task for an agent
+     */
+    getFirstFailedOrCancelledTask(agentId) {
+        const tasks = this.getSortedTasksForAgent(agentId);
+        
+        for (const taskData of tasks) {
+            if (!taskData || !taskData.element) continue;
+            
+            const statusEl = taskData.element.querySelector('.task-node-status');
+            if (!statusEl) continue;
+            
+            const status = statusEl.textContent.toLowerCase();
+            if (status === 'failed' || status === 'cancelled') {
+                return taskData;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
      * Check if agent has any failed tasks
      */
     hasFailedTasks(agentId) {

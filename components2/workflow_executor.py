@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from components2.llm_service import LLMService
 from components2.task_executor import TaskExecutor
+from components2.halt_manager import HaltManager
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,9 @@ class WorkflowExecutor:
         self.executor = executor
         self.event_loop = event_loop
         self.agent_manager = agent_manager
+        
+        # Initialize halt manager
+        self.halt_manager = HaltManager(agent_manager) if agent_manager else None
         
         # Initialize task executor
         self.task_executor = TaskExecutor(llm_service, executor, event_loop)
@@ -142,10 +146,10 @@ class WorkflowExecutor:
                 subject = result
                 
                 # Check halt dynamically before proceeding
-                if agent.get("halt", False):
-                    agent["current_phase"] = 0
+                if self.halt_manager and self.halt_manager.should_halt_before_phase(agent_id, 0):
+                    self.halt_manager.mark_halted(agent_id, phase=0)
                     logger.info(f"Agent {agent_id} halted at phase 0, returning halted status")
-                    return {"halted": True, "phase": 0}
+                    return self.halt_manager.get_halt_result(agent_id, phase=0)
             
             # Execute tasks (either after phase 0 completes or when continuing from halt)
             # Task execution is part of phase 0
@@ -238,10 +242,10 @@ class WorkflowExecutor:
                                 continue
                         
                         # Check halt before each task
-                        if agent.get("halt", False):
+                        if self.halt_manager and self.halt_manager.should_halt_before_task(agent_id, task["id"]):
+                            self.halt_manager.mark_halted(agent_id, phase=0, task_id=task["id"])
                             logger.info(f"Agent {agent_id} halted before task {task['id']}")
-                            agent["current_phase"] = 0  # Still in phase 0 (tasks)
-                            return {"halted": True, "phase": 0, "task_id": task["id"]}
+                            return self.halt_manager.get_halt_result(agent_id, phase=0, task_id=task["id"])
                         
                         # Check cancellation
                         if agent.get("cancelled", False):
@@ -276,10 +280,10 @@ class WorkflowExecutor:
                             logger.info(f"Agent {agent_id} completed task {task['id']}: {task['name']} (status: {task['status']})")
                             
                             # Check halt after task completes (before moving to next task)
-                            if agent.get("halt", False):
+                            if self.halt_manager and self.halt_manager.should_halt_after_task(agent_id, task["id"]):
+                                self.halt_manager.mark_halted(agent_id, phase=0, task_id=task["id"])
                                 logger.info(f"Agent {agent_id} halted after task {task['id']} completed")
-                                agent["current_phase"] = 0  # Still in phase 0 (tasks)
-                                return {"halted": True, "phase": 0, "task_id": task["id"]}
+                                return self.halt_manager.get_halt_result(agent_id, phase=0, task_id=task["id"])
                             
                         except asyncio.CancelledError:
                             logger.info(f"Agent {agent_id} - Task {task['id']} cancelled")

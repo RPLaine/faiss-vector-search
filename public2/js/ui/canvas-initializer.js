@@ -47,6 +47,10 @@ export class CanvasInitializer {
     async initializeFromBackend(agents, selectedAgentId = null) {
         if (!agents || agents.length === 0) {
             console.log('[CanvasInitializer] No agents to initialize');
+            // Hide control panel when no agents exist
+            if (this.uiManager.controlPanelManager) {
+                this.uiManager.controlPanelManager.hide();
+            }
             this.statsService.update();
             return;
         }
@@ -233,8 +237,11 @@ export class CanvasInitializer {
             this.agentManager.removeAgent(agent.id);
         });
         
-        // Clear selection
+        // Clear selection and hide control panel
         this.agentManager.clearSelection();
+        if (this.uiManager.controlPanelManager) {
+            this.uiManager.controlPanelManager.hide();
+        }
         
         // Update stats
         this.statsService.update();

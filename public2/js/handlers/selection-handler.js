@@ -155,14 +155,15 @@ export class SelectionHandler {
     }
     
     /**
-     * Clear selection
+     * Clear selection and hide control panel
      */
     clearSelection() {
         const currentlySelected = this.agentManager.getSelectedAgentId();
         if (currentlySelected) {
             this._deselectAgent(currentlySelected);
             this.agentManager.clearSelection();
-            this.controlPanelManager.updateForAgent(null);
         }
+        // Always hide control panel when no agent is selected
+        this.controlPanelManager.hide();
     }
 }

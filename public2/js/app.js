@@ -26,6 +26,7 @@ import { ControlPanelHandler } from './handlers/control-panel-handler.js';
 import { SelectionHandler } from './handlers/selection-handler.js';
 import { AgentController } from './controllers/agent-controller.js';
 import { TaskController } from './controllers/task-controller.js';
+import { HaltController } from './controllers/halt-controller.js';
 import { AgentRenderer } from './renderers/agent-renderer.js';
 import { TaskRenderer } from './renderers/task-renderer.js';
 import { UIManager } from './ui/ui-manager.js';
@@ -65,6 +66,7 @@ class App {
             this.taskManager  // Inject TaskManager for failed task queries
         );
         this.taskController = new TaskController(this.taskManager, this.taskRenderer, this.canvasManager, this.agentManager);
+        this.haltController = new HaltController(this.agentManager);
         
         // Selection Handler (centralized selection coordination)
         this.selectionHandler = new SelectionHandler(
@@ -81,6 +83,7 @@ class App {
         // Handlers (event handling layer)
         this.controlPanelHandler = new ControlPanelHandler(
             this.agentController,
+            this.haltController,
             this.modalManager,
             this.controlPanelManager,
             this.agentManager,

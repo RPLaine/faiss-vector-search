@@ -74,8 +74,8 @@ export class TaskController {
         
         console.log(`[TaskController] Creating ${tasklist.tasks.length} tasks for agent ${agentId}`);
         
-        // Clear existing tasks
-        this.clearTasksForAgent(agentId);
+        // Clear existing tasks immediately (no animation) to avoid race conditions
+        this._clearTasksImmediate(agentId);
         
         // Sort tasks by ID
         const sortedTasks = [...tasklist.tasks].sort((a, b) => a.id - b.id);
@@ -296,6 +296,31 @@ export class TaskController {
             } else {
                 this.taskManager.removeTask(taskKey);
             }
+        });
+        
+        this.taskManager.clearAgentTasks(agentId);
+    }
+    
+    /**
+     * Clear tasks for an agent immediately without animation
+     * Used when recreating task list to avoid race conditions
+     */
+    _clearTasksImmediate(agentId) {
+        const taskKeys = this.taskManager.getAgentTasks(agentId);
+        if (!taskKeys || taskKeys.length === 0) return;
+        
+        console.log(`[TaskController] Clearing ${taskKeys.length} tasks immediately for agent ${agentId}`);
+        
+        // Remove connection lines first
+        this.canvasManager.connectionLinesManager.removeConnectionsForAgent(agentId);
+        
+        // Remove tasks immediately without animation
+        taskKeys.forEach((taskKey) => {
+            const taskData = this.taskManager.getTask(taskKey);
+            if (taskData && taskData.element) {
+                taskData.element.remove();
+            }
+            this.taskManager.removeTask(taskKey);
         });
         
         this.taskManager.clearAgentTasks(agentId);

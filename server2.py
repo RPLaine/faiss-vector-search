@@ -27,6 +27,7 @@ import uuid
 from components.services import ConfigurationProvider
 from components2.llm_service import LLMService
 from components2 import AgentManager, WorkflowExecutor
+from components2.halt_manager import HaltManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -55,6 +56,7 @@ config_provider: Optional[ConfigurationProvider] = None
 llm_service: Optional[LLMService] = None
 agent_manager: Optional[AgentManager] = None
 workflow_executor: Optional[WorkflowExecutor] = None
+halt_manager: Optional[HaltManager] = None
 
 
 async def broadcast_event(data: Dict[str, Any]):
@@ -74,7 +76,7 @@ async def broadcast_event(data: Dict[str, Any]):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown events."""
-    global main_loop, config_provider, llm_service, agent_manager, workflow_executor
+    global main_loop, config_provider, llm_service, agent_manager, workflow_executor, halt_manager
     
     # Startup
     main_loop = asyncio.get_running_loop()
@@ -89,6 +91,9 @@ async def lifespan(app: FastAPI):
         
         # Initialize agent manager
         agent_manager = AgentManager()
+        
+        # Initialize halt manager
+        halt_manager = HaltManager(agent_manager)
         
         # Initialize workflow executor (with agent_manager for state persistence)
         workflow_executor = WorkflowExecutor(llm_service, executor, main_loop, agent_manager)
@@ -214,8 +219,8 @@ async def create_agent(agent_data: Dict[str, Any]):
 @app.post("/api/agents/{agent_id}/start")
 async def start_agent(agent_id: str, request_data: Optional[Dict[str, Any]] = None):
     """Start an agent's article writing process."""
-    if not agent_manager:
-        raise HTTPException(status_code=503, detail="Agent manager not initialized")
+    if not agent_manager or not halt_manager:
+        raise HTTPException(status_code=503, detail="Services not initialized")
     
     if not agent_manager.agent_exists(agent_id):
         raise HTTPException(status_code=404, detail="Agent not found")
@@ -227,10 +232,11 @@ async def start_agent(agent_id: str, request_data: Optional[Dict[str, Any]] = No
     if agent.get("status") == "running":
         raise HTTPException(status_code=409, detail="Agent is already running")
     
-    # Get halt setting from request
+    # Get halt setting from request and set via halt manager
     request_data = request_data or {}
     halt = request_data.get("halt", False)
-    agent["halt"] = halt
+    halt_manager.set_halt(agent_id, halt)
+    
     agent["current_phase"] = -1  # Not started yet
     
     # Clear previous responses
@@ -240,9 +246,6 @@ async def start_agent(agent_id: str, request_data: Optional[Dict[str, Any]] = No
     
     # Update status
     agent_manager.update_agent_status(agent_id, "running")
-    
-    # Save state to persist halt setting
-    agent_manager._save_state()
     
     # Broadcast start event
     await broadcast_event({
@@ -265,35 +268,47 @@ async def start_agent(agent_id: str, request_data: Optional[Dict[str, Any]] = No
 @app.post("/api/agents/{agent_id}/continue")
 async def continue_agent(agent_id: str):
     """Continue a halted or stopped agent to the next phase."""
-    if not agent_manager:
-        raise HTTPException(status_code=503, detail="Agent manager not initialized")
+    if not halt_manager:
+        raise HTTPException(status_code=503, detail="Halt manager not initialized")
     
     agent = agent_manager.get_agent(agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     
-    # Accept both 'halted' and 'stopped' statuses for continue
-    if agent.get("status") not in ["halted", "stopped"]:
-        raise HTTPException(status_code=409, detail="Agent is not halted or stopped")
+    # Reject if already running (race condition protection)
+    if agent.get("status") == "running":
+        raise HTTPException(
+            status_code=409,
+            detail="Agent is already running"
+        )
     
-    # Clear the halt flag to allow execution to continue
-    agent["halt"] = False
+    # Check if agent can continue using halt manager
+    if not halt_manager.can_continue(agent_id):
+        raise HTTPException(
+            status_code=409, 
+            detail=f"Agent cannot continue - status is {agent.get('status')}"
+        )
     
-    # Update status back to running
-    agent_manager.update_agent_status(agent_id, "running")
+    # Prepare agent to continue (clears halt flag and updates status)
+    success = halt_manager.prepare_continue(agent_id)
+    
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to prepare agent for continuation")
     
     # Broadcast continue event
     await broadcast_event({
         "type": "agent_continued",
         "data": {
             "agent_id": agent_id,
-            "name": agent["name"]
+            "name": agent["name"],
+            "phase": agent.get("current_phase", 0)
         }
     })
     
-    # Restart the workflow from the halted phase
-    # This will continue execution from where it left off
-    asyncio.create_task(run_agent(agent_id))
+    # Resume the workflow
+    loop = asyncio.get_event_loop()
+    task = loop.create_task(run_agent(agent_id))
+    agent_manager.set_agent_task(agent_id, task)
     
     return {"success": True, "agent_id": agent_id}
 
@@ -301,19 +316,19 @@ async def continue_agent(agent_id: str):
 @app.post("/api/agents/{agent_id}/halt")
 async def update_halt_state(agent_id: str, request_data: Dict[str, Any]):
     """Update the halt state of an agent (can be toggled during execution)."""
-    if not agent_manager:
-        raise HTTPException(status_code=503, detail="Agent manager not initialized")
+    if not halt_manager:
+        raise HTTPException(status_code=503, detail="Halt manager not initialized")
     
     agent = agent_manager.get_agent(agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     
-    # Update halt state
+    # Update halt state via halt manager
     halt = request_data.get("halt", False)
-    agent["halt"] = halt
+    success = halt_manager.set_halt(agent_id, halt)
     
-    # Save to persistent store
-    agent_manager._save_state()
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to update halt state")
     
     logger.info(f"Agent {agent_id} halt state updated to: {halt}")
     
@@ -402,6 +417,9 @@ async def stop_agent(agent_id: str):
     # Set cancellation flag (checked by LLM service)
     agent["cancelled"] = True
     
+    # Save state to persist cancellation flag
+    agent_manager._save_state()
+    
     # Cancel the task
     task = agent.get("task")
     if task and not task.done():
@@ -450,6 +468,9 @@ async def redo_phase(agent_id: str, request_data: Dict[str, Any]):
     # Set the phase to redo (workflow will check this and re-execute that phase)
     agent["redo_phase"] = current_phase
     
+    # Save state to persist redo_phase and cleared responses
+    agent_manager._save_state()
+    
     # Update status to running
     agent_manager.update_agent_status(agent_id, "running")
     
@@ -467,6 +488,76 @@ async def redo_phase(agent_id: str, request_data: Dict[str, Any]):
     asyncio.create_task(run_agent(agent_id))
     
     return {"success": True, "agent_id": agent_id, "phase": current_phase}
+
+
+@app.post("/api/agents/{agent_id}/continue-from-failed")
+async def continue_from_failed_task(agent_id: str):
+    """Continue from the first failed or cancelled task."""
+    if not agent_manager:
+        raise HTTPException(status_code=503, detail="Agent manager not initialized")
+    
+    agent = agent_manager.get_agent(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    # Reject if already running (race condition protection)
+    if agent.get("status") == "running":
+        raise HTTPException(
+            status_code=409,
+            detail="Agent is already running"
+        )
+    
+    # Accept halted and stopped statuses
+    if agent.get("status") not in ["halted", "stopped"]:
+        raise HTTPException(status_code=409, detail="Agent is not halted or stopped")
+    
+    # Find first failed or cancelled task
+    tasklist = agent.get("tasklist", {})
+    tasks = tasklist.get("tasks", [])
+    
+    failed_task = None
+    for task in tasks:
+        status = task.get("status")
+        if status in ["failed", "cancelled"]:
+            failed_task = task
+            break
+        # Also check for completed tasks with invalid validation
+        validation = task.get("validation", {})
+        if status == "completed" and not validation.get("is_valid", True):
+            failed_task = task
+            break
+    
+    if not failed_task:
+        raise HTTPException(status_code=404, detail="No failed or cancelled task found")
+    
+    # Reset the failed/cancelled task
+    failed_task["status"] = "created"
+    failed_task["output"] = None
+    failed_task["validation"] = None
+    failed_task.pop("completed_at", None)
+    
+    # Mark that we're continuing from a specific task
+    agent["redo_task_id"] = failed_task["id"]
+    
+    # Save state before restarting
+    agent_manager._save_state()
+    
+    # Update status to running
+    agent_manager.update_agent_status(agent_id, "running")
+    
+    # Broadcast task reset event
+    await broadcast_event({
+        "type": "task_reset",
+        "data": {
+            "agent_id": agent_id,
+            "task_id": failed_task["id"]
+        }
+    })
+    
+    # Restart the workflow to execute the task
+    asyncio.create_task(run_agent(agent_id))
+    
+    return {"success": True, "agent_id": agent_id, "task_id": failed_task["id"]}
 
 
 @app.post("/api/agents/{agent_id}/redo-task")
@@ -508,6 +599,9 @@ async def redo_failed_task(agent_id: str):
     
     # Mark that we're redoing a specific task
     agent["redo_task_id"] = failed_task["id"]
+    
+    # Save state before restarting (task reset and redo_task_id need persistence)
+    agent_manager._save_state()
     
     # Update status to running
     agent_manager.update_agent_status(agent_id, "running")
@@ -642,6 +736,9 @@ async def run_agent(agent_id: str):
             agent["halt"] = agent.get("halt", False)
             agent["current_phase"] = -1
             agent["continue"] = False
+            
+            # Save state before restarting
+            agent_manager._save_state()
             
             # Update status to running
             agent_manager.update_agent_status(agent_id, "running")

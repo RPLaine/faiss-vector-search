@@ -169,6 +169,20 @@ body {
     z-index: 99;
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
+    overflow: hidden;
+    opacity: 1;
+    transform: translateY(0);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+    transition: transform var(--transition-medium), 
+                opacity var(--transition-medium),
+                box-shadow var(--transition-medium);
+}
+
+.agent-node-controls-panel.hidden {
+    transform: translateY(-100%);
+    opacity: 0;
+    box-shadow: none;
+    pointer-events: none;
 }
 
 .controls-panel-content {

@@ -202,8 +202,6 @@ export class AgentController {
      * Delete an agent
      */
     async deleteAgent(agentId) {
-        if (!confirm('Delete this agent?')) return false;
-        
         console.log(`[Agent ${agentId}] Deleting`);
         
         const result = await APIService.deleteAgent(agentId);

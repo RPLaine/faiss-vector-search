@@ -1,0 +1,1 @@
+When an agent or a task is processing, the no-transition mark is either missing or not working for the task nodes when user is dragging the cavas with mouse.

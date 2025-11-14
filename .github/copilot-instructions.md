@@ -49,6 +49,19 @@ components2/
 ```
 
 **Frontend Architecture (`public2/js/`):**
+```
+public2/js/
+  ├── app.js                    # Entry point, dependency injection
+  ├── constants/                # Status enums, timing values
+  ├── state/                    # Pure state management (AgentManager, TaskManager)
+  ├── services/                 # External integrations (APIService, WebSocketService, etc.)
+  ├── handlers/                 # Event routing (WebSocketEventHandler, ControlPanelHandler, Status handlers)
+  ├── controllers/              # Business logic (AgentController, TaskController)
+  ├── renderers/                # Pure DOM rendering (AgentRenderer, TaskRenderer)
+  ├── ui/                       # UI coordination (UIManager, CanvasManager, TransitionManager, etc.)
+  └── utils/                    # Pure utility functions (animation, DOM, layout calculations)
+```
+
 - **Clean separation**: Services → Handlers → Controllers → Renderers → State Managers → UI Coordination
 - **No frameworks**: Vanilla ES6 modules, pure DOM manipulation
 - **Canvas-based layout**: Infinite scrollable canvas with camera system (not CSS grid)

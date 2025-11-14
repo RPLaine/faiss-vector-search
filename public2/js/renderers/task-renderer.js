@@ -160,7 +160,7 @@ export class TaskRenderer {
         }
         
         // Auto-scroll
-        contentEl.scrollTop = contentEl.scrollHeight;
+        DOMUtils.scrollToBottom(contentEl);
     }
     
     /**

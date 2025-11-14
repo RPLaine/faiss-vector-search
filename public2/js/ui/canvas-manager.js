@@ -14,10 +14,11 @@
  * - CSS transitions: TransitionManager (injected)
  */
 
-import { ANIMATION_DURATIONS, POSITIONING_DELAYS, LAYOUT_DIMENSIONS } from './constants.js';
-import { ConnectionLinesManager } from './ui/connection-lines-manager.js';
-import { DragHandler } from './utils/drag-handler.js';
-import { ScrollHandler } from './utils/scroll-handler.js';
+import { ANIMATION_DURATIONS, POSITIONING_DELAYS, LAYOUT_DIMENSIONS, SCROLL_DELAYS } from '../constants.js';
+import { AnimationUtils, Easing } from '../utils/animation-utils.js';
+import { ConnectionLinesManager } from './connection-lines-manager.js';
+import { DragHandler } from '../utils/drag-handler.js';
+import { ScrollHandler } from '../utils/scroll-handler.js';
 
 export class CanvasManager {
     constructor(canvasId, taskManager, transitionManager, agentManager) {
@@ -308,7 +309,7 @@ export class CanvasManager {
     
     /**
      * Center an agent in the viewport by adjusting camera position
-     * Uses smooth animated camera movement
+     * Uses smooth animated camera movement with centralized animation utilities
      */
     scrollAgentToCenter(agentId) {
         const agent = this.agents.get(agentId);
@@ -328,37 +329,26 @@ export class CanvasManager {
         // camera.y = agentCenterGlobalY - viewportHeight/2
         const targetCameraY = agentCenterGlobalY - (viewportHeight / 2);
         
-        // Smooth camera animation
+        // Calculate animation duration based on distance
         const startCameraY = this.camera.y;
         const cameraChange = targetCameraY - startCameraY;
         const duration = Math.min(
             SCROLL_DELAYS.SCROLL_ANIMATION_MAX, 
-            Math.max(SCROLL_DELAYS.SCROLL_ANIMATION_MIN, Math.abs(cameraChange) / 1.5)
+            Math.max(SCROLL_DELAYS.SCROLL_ANIMATION_MIN, Math.abs(cameraChange) / 2)
         );
         
-        const startTime = performance.now();
-        
-        // Easing function for smooth deceleration (ease-out-cubic)
-        const easeOutCubic = (t) => {
-            return 1 - Math.pow(1 - t, 3);
-        };
-        
-        const animateCamera = (currentTime) => {
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            const easedProgress = easeOutCubic(progress);
-            
-            this.camera.y = startCameraY + (cameraChange * easedProgress);
-            
-            // Update all positions and connections
-            this.updateAllElementPositions();
-            this.connectionLinesManager.updateAllConnections();
-            
-            if (progress < 1) {
-                requestAnimationFrame(animateCamera);
-            }
-        };
-        
-        requestAnimationFrame(animateCamera);
+        // Use centralized animation with easeInOutQuad for smooth acceleration and deceleration
+        AnimationUtils.animateValue(
+            startCameraY,
+            targetCameraY,
+            duration,
+            (newCameraY) => {
+                this.camera.y = newCameraY;
+                // Update all positions and connections
+                this.updateAllElementPositions();
+                this.connectionLinesManager.updateAllConnections();
+            },
+            Easing.easeInOutQuad  // Smoother than easeOutCubic - gradual start and end
+        );
     }
 }

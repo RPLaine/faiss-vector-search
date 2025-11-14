@@ -2,35 +2,36 @@
  * AI Journalist Agents Demo - Main Application
  * 
  * Clean Architecture:
- * - Service Layer: APIService, WebSocketService, StatsService, FormHandler, LoggerService, ModalManager, TransitionManager, ControlPanelManager
- * - Handler Layer: WebSocketEventHandler, ControlPanelHandler
+ * - Service Layer: APIService, WebSocketService, StatsService, FormHandler, LoggerService, ModalManager, RecoveryManager
+ * - Handler Layer: WebSocketEventHandler, ControlPanelHandler, AgentStatusHandler, TaskStatusHandler, SelectionHandler
  * - Controller Layer: AgentController, TaskController
  * - Renderer Layer: AgentRenderer, TaskRenderer
  * - State Layer: AgentManager, TaskManager
- * - UI Coordination: UIManager, CanvasManager (includes connection lines)
+ * - UI Layer: UIManager, CanvasManager, CanvasInitializer, TransitionManager, ControlPanelManager, ConnectionLinesManager
  * 
  * App class responsibility: Dependency injection and initialization only.
  */
 
-import { WebSocketService } from './websocket.js';
-import { AgentManager } from './agent-manager.js';
+import { WebSocketService } from './services/websocket-service.js';
+import { AgentManager } from './state/agent-manager.js';
 import { APIService } from './services/api-service.js';
 import { StatsService } from './services/stats-service.js';
 import { FormHandler } from './services/form-handler.js';
 import { LoggerService } from './services/logger-service.js';
 import { ModalManager } from './services/modal-manager.js';
-import { TransitionManager } from './services/transition-manager.js';
-import { ControlPanelManager } from './services/control-panel-manager.js';
+import { TransitionManager } from './ui/transition-manager.js';
+import { ControlPanelManager } from './ui/control-panel-manager.js';
 import { WebSocketEventHandler } from './handlers/websocket-event-handler.js';
 import { ControlPanelHandler } from './handlers/control-panel-handler.js';
+import { SelectionHandler } from './handlers/selection-handler.js';
 import { AgentController } from './controllers/agent-controller.js';
 import { TaskController } from './controllers/task-controller.js';
 import { AgentRenderer } from './renderers/agent-renderer.js';
 import { TaskRenderer } from './renderers/task-renderer.js';
-import { UIManager } from './ui-manager.js';
-import { TaskManager } from './task-manager.js';
-import { CanvasManager } from './canvas-manager.js';
-import { CanvasInitializer } from './canvas-initializer.js';
+import { UIManager } from './ui/ui-manager.js';
+import { TaskManager } from './state/task-manager.js';
+import { CanvasManager } from './ui/canvas-manager.js';
+import { CanvasInitializer } from './ui/canvas-initializer.js';
 
 class App {
     constructor() {
@@ -38,13 +39,15 @@ class App {
         this.transitionManager = new TransitionManager();
         this.modalManager = new ModalManager();
         this.modalManager.setupGlobalClosers();
-        this.controlPanelManager = new ControlPanelManager();
         
         // State managers (Note: TaskManager is injected into CanvasManager for connection lines)
         this.agentManager = new AgentManager();
         this.taskManager = new TaskManager(null, this.transitionManager); // canvasManager will be set below
         this.canvasManager = new CanvasManager('agentCanvas', this.taskManager, this.transitionManager, this.agentManager);
         this.taskManager.canvasManager = this.canvasManager;
+        
+        // Control Panel Manager (inject TaskManager for interrupted workflow detection)
+        this.controlPanelManager = new ControlPanelManager(this.taskManager);
         
         // Services
         this.statsService = new StatsService(this.agentManager);
@@ -63,6 +66,18 @@ class App {
         );
         this.taskController = new TaskController(this.taskManager, this.taskRenderer, this.canvasManager, this.agentManager);
         
+        // Selection Handler (centralized selection coordination)
+        this.selectionHandler = new SelectionHandler(
+            this.agentManager,
+            this.agentRenderer,
+            this.taskController,
+            this.controlPanelManager,
+            this.canvasManager
+        );
+        
+        // Inject getSelectedAgentId callback into ControlPanelManager
+        this.controlPanelManager.getSelectedAgentId = () => this.selectionHandler.getSelectedAgentId();
+        
         // Handlers (event handling layer)
         this.controlPanelHandler = new ControlPanelHandler(
             this.agentController,
@@ -79,7 +94,8 @@ class App {
             this.agentRenderer,
             this.canvasManager,
             this.modalManager,
-            this.controlPanelManager
+            this.controlPanelManager,
+            this.selectionHandler  // Inject SelectionHandler
         );
         this.uiManager.taskManager = this.taskManager;
         this.uiManager.agentManager = this.agentManager; // Inject AgentManager
@@ -90,7 +106,8 @@ class App {
             this.taskController,
             this.uiManager,
             this.canvasManager,
-            this.statsService
+            this.statsService,
+            this.selectionHandler  // Inject SelectionHandler for initial selection
         );
         
         // WebSocket service

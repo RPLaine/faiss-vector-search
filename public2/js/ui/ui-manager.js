@@ -12,19 +12,21 @@
  * - API calls (delegated to controllers → APIService)
  * - Modal management (delegated to ModalManager)
  * - Control panel events (delegated to ControlPanelHandler)
+ * - Selection coordination (delegated to SelectionHandler)
  */
 
-import { SCROLL_DELAYS, POSITIONING_DELAYS } from './constants.js';
-import { APIService } from './services/api-service.js';
+import { SCROLL_DELAYS, POSITIONING_DELAYS } from '../constants.js';
+import { APIService } from '../services/api-service.js';
 
 export class UIManager {
-    constructor(agentController, taskController, agentRenderer, canvasManager, modalManager, controlPanelManager) {
+    constructor(agentController, taskController, agentRenderer, canvasManager, modalManager, controlPanelManager, selectionHandler = null) {
         this.agentController = agentController;
         this.taskController = taskController;
         this.agentRenderer = agentRenderer;
         this.canvasManager = canvasManager;
         this.modalManager = modalManager;
         this.controlPanelManager = controlPanelManager;
+        this.selectionHandler = selectionHandler;
         this.taskManager = null; // Will be set externally
         this.agentManager = null; // Will be set externally for agent queries
     }
@@ -104,56 +106,16 @@ export class UIManager {
     }
     
     // ========================================
-    // Agent Selection Handler
+    // Agent Selection Handler (Delegated to SelectionHandler)
     // ========================================
     
     handleSelectAgent(agentId) {
-        console.log(`[UIManager] Selecting agent ${agentId}`);
-        
-        // Get previously selected agent
-        const previouslySelected = this.agentManager.getSelectedAgentId();
-        
-        // If clicking the already-selected agent, do nothing
-        if (previouslySelected === agentId) {
+        if (!this.selectionHandler) {
+            console.error('[UIManager] SelectionHandler not set');
             return;
         }
         
-        // Deselect previous agent
-        if (previouslySelected) {
-            this.agentRenderer.setSelected(previouslySelected, false);
-            this.taskController.hideTasksForAgent(previouslySelected);
-        }
-        
-        // Select new agent
-        this.agentManager.selectAgent(agentId);
-        this.agentRenderer.setSelected(agentId, true);
-        
-        // Update control panel with selected agent state
-        const selectedAgent = this.agentManager.getAgent(agentId);
-        if (selectedAgent) {
-            // Add hasFailedTasks flag to agent object for control panel
-            const agentWithTaskInfo = {
-                ...selectedAgent,
-                hasFailedTasks: this.taskManager?.hasFailedTasks(agentId)
-            };
-            this.controlPanelManager.updateForAgent(agentWithTaskInfo);
-        }
-        
-        // Show tasks for selected agent
-        this.taskController.showTasksForAgent(agentId);
-        
-        // Recalculate agent positions (selected agent moves right, unselected move left)
-        this.canvasManager.recalculateAgentPositions();
-        
-        // Recalculate task positions for the newly selected agent
-        if (this.taskManager.getAgentTasks(agentId)?.length > 0) {
-            this.taskController.positionTasksForAgent(agentId);
-        }
-        
-        // Persist selection to backend
-        APIService.selectAgent(agentId).catch(error => {
-            console.error(`[UIManager] Failed to persist agent selection: ${error}`);
-        });
+        this.selectionHandler.selectAgent(agentId);
     }
     
     // ========================================

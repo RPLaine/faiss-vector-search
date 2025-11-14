@@ -6,10 +6,12 @@
  * - Handle control panel events and delegate to handlers
  * - Enable/disable controls based on agent status
  * - Synchronize UI state with backend agent state
+ * 
+ * NOTE: Does NOT store selectedAgentId - gets it from AgentManager via handlers
  */
 
 export class ControlPanelManager {
-    constructor() {
+    constructor(taskManager = null) {
         // Control panel elements
         this.panel = document.getElementById('agentNodeControls');
         this.actionBtn = document.getElementById('controlPanelAction');
@@ -21,11 +23,11 @@ export class ControlPanelManager {
         this.haltLabel = document.getElementById('controlPanelHaltLabel');
         this.expandCheckbox = document.getElementById('controlPanelExpand');
         
-        // Current selected agent ID
-        this.selectedAgentId = null;
-        
         // Event handlers (will be set externally)
         this.handlers = {};
+        
+        // Get selected agent ID callback (injected from SelectionHandler)
+        this.getSelectedAgentId = null;
     }
     
     /**
@@ -43,8 +45,9 @@ export class ControlPanelManager {
         // Action button (Start/Stop/Redo)
         if (this.actionBtn && this.handlers.onAction) {
             this.actionBtn.addEventListener('click', () => {
-                if (this.selectedAgentId) {
-                    this.handlers.onAction(this.selectedAgentId);
+                const selectedAgentId = this.getSelectedAgentId?.();
+                if (selectedAgentId) {
+                    this.handlers.onAction(selectedAgentId);
                 }
             });
         }
@@ -52,8 +55,9 @@ export class ControlPanelManager {
         // Continue button
         if (this.continueBtn && this.handlers.onContinue) {
             this.continueBtn.addEventListener('click', () => {
-                if (this.selectedAgentId) {
-                    this.handlers.onContinue(this.selectedAgentId);
+                const selectedAgentId = this.getSelectedAgentId?.();
+                if (selectedAgentId) {
+                    this.handlers.onContinue(selectedAgentId);
                 }
             });
         }
@@ -61,8 +65,9 @@ export class ControlPanelManager {
         // Edit button
         if (this.editBtn && this.handlers.onEdit) {
             this.editBtn.addEventListener('click', () => {
-                if (this.selectedAgentId) {
-                    this.handlers.onEdit(this.selectedAgentId);
+                const selectedAgentId = this.getSelectedAgentId?.();
+                if (selectedAgentId) {
+                    this.handlers.onEdit(selectedAgentId);
                 }
             });
         }
@@ -70,8 +75,9 @@ export class ControlPanelManager {
         // Delete button
         if (this.deleteBtn && this.handlers.onDelete) {
             this.deleteBtn.addEventListener('click', () => {
-                if (this.selectedAgentId) {
-                    this.handlers.onDelete(this.selectedAgentId);
+                const selectedAgentId = this.getSelectedAgentId?.();
+                if (selectedAgentId) {
+                    this.handlers.onDelete(selectedAgentId);
                 }
             });
         }
@@ -79,8 +85,9 @@ export class ControlPanelManager {
         // Auto checkbox
         if (this.autoCheckbox && this.handlers.onAutoToggle) {
             this.autoCheckbox.addEventListener('change', (e) => {
-                if (this.selectedAgentId) {
-                    this.handlers.onAutoToggle(this.selectedAgentId, e.target.checked);
+                const selectedAgentId = this.getSelectedAgentId?.();
+                if (selectedAgentId) {
+                    this.handlers.onAutoToggle(selectedAgentId, e.target.checked);
                 }
             });
         }
@@ -88,8 +95,9 @@ export class ControlPanelManager {
         // Halt checkbox
         if (this.haltCheckbox && this.handlers.onHaltToggle) {
             this.haltCheckbox.addEventListener('change', (e) => {
-                if (this.selectedAgentId) {
-                    this.handlers.onHaltToggle(this.selectedAgentId, e.target.checked);
+                const selectedAgentId = this.getSelectedAgentId?.();
+                if (selectedAgentId) {
+                    this.handlers.onHaltToggle(selectedAgentId, e.target.checked);
                 }
             });
         }
@@ -97,8 +105,9 @@ export class ControlPanelManager {
         // Expand checkbox
         if (this.expandCheckbox && this.handlers.onExpandToggle) {
             this.expandCheckbox.addEventListener('change', (e) => {
-                if (this.selectedAgentId) {
-                    this.handlers.onExpandToggle(this.selectedAgentId, e.target.checked);
+                const selectedAgentId = this.getSelectedAgentId?.();
+                if (selectedAgentId) {
+                    this.handlers.onExpandToggle(selectedAgentId, e.target.checked);
                 }
             });
         }
@@ -112,8 +121,6 @@ export class ControlPanelManager {
             this._clearPanel();
             return;
         }
-        
-        this.selectedAgentId = agent.id;
         
         // Enable all controls
         this._enableControls();
@@ -140,27 +147,31 @@ export class ControlPanelManager {
      */
     _updateForStatus(status, agent) {
         const hasFailedTasks = agent.hasFailedTasks || false;
-        const haltEnabled = agent.halt || false;
+        
+        // Detect interrupted workflow when agent status is 'created' but tasks show execution started
+        const hasInterruptedWorkflow = (status === 'created' && this.taskManager) 
+            ? this.taskManager.hasInterruptedWorkflow(agent.id)
+            : false;
         
         if (status === 'running') {
             this._setActionButton('stop', '⏹️', 'Stop');
             this._showButton(this.actionBtn);
             this._hideButton(this.continueBtn);
             this._showControl(this.haltLabel);
-        } else if (status === 'halted') {
-            // Show "Redo" button only if there are failed tasks
-            if (hasFailedTasks) {
+        } else if (status === 'halted' || status === 'stopped' || hasInterruptedWorkflow) {
+            // Agent is halted, stopped, OR has interrupted workflow (cancelled mid-execution)
+            // In all cases: show Redo + Continue buttons
+            
+            // Show "Redo" button if there are failed tasks OR if this is a stopped/interrupted workflow
+            if (hasFailedTasks || status === 'stopped' || hasInterruptedWorkflow) {
                 this._setActionButton('redo', '🔄', 'Redo');
                 this._showButton(this.actionBtn);
             } else {
                 this._hideButton(this.actionBtn);
             }
             
-            if (haltEnabled) {
-                this._showButton(this.continueBtn);
-            } else {
-                this._hideButton(this.continueBtn);
-            }
+            // Show Continue button - user can continue from where they left off
+            this._showButton(this.continueBtn);
             this._hideControl(this.haltLabel);
         } else if (status === 'completed' || status === 'failed') {
             this._setActionButton('redo', '🔄', 'Restart');
@@ -168,7 +179,7 @@ export class ControlPanelManager {
             this._hideButton(this.continueBtn);
             this._showControl(this.haltLabel);
         } else {
-            // Default: created or unknown status
+            // Default: created status with no tasks started
             this._setActionButton('start', '▶️', 'Start');
             this._showButton(this.actionBtn);
             this._hideButton(this.continueBtn);
@@ -180,7 +191,6 @@ export class ControlPanelManager {
      * Clear control panel (no agent selected)
      */
     _clearPanel() {
-        this.selectedAgentId = null;
         this._disableControls();
         this._setActionButton('start', '▶️', 'Start');
         this._hideButton(this.continueBtn);
@@ -276,7 +286,8 @@ export class ControlPanelManager {
      */
     updateStatus(agentId, status, agent) {
         // Only update if this is the currently selected agent
-        if (this.selectedAgentId !== agentId) {
+        const selectedAgentId = this.getSelectedAgentId?.();
+        if (selectedAgentId !== agentId) {
             return;
         }
         

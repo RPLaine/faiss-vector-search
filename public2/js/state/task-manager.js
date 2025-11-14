@@ -13,8 +13,8 @@
  * - Layout calculations (delegated to TaskLayoutCalculator)
  */
 
-import { TaskLayoutCalculator } from './utils/task-layout-calculator.js';
-import { POSITIONING_DELAYS, LAYOUT_DIMENSIONS } from './constants.js';
+import { TaskLayoutCalculator } from '../utils/task-layout-calculator.js';
+import { POSITIONING_DELAYS, LAYOUT_DIMENSIONS } from '../constants.js';
 
 export class TaskManager {
     constructor(canvasManager, transitionManager) {
@@ -269,5 +269,81 @@ export class TaskManager {
         }
         
         return null;
+    }
+    
+    /**
+     * Check if agent has any completed tasks
+     */
+    hasCompletedTasks(agentId) {
+        const tasks = this.getSortedTasksForAgent(agentId);
+        
+        for (const taskData of tasks) {
+            if (!taskData || !taskData.element) continue;
+            
+            const statusEl = taskData.element.querySelector('.task-node-status');
+            if (!statusEl) continue;
+            
+            const status = statusEl.textContent.toLowerCase();
+            if (status === 'completed') {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Check if agent has any cancelled tasks
+     */
+    hasCancelledTasks(agentId) {
+        const tasks = this.getSortedTasksForAgent(agentId);
+        
+        for (const taskData of tasks) {
+            if (!taskData || !taskData.element) continue;
+            
+            const statusEl = taskData.element.querySelector('.task-node-status');
+            if (!statusEl) continue;
+            
+            const status = statusEl.textContent.toLowerCase();
+            if (status === 'cancelled') {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Check if agent has interrupted workflow
+     * (execution started but not finished - has completed/cancelled/failed tasks but also has created tasks)
+     */
+    hasInterruptedWorkflow(agentId) {
+        const tasks = this.getSortedTasksForAgent(agentId);
+        if (tasks.length === 0) return false;
+        
+        let hasExecutedTasks = false; // completed, failed, or cancelled
+        let hasUnexecutedTasks = false; // created
+        
+        for (const taskData of tasks) {
+            if (!taskData || !taskData.element) continue;
+            
+            const statusEl = taskData.element.querySelector('.task-node-status');
+            if (!statusEl) continue;
+            
+            const status = statusEl.textContent.toLowerCase();
+            
+            if (status === 'completed' || status === 'failed' || status === 'cancelled') {
+                hasExecutedTasks = true;
+            } else if (status === 'created') {
+                hasUnexecutedTasks = true;
+            }
+            
+            // Early exit if both conditions met
+            if (hasExecutedTasks && hasUnexecutedTasks) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 }

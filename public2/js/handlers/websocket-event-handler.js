@@ -150,8 +150,11 @@ export class WebSocketEventHandler {
         console.log('[WebSocket] agent_stopped:', data);
         const agentId = data.data.agent_id;
         
-        this.agentManager.updateAgentStatus(agentId, 'created');
-        this.uiManager.updateAgentStatus(agentId, 'created');
+        // Use 'stopped' status from backend (or default to 'stopped' if not provided)
+        const status = data.data.status || 'stopped';
+        
+        this.agentManager.updateAgentStatus(agentId, status);
+        this.uiManager.updateAgentStatus(agentId, status);
         this.statsService.update();
     }
     

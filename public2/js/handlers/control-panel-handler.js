@@ -48,7 +48,7 @@ export class ControlPanelHandler {
      * Handle action button click (Start/Stop/Restart)
      */
     async handleActionButton(agentId) {
-        const agent = this.agentManager.agents.get(agentId);
+        const agent = this.agentManager.getAgent(agentId);
         if (!agent) return;
         
         const action = this.controlPanelManager.actionBtn?.dataset.action;
@@ -56,9 +56,9 @@ export class ControlPanelHandler {
         if (action === 'start') {
             await this.agentController.startAgent(agentId);
         } else if (action === 'stop') {
-            await this.agentController.cancelAgent(agentId);
+            await this.agentController.stopAgent(agentId);
         } else if (action === 'redo') {
-            await this.agentController.redoAgent(agentId);
+            await this.agentController.redoPhase(agentId);
         }
     }
     
@@ -73,7 +73,7 @@ export class ControlPanelHandler {
      * Handle edit button click
      */
     handleEditAgent(agentId) {
-        const agent = this.agentManager.agents.get(agentId);
+        const agent = this.agentManager.getAgent(agentId);
         if (!agent) return;
         
         // Open edit modal via ModalManager
@@ -84,7 +84,7 @@ export class ControlPanelHandler {
      * Handle delete button click
      */
     async handleDeleteAgent(agentId) {
-        const agent = this.agentManager.agents.get(agentId);
+        const agent = this.agentManager.getAgent(agentId);
         if (!agent) return;
         
         // Confirm deletion
@@ -99,55 +99,26 @@ export class ControlPanelHandler {
      * Handle auto checkbox toggle
      */
     async handleAutoToggle(agentId, enabled) {
-        const agent = this.agentManager.agents.get(agentId);
-        if (!agent) return;
-        
-        // Update agent auto state
-        agent.auto = enabled;
-        
-        // Send to backend
-        await this.agentController.updateAgentAuto(agentId, enabled);
+        await this.agentController.toggleAuto(agentId, enabled);
     }
     
     /**
      * Handle halt checkbox toggle
      */
     async handleHaltToggle(agentId, enabled) {
-        const agent = this.agentManager.agents.get(agentId);
-        if (!agent) return;
-        
-        // Update agent halt state
-        agent.halt = enabled;
-        
-        // Send to backend
-        await this.agentController.updateAgentHalt(agentId, enabled);
+        await this.agentController.toggleHalt(agentId, enabled);
     }
     
     /**
      * Handle expand checkbox toggle
      */
     async handleExpandToggle(agentId, enabled) {
-        const agent = this.agentManager.agents.get(agentId);
-        if (!agent) return;
+        // Delegate to controller for all business logic and coordination
+        await this.agentController.toggleExpanded(agentId, enabled);
         
+        // After expand state changes, recalculate layout
         // Disable transitions for immediate repositioning
         this.canvasManager.addNoTransitionClass();
-        
-        // Update local state
-        agent.expanded = enabled;
-        
-        // Update agent node UI (add/remove expanded class)
-        const agentElement = document.querySelector(`[data-agent-id="${agentId}"]`);
-        if (agentElement) {
-            const contentElement = agentElement.querySelector('.agent-node-content');
-            if (contentElement) {
-                if (enabled) {
-                    contentElement.classList.add('expanded');
-                } else {
-                    contentElement.classList.remove('expanded');
-                }
-            }
-        }
         
         // Wait for DOM to update with new content height
         await new Promise(resolve => requestAnimationFrame(() => {

@@ -264,7 +264,7 @@ async def start_agent(agent_id: str, request_data: Optional[Dict[str, Any]] = No
 
 @app.post("/api/agents/{agent_id}/continue")
 async def continue_agent(agent_id: str):
-    """Continue a halted agent to the next phase."""
+    """Continue a halted or stopped agent to the next phase."""
     if not agent_manager:
         raise HTTPException(status_code=503, detail="Agent manager not initialized")
     
@@ -272,8 +272,9 @@ async def continue_agent(agent_id: str):
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     
-    if agent.get("status") != "halted":
-        raise HTTPException(status_code=409, detail="Agent is not halted")
+    # Accept both 'halted' and 'stopped' statuses for continue
+    if agent.get("status") not in ["halted", "stopped"]:
+        raise HTTPException(status_code=409, detail="Agent is not halted or stopped")
     
     # Clear the halt flag to allow execution to continue
     agent["halt"] = False
@@ -407,15 +408,16 @@ async def stop_agent(agent_id: str):
         task.cancel()
         logger.info(f"Cancelled task for agent {agent_id}")
     
-    # Update status
-    agent_manager.update_agent_status(agent_id, "created")
+    # Update status to 'stopped' (indicates interrupted workflow with partial completion)
+    agent_manager.update_agent_status(agent_id, "stopped")
     
-    # Broadcast stop event
+    # Broadcast stop event with status
     await broadcast_event({
         "type": "agent_stopped",
         "data": {
             "agent_id": agent_id,
-            "name": agent["name"]
+            "name": agent["name"],
+            "status": "stopped"
         }
     })
     
@@ -424,7 +426,7 @@ async def stop_agent(agent_id: str):
 
 @app.post("/api/agents/{agent_id}/redo")
 async def redo_phase(agent_id: str, request_data: Dict[str, Any]):
-    """Redo the current phase of a halted agent."""
+    """Redo the current phase of a halted or stopped agent."""
     if not agent_manager:
         raise HTTPException(status_code=503, detail="Agent manager not initialized")
     
@@ -432,8 +434,9 @@ async def redo_phase(agent_id: str, request_data: Dict[str, Any]):
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     
-    if agent.get("status") != "halted":
-        raise HTTPException(status_code=409, detail="Agent is not halted")
+    # Accept both 'halted' and 'stopped' statuses for redo
+    if agent.get("status") not in ["halted", "stopped"]:
+        raise HTTPException(status_code=409, detail="Agent is not halted or stopped")
     
     # Get current phase to redo
     current_phase = agent.get("current_phase", 0)
@@ -468,7 +471,7 @@ async def redo_phase(agent_id: str, request_data: Dict[str, Any]):
 
 @app.post("/api/agents/{agent_id}/redo-task")
 async def redo_failed_task(agent_id: str):
-    """Redo the first failed task for a halted agent."""
+    """Redo the first failed task for a halted or stopped agent."""
     if not agent_manager:
         raise HTTPException(status_code=503, detail="Agent manager not initialized")
     
@@ -476,8 +479,9 @@ async def redo_failed_task(agent_id: str):
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     
-    if agent.get("status") != "halted":
-        raise HTTPException(status_code=409, detail="Agent is not halted")
+    # Accept both 'halted' and 'stopped' statuses for redo-task
+    if agent.get("status") not in ["halted", "stopped"]:
+        raise HTTPException(status_code=409, detail="Agent is not halted or stopped")
     
     # Find first failed task
     tasklist = agent.get("tasklist", {})

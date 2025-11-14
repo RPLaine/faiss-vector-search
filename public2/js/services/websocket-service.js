@@ -2,7 +2,7 @@
  * WebSocket Service for AI Journalist Agents
  */
 
-import { NETWORK } from './constants.js';
+import { NETWORK } from '../constants.js';
 
 export class WebSocketService {
     constructor(url) {

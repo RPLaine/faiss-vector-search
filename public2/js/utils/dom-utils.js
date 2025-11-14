@@ -128,4 +128,13 @@ export class DOMUtils {
             });
         }
     }
+    
+    /**
+     * Scroll element to bottom (useful for auto-scrolling content as it streams)
+     */
+    static scrollToBottom(element) {
+        if (element) {
+            element.scrollTop = element.scrollHeight;
+        }
+    }
 }

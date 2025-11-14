@@ -5,6 +5,9 @@
  * All timing values are in milliseconds.
  */
 
+// Re-export status constants
+export * from './constants/status-constants.js';
+
 // ========================================
 // Animation & Transition Durations
 // ========================================
@@ -80,9 +83,9 @@ export const SCROLL_DELAYS = {
     // Expand/collapse recentering
     RECENTER_AFTER_EXPAND: 400,         // Wait for expand transition
     
-    // Scroll animation durations
-    SCROLL_ANIMATION_MIN: 1500,         // Minimum scroll animation duration
-    SCROLL_ANIMATION_MAX: 4000,         // Maximum scroll animation duration
+    // Scroll animation durations (reduced for snappier feel)
+    SCROLL_ANIMATION_MIN: 400,          // Minimum scroll animation duration (was 1500)
+    SCROLL_ANIMATION_MAX: 1200,         // Maximum scroll animation duration (was 4000)
     SCROLL_DEBOUNCE: 150                // Scroll handler debounce delay
 };
 

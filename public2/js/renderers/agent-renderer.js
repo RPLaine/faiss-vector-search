@@ -172,7 +172,7 @@ export class AgentRenderer {
         }
         
         // Auto-scroll
-        contentDiv.scrollTop = contentDiv.scrollHeight;
+        DOMUtils.scrollToBottom(contentDiv);
     }
     
     /**

@@ -145,6 +145,83 @@ body {
     color: var(--color-text-secondary);
 }
 
+/* Agent Node Controls Panel (below header, affects selected agent) */
+.agent-node-controls-panel {
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border);
+    padding: var(--space-md) var(--space-xl);
+    position: sticky;
+    top: 72px; /* Below header */
+    z-index: 99;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+.controls-panel-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-lg);
+}
+
+.controls-panel-left {
+    display: flex;
+    gap: var(--space-sm);
+    align-items: center;
+}
+
+.controls-panel-right {
+    display: flex;
+    gap: var(--space-md);
+    align-items: center;
+}
+
+.agent-node-controls-panel .btn {
+    padding: var(--space-sm) var(--space-md);
+    font-size: 12px;
+}
+
+.agent-node-controls-panel .auto-control {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    padding: var(--space-sm);
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    transition: all var(--transition-fast);
+    font-weight: 500;
+}
+
+.agent-node-controls-panel .auto-control:hover:not(:has(input:disabled)) {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-light);
+}
+
+.agent-node-controls-panel .auto-control:has(input:disabled) {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.agent-node-controls-panel input[type="checkbox"] {
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+    accent-color: var(--color-accent-primary);
+}
+
+.agent-node-controls-panel input[type="checkbox"]:disabled {
+    cursor: not-allowed;
+}
+
 /* Control Panel (now integrated in header) */
 .control-group {
     display: flex;
@@ -589,54 +666,12 @@ body {
     animation: pulse 2s infinite;
 }
 
-.agent-node-controls {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: var(--space-sm);
-    align-items: center;
-    margin-bottom: var(--space-md);
+/* Old agent-node-controls section removed - controls now in centralized panel */
+
+/* Agent Node Body */
+.agent-node-content {
+    transition: all var(--transition-normal);
 }
-
-.agent-node-controls .btn {
-    justify-content: center;
-    padding: var(--space-sm) var(--space-md);
-    font-size: 12px;
-    white-space: nowrap;
-}
-
-.agent-node-controls .auto-control {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-xs);
-    font-size: 11px;
-    color: var(--color-text-secondary);
-    padding: var(--space-sm);
-    cursor: pointer;
-    -webkit-user-select: none;
-    user-select: none;
-    background: var(--color-bg-tertiary);
-    border: 1px solid var(--color-border);
-    border-radius: var(--border-radius);
-    transition: all var(--transition-fast);
-    font-weight: 500;
-}
-
-.agent-node-controls .auto-control:hover {
-    background: var(--color-bg-hover);
-    border-color: var(--color-border-light);
-}
-
-.agent-node-controls input[type="checkbox"] {
-    cursor: pointer;
-    width: 14px;
-    height: 14px;
-    accent-color: var(--color-accent-primary);
-}
-
-/* Old agent card styles removed - using canvas-based nodes now */
-
-/* Task Nodes */
 .task-node {
     position: absolute;
     background: var(--color-bg-secondary);

@@ -2,11 +2,12 @@
  * Agent Renderer - Pure agent DOM rendering
  * 
  * Responsibilities:
- * - Create agent DOM elements
+ * - Create agent DOM elements (no controls - controls are in centralized panel)
  * - Update agent UI elements
  * - NO business logic
  * - NO API calls
  * - NO state management
+ * - NO control button management (handled by ControlPanelManager)
  */
 
 import { MarkdownFormatter } from '../utils/markdown-formatter.js';
@@ -71,36 +72,6 @@ export class AgentRenderer {
             <div class="agent-node-meta">
                 <span>Temp: ${agent.temperature || 'N/A'}</span>
             </div>
-            <div class="agent-node-controls">
-                <button type="button" class="btn btn-primary btn-action" data-agent-id="${agent.id}" data-action="start">
-                    <span class="btn-icon">▶️</span>
-                    <span class="btn-text">Start</span>
-                </button>
-                <button type="button" class="btn btn-primary btn-continue" data-agent-id="${agent.id}" style="display: none;">
-                    <span class="btn-icon">⏩</span>
-                    Continue
-                </button>
-                <button type="button" class="btn btn-secondary btn-edit" data-agent-id="${agent.id}">
-                    <span class="btn-icon">✏️</span>
-                    Edit
-                </button>
-                <button type="button" class="btn btn-secondary btn-delete" data-agent-id="${agent.id}">
-                    <span class="btn-icon">🗑️</span>
-                    Delete
-                </button>
-                <label class="auto-control">
-                    <input type="checkbox" class="auto-checkbox" data-agent-id="${agent.id}" ${agent.auto ? 'checked' : ''}>
-                    Auto
-                </label>
-                <label class="auto-control halt-control" data-agent-id="${agent.id}">
-                    <input type="checkbox" class="halt-checkbox" data-agent-id="${agent.id}" ${agent.halt ? 'checked' : ''}>
-                    Halt
-                </label>
-                <label class="auto-control">
-                    <input type="checkbox" class="expand-checkbox" data-agent-id="${agent.id}" ${agent.expanded ? 'checked' : ''}>
-                    Expand
-                </label>
-            </div>
             <div class="agent-node-content content-container ${agent.expanded ? 'expanded' : ''}" id="content-container-${agent.id}">
                 <div class="content-text" id="content-${agent.id}">${agent.phase_0_response ? MarkdownFormatter.formatJSON(agent.phase_0_response) : 'Waiting to start...'}</div>
             </div>
@@ -111,47 +82,8 @@ export class AgentRenderer {
      * Attach event listeners to agent node
      */
     _attachEventListeners(node, agentId, handlers) {
-        // Action button (Start/Stop/Redo)
-        const actionBtn = node.querySelector('.btn-action');
-        if (actionBtn && handlers.onAction) {
-            actionBtn.addEventListener('click', () => handlers.onAction(agentId));
-        }
-        
-        // Continue button
-        const continueBtn = node.querySelector('.btn-continue');
-        if (continueBtn && handlers.onContinue) {
-            continueBtn.addEventListener('click', () => handlers.onContinue(agentId));
-        }
-        
-        // Edit button
-        const editBtn = node.querySelector('.btn-edit');
-        if (editBtn && handlers.onEdit) {
-            editBtn.addEventListener('click', () => handlers.onEdit(agentId));
-        }
-        
-        // Delete button
-        const deleteBtn = node.querySelector('.btn-delete');
-        if (deleteBtn && handlers.onDelete) {
-            deleteBtn.addEventListener('click', () => handlers.onDelete(agentId));
-        }
-        
-        // Auto checkbox
-        const autoCheckbox = node.querySelector('.auto-checkbox');
-        if (autoCheckbox && handlers.onAutoToggle) {
-            autoCheckbox.addEventListener('change', (e) => handlers.onAutoToggle(agentId, e.target.checked));
-        }
-        
-        // Halt checkbox
-        const haltCheckbox = node.querySelector('.halt-checkbox');
-        if (haltCheckbox && handlers.onHaltToggle) {
-            haltCheckbox.addEventListener('change', (e) => handlers.onHaltToggle(agentId, e.target.checked));
-        }
-        
-        // Expand checkbox
-        const expandCheckbox = node.querySelector('.expand-checkbox');
-        if (expandCheckbox && handlers.onExpandToggle) {
-            expandCheckbox.addEventListener('change', (e) => handlers.onExpandToggle(agentId, e.target.checked));
-        }
+        // No controls on agent nodes anymore - selection is the only interaction
+        // All control interactions are handled by ControlPanelManager
     }
     
     /**
@@ -213,78 +145,6 @@ export class AgentRenderer {
         if (metaEl) {
             metaEl.innerHTML = `<span>Temp: ${agent.temperature || 'N/A'}</span>`;
         }
-        
-        // Update checkboxes
-        const autoCheckbox = node.querySelector('.auto-checkbox');
-        if (autoCheckbox) autoCheckbox.checked = agent.auto || false;
-        
-        const haltCheckbox = node.querySelector('.halt-checkbox');
-        if (haltCheckbox) haltCheckbox.checked = agent.halt || false;
-        
-        const expandCheckbox = node.querySelector('.expand-checkbox');
-        if (expandCheckbox) expandCheckbox.checked = agent.expanded || false;
-    }
-    
-    /**
-     * Set action button state
-     */
-    setActionButton(agentId, action, icon, text) {
-        const node = document.getElementById(`agent-${agentId}`);
-        if (!node) return;
-        
-        const actionBtn = node.querySelector('.btn-action');
-        if (!actionBtn) return;
-        
-        actionBtn.dataset.action = action;
-        
-        const iconSpan = actionBtn.querySelector('.btn-icon');
-        const textSpan = actionBtn.querySelector('.btn-text');
-        
-        if (iconSpan) iconSpan.textContent = icon;
-        if (textSpan) textSpan.textContent = text;
-        
-        // Update button style
-        if (action === 'stop') {
-            actionBtn.classList.remove('btn-primary');
-            actionBtn.classList.add('btn-danger');
-        } else {
-            actionBtn.classList.remove('btn-danger');
-            actionBtn.classList.add('btn-primary');
-        }
-    }
-    
-    /**
-     * Show/hide buttons
-     */
-    showButton(agentId, selector) {
-        const node = document.getElementById(`agent-${agentId}`);
-        if (!node) return;
-        const btn = node.querySelector(selector);
-        if (btn) DOMUtils.show(btn);
-    }
-    
-    hideButton(agentId, selector) {
-        const node = document.getElementById(`agent-${agentId}`);
-        if (!node) return;
-        const btn = node.querySelector(selector);
-        if (btn) DOMUtils.hide(btn);
-    }
-    
-    /**
-     * Show/hide controls
-     */
-    showControl(agentId, selector) {
-        const node = document.getElementById(`agent-${agentId}`);
-        if (!node) return;
-        const control = node.querySelector(selector);
-        if (control) DOMUtils.show(control);
-    }
-    
-    hideControl(agentId, selector) {
-        const node = document.getElementById(`agent-${agentId}`);
-        if (!node) return;
-        const control = node.querySelector(selector);
-        if (control) DOMUtils.hide(control);
     }
     
     /**

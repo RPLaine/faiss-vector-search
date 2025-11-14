@@ -2,7 +2,7 @@
  * AI Journalist Agents Demo - Main Application
  * 
  * Clean Architecture:
- * - Service Layer: APIService, WebSocketService, StatsService, FormHandler, LoggerService, ModalManager, TransitionManager
+ * - Service Layer: APIService, WebSocketService, StatsService, FormHandler, LoggerService, ModalManager, TransitionManager, ControlPanelManager
  * - Handler Layer: WebSocketEventHandler
  * - Controller Layer: AgentController, TaskController
  * - Renderer Layer: AgentRenderer, TaskRenderer
@@ -20,6 +20,7 @@ import { FormHandler } from './services/form-handler.js';
 import { LoggerService } from './services/logger-service.js';
 import { ModalManager } from './services/modal-manager.js';
 import { TransitionManager } from './services/transition-manager.js';
+import { ControlPanelManager } from './services/control-panel-manager.js';
 import { WebSocketEventHandler } from './handlers/websocket-event-handler.js';
 import { AgentController } from './controllers/agent-controller.js';
 import { TaskController } from './controllers/task-controller.js';
@@ -36,6 +37,7 @@ class App {
         this.transitionManager = new TransitionManager();
         this.modalManager = new ModalManager();
         this.modalManager.setupGlobalClosers();
+        this.controlPanelManager = new ControlPanelManager();
         
         // State managers (Note: TaskManager is injected into CanvasManager for connection lines)
         this.agentManager = new AgentManager();
@@ -66,7 +68,8 @@ class App {
             this.taskController,
             this.agentRenderer,
             this.canvasManager,
-            this.modalManager
+            this.modalManager,
+            this.controlPanelManager
         );
         this.uiManager.taskManager = this.taskManager;
         this.uiManager.agentManager = this.agentManager; // Inject AgentManager

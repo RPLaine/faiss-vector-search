@@ -17,14 +17,33 @@ import { SCROLL_DELAYS } from './constants.js';
 import { APIService } from './services/api-service.js';
 
 export class UIManager {
-    constructor(agentController, taskController, agentRenderer, canvasManager, modalManager) {
+    constructor(agentController, taskController, agentRenderer, canvasManager, modalManager, controlPanelManager) {
         this.agentController = agentController;
         this.taskController = taskController;
         this.agentRenderer = agentRenderer;
         this.canvasManager = canvasManager;
         this.modalManager = modalManager;
+        this.controlPanelManager = controlPanelManager;
         this.taskManager = null; // Will be set externally
         this.agentManager = null; // Will be set externally for agent queries
+        
+        // Setup control panel event handlers
+        this._setupControlPanelHandlers();
+    }
+    
+    /**
+     * Setup control panel event handlers
+     */
+    _setupControlPanelHandlers() {
+        this.controlPanelManager.setHandlers({
+            onAction: (agentId) => this.handleActionButton(agentId),
+            onContinue: (agentId) => this.handleContinueAgent(agentId),
+            onEdit: (agentId) => this.handleEditAgent(agentId),
+            onDelete: (agentId) => this.handleDeleteAgent(agentId),
+            onAutoToggle: (agentId, enabled) => this.handleAutoToggle(agentId, enabled),
+            onHaltToggle: (agentId, enabled) => this.handleHaltToggle(agentId, enabled),
+            onExpandToggle: (agentId, enabled) => this.handleExpandToggle(agentId, enabled)
+        });
     }
     
     // ========================================
@@ -51,15 +70,8 @@ export class UIManager {
     // ========================================
     
     renderAgent(agent) {
-        // Define event handlers for agent node
+        // Define event handlers for agent node (selection only)
         const eventHandlers = {
-            onAction: (agentId) => this.handleActionButton(agentId),
-            onContinue: (agentId) => this.handleContinueAgent(agentId),
-            onEdit: (agentId) => this.handleEditAgent(agentId),
-            onDelete: (agentId) => this.handleDeleteAgent(agentId),
-            onAutoToggle: (agentId, enabled) => this.handleAutoToggle(agentId, enabled),
-            onHaltToggle: (agentId, enabled) => this.handleHaltToggle(agentId, enabled),
-            onExpandToggle: (agentId, enabled) => this.handleExpandToggle(agentId, enabled),
             onSelect: (agentId) => this.handleSelectAgent(agentId)
         };
         
@@ -200,6 +212,17 @@ export class UIManager {
         this.agentManager.selectAgent(agentId);
         this.agentRenderer.setSelected(agentId, true);
         
+        // Update control panel with selected agent state
+        const selectedAgent = this.agentManager.getAgent(agentId);
+        if (selectedAgent) {
+            // Add hasFailedTasks flag to agent object for control panel
+            const agentWithTaskInfo = {
+                ...selectedAgent,
+                hasFailedTasks: this.taskManager?.hasFailedTasks(agentId)
+            };
+            this.controlPanelManager.updateForAgent(agentWithTaskInfo);
+        }
+        
         // Show tasks for selected agent
         this.taskController.showTasksForAgent(agentId);
         
@@ -227,37 +250,18 @@ export class UIManager {
         // Update renderer
         this.agentRenderer.updateStatus(agentId, status);
         
-        // Update button visibility based on status
+        // Get agent info for control panel update
         const agent = this.agentManager?.getAgent(agentId);
-        const haltEnabled = agent?.halt || false;
         const hasFailedTasks = this.taskManager?.hasFailedTasks(agentId);
         
-        if (status === 'running') {
-            this.agentRenderer.setActionButton(agentId, 'stop', '⏹️', 'Stop');
-            this.agentRenderer.hideButton(agentId, '.btn-continue');
-            this.agentRenderer.showControl(agentId, '.halt-control');
-        } else if (status === 'halted') {
-            // Show "Redo" button only if there are failed tasks
-            if (hasFailedTasks) {
-                this.agentRenderer.setActionButton(agentId, 'redo', '🔄', 'Redo');
-                this.agentRenderer.showButton(agentId, '.btn-action');
-            } else {
-                this.agentRenderer.hideButton(agentId, '.btn-action');
-            }
-            
-            if (haltEnabled) {
-                this.agentRenderer.showButton(agentId, '.btn-continue');
-            }
-            this.agentRenderer.hideControl(agentId, '.halt-control');
-        } else if (status === 'completed' || status === 'failed') {
-            // For completed/failed agents, button should say "Restart"
-            this.agentRenderer.setActionButton(agentId, 'redo', '🔄', 'Restart');
-            this.agentRenderer.hideButton(agentId, '.btn-continue');
-            this.agentRenderer.showControl(agentId, '.halt-control');
-        } else {
-            this.agentRenderer.setActionButton(agentId, 'start', '▶️', 'Start');
-            this.agentRenderer.hideButton(agentId, '.btn-continue');
-            this.agentRenderer.showControl(agentId, '.halt-control');
+        // Update control panel if this is the selected agent
+        if (agent) {
+            const agentWithTaskInfo = {
+                ...agent,
+                hasFailedTasks: hasFailedTasks,
+                status: status
+            };
+            this.controlPanelManager.updateStatus(agentId, status, agentWithTaskInfo);
         }
     }
     

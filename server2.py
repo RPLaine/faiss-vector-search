@@ -57,6 +57,20 @@ agent_manager: Optional[AgentManager] = None
 workflow_executor: Optional[WorkflowExecutor] = None
 
 
+async def broadcast_event(data: Dict[str, Any]):
+    """Broadcast event to all WebSocket clients."""
+    if not active_connections:
+        return
+        
+    logger.info(f"Broadcasting to {len(active_connections)} clients: {data.get('type', 'unknown')}")
+    
+    for connection in active_connections:
+        try:
+            await connection.send_json(data)
+        except Exception as e:
+            logger.warning(f"Failed to send event: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown events."""
@@ -131,20 +145,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-async def broadcast_event(data: Dict[str, Any]):
-    """Broadcast event to all WebSocket clients."""
-    if not active_connections:
-        return
-        
-    logger.info(f"Broadcasting to {len(active_connections)} clients: {data.get('type', 'unknown')}")
-    
-    for connection in active_connections:
-        try:
-            await connection.send_json(data)
-        except Exception as e:
-            logger.warning(f"Failed to send event: {e}")
 
 
 # API Endpoints
@@ -660,14 +660,14 @@ async def run_agent(agent_id: str):
         
     except asyncio.CancelledError:
         logger.info(f"Agent {agent_id} was cancelled")
-        agent_manager.update_agent_status(agent_id, "created")
+        # Don't update status - already handled by stop endpoint (status set to "stopped")
         # Don't broadcast - already handled by stop endpoint
         
     except Exception as e:
         # Check if it's a cancellation exception
         if "cancelled" in str(e).lower() or agent.get("cancelled", False):
             logger.info(f"Agent {agent_id} was cancelled during LLM call")
-            agent_manager.update_agent_status(agent_id, "created")
+            # Don't update status - already handled by stop endpoint (status set to "stopped")
             # Don't broadcast - already handled by stop endpoint
         else:
             logger.error(f"Agent {agent_id} failed: {e}")

@@ -203,13 +203,15 @@ export class CanvasInitializer {
         // Create tasks
         this.taskController.createTasksForAgent(agentId, tasklist);
         
-        // Only show tasks if this agent is selected
+        // Show or hide tasks based on selection state
         const isSelected = this.agentManager.isAgentSelected(agentId);
-        if (!isSelected) {
-            setTimeout(() => {
+        setTimeout(() => {
+            if (isSelected) {
+                this.taskController.showTasksForAgent(agentId);
+            } else {
                 this.taskController.hideTasksForAgent(agentId);
-            }, POSITIONING_DELAYS.TASK_POSITION_DELAY + 100);
-        }
+            }
+        }, POSITIONING_DELAYS.TASK_POSITION_DELAY + 100);
     }
     
     /**

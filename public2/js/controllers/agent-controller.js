@@ -39,7 +39,7 @@ export class AgentController {
         
         // Update UI
         this.renderer.clearContent(agentId);
-        this.renderer.setActionButton(agentId, 'stop', '⏹️', 'Stop');
+        // Note: Action buttons are managed by ControlPanelManager based on status
         
         console.log(`[Agent ${agentId}] Started successfully`);
     }
@@ -76,8 +76,7 @@ export class AgentController {
             throw new Error(result.error);
         }
         
-        // Update UI
-        this.renderer.hideButton(agentId, '.btn-continue');
+        // Note: Control panel updates automatically via status changes
         
         console.log(`[Agent ${agentId}] Continued successfully`);
     }
@@ -108,7 +107,7 @@ export class AgentController {
             
             // Update UI
             this.renderer.clearContent(agentId);
-            this.renderer.setActionButton(agentId, 'stop', '⏹️', 'Stop');
+            // Note: Action buttons are managed by ControlPanelManager based on status
             
             console.log(`[Agent ${agentId}] Restart initiated`);
         } else if (agent.status === 'halted') {
@@ -129,8 +128,7 @@ export class AgentController {
                     throw new Error(result.error);
                 }
                 
-                // Update UI - task will be reset via WebSocket event
-                this.renderer.setActionButton(agentId, 'stop', '⏹️', 'Stop');
+                // Note: Control panel updates automatically via status changes
                 
                 console.log(`[Agent ${agentId}] Task redo initiated`);
             } else {
@@ -149,7 +147,7 @@ export class AgentController {
                 
                 // Update UI
                 this.renderer.clearContent(agentId);
-                this.renderer.setActionButton(agentId, 'stop', '⏹️', 'Stop');
+                // Note: Action buttons are managed by ControlPanelManager based on status
                 
                 console.log(`[Agent ${agentId}] Redo initiated`);
             }

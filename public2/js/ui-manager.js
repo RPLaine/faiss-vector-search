@@ -11,6 +11,7 @@
  * - Business logic (delegated to controllers)
  * - API calls (delegated to controllers → APIService)
  * - Modal management (delegated to ModalManager)
+ * - Control panel events (delegated to ControlPanelHandler)
  */
 
 import { SCROLL_DELAYS, POSITIONING_DELAYS } from './constants.js';
@@ -26,24 +27,6 @@ export class UIManager {
         this.controlPanelManager = controlPanelManager;
         this.taskManager = null; // Will be set externally
         this.agentManager = null; // Will be set externally for agent queries
-        
-        // Setup control panel event handlers
-        this._setupControlPanelHandlers();
-    }
-    
-    /**
-     * Setup control panel event handlers
-     */
-    _setupControlPanelHandlers() {
-        this.controlPanelManager.setHandlers({
-            onAction: (agentId) => this.handleActionButton(agentId),
-            onContinue: (agentId) => this.handleContinueAgent(agentId),
-            onEdit: (agentId) => this.handleEditAgent(agentId),
-            onDelete: (agentId) => this.handleDeleteAgent(agentId),
-            onAutoToggle: (agentId, enabled) => this.handleAutoToggle(agentId, enabled),
-            onHaltToggle: (agentId, enabled) => this.handleHaltToggle(agentId, enabled),
-            onExpandToggle: (agentId, enabled) => this.handleExpandToggle(agentId, enabled)
-        });
     }
     
     // ========================================
@@ -121,97 +104,8 @@ export class UIManager {
     }
     
     // ========================================
-    // Agent Event Handlers (Delegate to Controller)
+    // Agent Selection Handler
     // ========================================
-    
-    async handleActionButton(agentId) {
-        const node = document.getElementById(`agent-${agentId}`);
-        if (!node) return;
-        
-        const actionBtn = node.querySelector('.btn-action');
-        if (!actionBtn) return;
-        
-        const action = actionBtn.dataset.action;
-        
-        try {
-            if (action === 'start') {
-                await this.agentController.startAgent(agentId);
-            } else if (action === 'stop') {
-                await this.agentController.stopAgent(agentId);
-            } else if (action === 'redo') {
-                await this.agentController.redoPhase(agentId);
-            }
-        } catch (error) {
-            console.error(`Action '${action}' failed:`, error);
-            alert(`Failed to ${action} agent: ${error.message}`);
-        }
-    }
-    
-    async handleContinueAgent(agentId) {
-        try {
-            await this.agentController.continueAgent(agentId);
-        } catch (error) {
-            console.error('Continue failed:', error);
-            alert(`Failed to continue agent: ${error.message}`);
-        }
-    }
-    
-    handleEditAgent(agentId) {
-        const agent = this.agentManager?.getAgent(agentId);
-        if (!agent) {
-            alert('Agent not found');
-            return;
-        }
-        
-        if (agent.status === 'running') {
-            alert('Cannot edit a running agent. Please stop it first.');
-            return;
-        }
-        
-        // Populate and open edit modal via ModalManager
-        this.modalManager.populateEditAgentModal(agent);
-        this.modalManager.openEditAgentModal();
-    }
-    
-    async handleDeleteAgent(agentId) {
-        try {
-            const deleted = await this.agentController.deleteAgent(agentId);
-            // Deletion is handled by WebSocket event
-        } catch (error) {
-            console.error('Delete failed:', error);
-            alert(`Failed to delete agent: ${error.message}`);
-        }
-    }
-    
-    async handleAutoToggle(agentId, enabled) {
-        await this.agentController.toggleAuto(agentId, enabled);
-    }
-    
-    async handleHaltToggle(agentId, enabled) {
-        await this.agentController.toggleHalt(agentId, enabled);
-    }
-    
-    async handleExpandToggle(agentId, enabled) {
-        // Disable transitions for immediate repositioning
-        this.canvasManager.addNoTransitionClass();
-        
-        await this.agentController.toggleExpanded(agentId, enabled);
-        
-        // Wait for DOM to update with new content height
-        await new Promise(resolve => requestAnimationFrame(() => {
-            requestAnimationFrame(resolve);
-        }));
-        
-        // Recalculate positions immediately (no animation)
-        this.canvasManager.recalculateAllPositions();
-        
-        // Re-enable transitions after recalculation completes
-        setTimeout(() => {
-            this.canvasManager.removeNoTransitionClass();
-            // Then recenter the agent smoothly
-            this.canvasManager.scrollAgentToCenter(agentId);
-        }, POSITIONING_DELAYS.EXPAND_TRANSITION_REENABLE);
-    }
     
     handleSelectAgent(agentId) {
         console.log(`[UIManager] Selecting agent ${agentId}`);

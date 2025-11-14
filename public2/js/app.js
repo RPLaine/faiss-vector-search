@@ -3,7 +3,7 @@
  * 
  * Clean Architecture:
  * - Service Layer: APIService, WebSocketService, StatsService, FormHandler, LoggerService, ModalManager, TransitionManager, ControlPanelManager
- * - Handler Layer: WebSocketEventHandler
+ * - Handler Layer: WebSocketEventHandler, ControlPanelHandler
  * - Controller Layer: AgentController, TaskController
  * - Renderer Layer: AgentRenderer, TaskRenderer
  * - State Layer: AgentManager, TaskManager
@@ -22,6 +22,7 @@ import { ModalManager } from './services/modal-manager.js';
 import { TransitionManager } from './services/transition-manager.js';
 import { ControlPanelManager } from './services/control-panel-manager.js';
 import { WebSocketEventHandler } from './handlers/websocket-event-handler.js';
+import { ControlPanelHandler } from './handlers/control-panel-handler.js';
 import { AgentController } from './controllers/agent-controller.js';
 import { TaskController } from './controllers/task-controller.js';
 import { AgentRenderer } from './renderers/agent-renderer.js';
@@ -61,6 +62,15 @@ class App {
             this.taskManager  // Inject TaskManager for failed task queries
         );
         this.taskController = new TaskController(this.taskManager, this.taskRenderer, this.canvasManager, this.agentManager);
+        
+        // Handlers (event handling layer)
+        this.controlPanelHandler = new ControlPanelHandler(
+            this.agentController,
+            this.modalManager,
+            this.controlPanelManager,
+            this.agentManager,
+            this.canvasManager
+        );
         
         // UI Manager (coordination) with dependency injection
         this.uiManager = new UIManager(

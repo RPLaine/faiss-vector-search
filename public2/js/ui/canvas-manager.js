@@ -310,6 +310,7 @@ export class CanvasManager {
     /**
      * Center an agent in the viewport by adjusting camera position
      * Uses smooth animated camera movement with centralized animation utilities
+     * Positions agent both vertically (centered) and horizontally (same as initialization)
      */
     scrollAgentToCenter(agentId) {
         const agent = this.agents.get(agentId);
@@ -317,9 +318,25 @@ export class CanvasManager {
         
         const agentElement = agent.element;
         const agentHeight = agentElement.offsetHeight || LAYOUT_DIMENSIONS.AGENT_DEFAULT_HEIGHT;
+        const viewportWidth = this.canvas.width;
         const viewportHeight = this.canvas.height;
         
-        // Calculate target camera Y to center the agent
+        // Calculate target horizontal position (same as initialization)
+        // During initialization, agents are positioned at leftMargin (selected) or leftMargin - halfWidth (unselected)
+        const agentWidth = LAYOUT_DIMENSIONS.AGENT_ESTIMATED_WIDTH;
+        const gapWidth = LAYOUT_DIMENSIONS.GAP_AGENT_TO_TASK;
+        const taskWidth = LAYOUT_DIMENSIONS.TASK_WIDTH;
+        const totalContentWidth = agentWidth + gapWidth + taskWidth;
+        const horizontalCenter = (viewportWidth - totalContentWidth) / 2;
+        const leftMargin = Math.max(LAYOUT_DIMENSIONS.CANVAS_MIN_MARGIN, horizontalCenter);
+        
+        // Selected agents should appear at leftMargin in screen coordinates
+        // screenX = globalX - camera.x
+        // leftMargin = agent.globalX - camera.x
+        // camera.x = agent.globalX - leftMargin
+        const targetCameraX = agent.globalX - leftMargin;
+        
+        // Calculate target camera Y to center the agent vertically
         // Agent global center Y
         const agentCenterGlobalY = agent.globalY + (agentHeight / 2);
         
@@ -329,21 +346,27 @@ export class CanvasManager {
         // camera.y = agentCenterGlobalY - viewportHeight/2
         const targetCameraY = agentCenterGlobalY - (viewportHeight / 2);
         
-        // Calculate animation duration based on distance
+        // Calculate animation duration based on total distance (both X and Y)
+        const startCameraX = this.camera.x;
         const startCameraY = this.camera.y;
-        const cameraChange = targetCameraY - startCameraY;
+        const cameraChangeX = targetCameraX - startCameraX;
+        const cameraChangeY = targetCameraY - startCameraY;
+        const totalDistance = Math.sqrt(cameraChangeX * cameraChangeX + cameraChangeY * cameraChangeY);
         const duration = Math.min(
             SCROLL_DELAYS.SCROLL_ANIMATION_MAX, 
-            Math.max(SCROLL_DELAYS.SCROLL_ANIMATION_MIN, Math.abs(cameraChange) / 2)
+            Math.max(SCROLL_DELAYS.SCROLL_ANIMATION_MIN, totalDistance / 2)
         );
         
         // Use centralized animation with easeInOutQuad for smooth acceleration and deceleration
+        // Animate both X and Y camera positions simultaneously
         AnimationUtils.animateValue(
-            startCameraY,
-            targetCameraY,
+            0,  // Start at 0
+            1,  // End at 1 (progress ratio)
             duration,
-            (newCameraY) => {
-                this.camera.y = newCameraY;
+            (progress) => {
+                // Interpolate both camera positions
+                this.camera.x = startCameraX + (cameraChangeX * progress);
+                this.camera.y = startCameraY + (cameraChangeY * progress);
                 // Update all positions and connections
                 this.updateAllElementPositions();
                 this.connectionLinesManager.updateAllConnections();

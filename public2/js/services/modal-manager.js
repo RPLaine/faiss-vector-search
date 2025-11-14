@@ -76,6 +76,14 @@ export class ModalManager {
         };
     }
     
+    /**
+     * Convenience method: populate and show edit modal
+     */
+    showEditModal(agent) {
+        this.populateEditAgentModal(agent);
+        this.openEditAgentModal();
+    }
+    
     // ========================================
     // Global Modal Helpers (for onclick handlers)
     // ========================================

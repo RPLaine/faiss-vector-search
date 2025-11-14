@@ -5,9 +5,14 @@
  * - Add/remove no-transition class to agent nodes
  * - Add/remove no-transition class to task nodes
  * - Add/remove no-transition class to SVG connection lines
+ * - Set/clear inline transition styles for SVG paths (required for 'd' attribute transitions)
  * 
  * Purpose: Disable transitions during drag/scroll for immediate updates,
  *          re-enable transitions after interaction completes for smooth animations
+ * 
+ * CRITICAL: SVG path elements require BOTH className changes AND inline style.transition
+ *           to properly disable transitions on the 'd' attribute in all browsers.
+ *           Other code should NEVER set inline transition styles on SVG paths to avoid conflicts.
  * 
  * Separation: Pure CSS transition state management, no positioning logic
  */
@@ -72,13 +77,16 @@ export class TransitionManager {
             }
         }
         
-        // Disable connection line transitions (SVG uses className.baseVal)
+        // Disable connection line transitions (SVG uses className.baseVal + inline style for robustness)
         for (const [, path] of this.connectionElements.entries()) {
             if (path) {
                 const currentClass = path.className.baseVal;
                 if (!currentClass.includes('no-transition')) {
                     path.className.baseVal = currentClass + ' no-transition';
                 }
+                // Force disable transitions via inline style for SVG path 'd' attribute
+                // (some browsers need explicit inline style to disable 'd' transitions)
+                path.style.transition = 'none';
             }
         }
     }
@@ -103,11 +111,13 @@ export class TransitionManager {
             }
         }
         
-        // Enable connection line transitions (SVG uses className.baseVal)
+        // Enable connection line transitions (SVG uses className.baseVal + clear inline style)
         for (const [, path] of this.connectionElements.entries()) {
             if (path) {
                 const currentClass = path.className.baseVal;
                 path.className.baseVal = currentClass.replace(/\s*no-transition\s*/g, '').trim();
+                // Clear inline style to allow CSS transitions to work
+                path.style.transition = '';
             }
         }
     }

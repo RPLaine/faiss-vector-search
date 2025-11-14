@@ -8,6 +8,10 @@
  * 
  * Delegation:
  * - CSS transitions: TransitionManager (via CanvasManager)
+ * 
+ * CRITICAL: Never set inline `style.transition` on path elements - TransitionManager 
+ *           controls this via inline styles + className for proper drag/scroll behavior.
+ *           Use CSS classes and let TransitionManager handle transition states.
  */
 
 import { ANIMATION_DURATIONS } from '../constants.js';
@@ -362,13 +366,14 @@ export class ConnectionLinesManager {
     showConnectionsForAgent(agentId) {
         for (const [key, path] of this.lines.entries()) {
             if (key.includes(`agent-${agentId}`)) {
-                // Animate in with fade
+                // Animate in with fade (use CSS classes, not inline styles to avoid conflicts)
                 path.style.opacity = '0';
                 path.style.display = 'block';
                 
-                // Trigger fade-in animation
+                // Trigger fade-in animation via CSS (let TransitionManager control transitions)
                 requestAnimationFrame(() => {
-                    path.style.transition = 'opacity 0.3s ease';
+                    // Don't set inline transition - let CSS handle it
+                    // (TransitionManager might have disabled transitions, respect that)
                     path.style.opacity = '1';
                 });
             }
@@ -381,14 +386,14 @@ export class ConnectionLinesManager {
     hideConnectionsForAgent(agentId) {
         for (const [key, path] of this.lines.entries()) {
             if (key.includes(`agent-${agentId}`)) {
-                // Animate out with fade
-                path.style.transition = 'opacity 0.2s ease';
+                // Animate out with fade (use CSS classes, not inline styles)
+                // Don't set inline transition - let CSS handle it
                 path.style.opacity = '0';
                 
-                // Hide after animation completes
+                // Hide after animation completes (CSS defines transition duration)
                 setTimeout(() => {
                     path.style.display = 'none';
-                }, 200);
+                }, 300); // Match CSS transition duration (0.3s)
             }
         }
     }

@@ -31,9 +31,23 @@
     --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     --font-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
     
-    /* Transitions */
+    /* Transitions - Durations */
     --transition-fast: 0.15s ease;
     --transition-normal: 0.3s ease;
+    --transition-medium: 0.4s ease;
+    --transition-slow: 0.5s ease;
+    --transition-canvas: 0.8s cubic-bezier(0.4, 0.0, 0.2, 1); /* Smooth canvas element movement */
+    
+    /* Transitions - Easing Curves */
+    --easing-smooth: cubic-bezier(0.4, 0.0, 0.2, 1); /* Material design standard */
+    --easing-bounce: cubic-bezier(0.34, 1.56, 0.64, 1); /* Bounce effect for appear animations */
+    --easing-out: cubic-bezier(0.55, 0.085, 0.68, 0.53); /* Out easing for disappear */
+    
+    /* Animation Durations */
+    --animation-appear: 0.8s;
+    --animation-pulse: 2s;
+    --animation-spin: 1s;
+    --animation-processing: 1.5s;
     
     /* Borders */
     --border-radius: 8px;
@@ -128,7 +142,7 @@ body {
     height: 10px;
     border-radius: 50%;
     background: var(--color-accent-warning);
-    animation: pulse 2s infinite;
+    animation: pulse var(--animation-pulse) infinite;
 }
 
 .status-indicator.connected {
@@ -360,7 +374,7 @@ body {
 .connection-line {
     fill: none;
     stroke-width: 3;
-    transition: stroke 0.3s ease, d 0.8s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.3s ease;
+    transition: stroke var(--transition-normal), d var(--transition-canvas), opacity var(--transition-normal);
 }
 
 .connection-line.no-transition {
@@ -371,7 +385,7 @@ body {
 .connection-line.initial-animation {
     stroke-dasharray: 1000;
     stroke-dashoffset: 1000;
-    animation: connectionDraw 0.8s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+    animation: connectionDraw var(--animation-appear) var(--easing-smooth) forwards;
 }
 
 .connection-line.incomplete {
@@ -382,7 +396,7 @@ body {
 .connection-line.processing {
     stroke: #2563eb;
     stroke-dasharray: 8 4;
-    animation: processing-flow 1.5s linear infinite;
+    animation: processing-flow var(--animation-processing) linear infinite;
 }
 
 .connection-line.complete {
@@ -438,7 +452,7 @@ body {
     min-width: 320px;
     max-width: 320px;
     padding: var(--space-lg);
-    transition: border-color 0.5s ease, box-shadow 0.5s ease, top 0.8s cubic-bezier(0.4, 0.0, 0.2, 1), left 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
+    transition: border-color var(--transition-slow), box-shadow var(--transition-slow), top var(--transition-canvas), left var(--transition-canvas);
 }
 
 .agent-node.no-transition {
@@ -448,19 +462,19 @@ body {
 .agent-node.removing {
     opacity: 0;
     transform: scale(0.9);
-    transition: opacity 0.3s ease, transform 0.3s ease;
+    transition: opacity var(--transition-normal), transform var(--transition-normal);
 }
 
 .agent-node.initial-animation {
     opacity: 0;
     transform: scale(0.8);
-    animation: agentAppear 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    animation: agentAppear var(--animation-appear) var(--easing-bounce) forwards;
 }
 
 .agent-node.active {
     border-color: var(--color-accent-primary);
     box-shadow: 0 0 20px rgba(37, 99, 235, 0.3);
-    animation: borderPulse 2s ease-in-out infinite;
+    animation: borderPulse var(--animation-pulse) ease-in-out infinite;
 }
 
 .agent-node.halted {
@@ -479,7 +493,7 @@ body {
 .agent-node.tasklist_error {
     border-color: var(--color-accent-danger);
     box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
-    animation: borderPulseError 2s ease-in-out infinite;
+    animation: borderPulseError var(--animation-pulse) ease-in-out infinite;
 }
 
 /* Selection State */
@@ -663,7 +677,7 @@ body {
 .agent-node-status.tasklist_error {
     background: rgba(239, 68, 68, 0.3);
     color: white;
-    animation: pulse 2s infinite;
+    animation: pulse var(--animation-pulse) infinite;
 }
 
 /* Old agent-node-controls section removed - controls now in centralized panel */
@@ -683,7 +697,7 @@ body {
     flex-direction: column;
     width: 900px;
     padding: var(--space-md);
-    transition: border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.4s ease, transform 0.4s ease, top 0.8s cubic-bezier(0.4, 0.0, 0.2, 1), left 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
+    transition: border-color var(--transition-normal), box-shadow var(--transition-normal), opacity var(--transition-medium), transform var(--transition-medium), top var(--transition-canvas), left var(--transition-canvas);
 }
 
 .task-node.no-transition {
@@ -709,14 +723,14 @@ body {
 .task-node.initial-animation {
     opacity: 0;
     transform: scale(0.8);
-    animation: taskAppear 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    animation: taskAppear var(--animation-appear) var(--easing-bounce) forwards;
 }
 
 .task-node.animating-in {
     opacity: 0;
     transform: translateX(-50px) scale(0.95);
-    transition: opacity 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), 
-                transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: opacity 0.6s var(--easing-bounce), 
+                transform 0.6s var(--easing-bounce);
 }
 
 .task-node.visible {
@@ -727,18 +741,18 @@ body {
 .task-node.animating-out {
     opacity: 0;
     transform: translateX(30px) scale(0.9);
-    transition: opacity 0.5s cubic-bezier(0.55, 0.085, 0.68, 0.53), 
-                transform 0.5s cubic-bezier(0.55, 0.085, 0.68, 0.53);
+    transition: opacity var(--transition-slow) var(--easing-out), 
+                transform var(--transition-slow) var(--easing-out);
 }
 
 .task-node.running {
     border-color: var(--color-accent-primary);
     box-shadow: 0 0 20px rgba(37, 99, 235, 0.3);
-    animation: borderPulse 2s ease-in-out infinite;
+    animation: borderPulse var(--animation-pulse) ease-in-out infinite;
 }
 
 .task-node.running.pulse-scale {
-    animation: taskPulseScale 0.3s ease forwards, borderPulse 2s ease-in-out infinite;
+    animation: taskPulseScale var(--transition-normal) ease forwards, borderPulse var(--animation-pulse) ease-in-out infinite;
 }
 
 .task-node.completed {
@@ -754,7 +768,7 @@ body {
 .task-node.focused {
     border-color: var(--color-accent-primary);
     box-shadow: 0 0 20px rgba(37, 99, 235, 0.6);
-    animation: borderPulse 2s ease-in-out infinite;
+    animation: borderPulse var(--animation-pulse) ease-in-out infinite;
 }
 
 .task-node-header {
@@ -846,7 +860,7 @@ body {
     padding: var(--space-sm);
     border-radius: 4px;
     background: var(--color-bg-tertiary);
-    transition: all 0.4s ease;
+    transition: all var(--transition-medium);
     min-height: 60px;
     display: flex;
     flex-direction: column;
@@ -861,7 +875,7 @@ body {
 .task-node-validation.fading-out {
     opacity: 0;
     transform: translateY(-10px);
-    transition: all 0.4s ease;
+    transition: all var(--transition-medium);
 }
 
 .task-node-validation.validating {
@@ -915,7 +929,7 @@ body {
 
 .validation-spinner .spinner-icon {
     font-size: 16px;
-    animation: spin 1s linear infinite;
+    animation: spin var(--animation-spin) linear infinite;
     display: inline-block;
 }
 
@@ -1215,7 +1229,7 @@ body {
 .status-badge.running {
     background: rgba(37, 99, 235, 0.2);
     color: var(--color-accent-primary);
-    animation: pulse 2s infinite;
+    animation: pulse var(--animation-pulse) infinite;
 }
 
 .status-badge.completed {

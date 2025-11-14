@@ -28,6 +28,7 @@ import { TaskRenderer } from './renderers/task-renderer.js';
 import { UIManager } from './ui-manager.js';
 import { TaskManager } from './task-manager.js';
 import { CanvasManager } from './canvas-manager.js';
+import { CanvasInitializer } from './canvas-initializer.js';
 
 class App {
     constructor() {
@@ -57,7 +58,7 @@ class App {
             this.agentRenderer,
             this.taskManager  // Inject TaskManager for failed task queries
         );
-        this.taskController = new TaskController(this.taskManager, this.taskRenderer, this.canvasManager);
+        this.taskController = new TaskController(this.taskManager, this.taskRenderer, this.canvasManager, this.agentManager);
         
         // UI Manager (coordination) with dependency injection
         this.uiManager = new UIManager(
@@ -70,6 +71,15 @@ class App {
         this.uiManager.taskManager = this.taskManager;
         this.uiManager.agentManager = this.agentManager; // Inject AgentManager
         
+        // Canvas Initializer (handles page load initialization)
+        this.canvasInitializer = new CanvasInitializer(
+            this.agentManager,
+            this.taskController,
+            this.uiManager,
+            this.canvasManager,
+            this.statsService
+        );
+        
         // WebSocket service
         this.wsService = new WebSocketService('ws://localhost:8001/ws');
         
@@ -80,7 +90,8 @@ class App {
             this.taskController,
             this.uiManager,
             this.canvasManager,
-            this.taskManager
+            this.taskManager,
+            this.canvasInitializer
         );
         
         this.init();

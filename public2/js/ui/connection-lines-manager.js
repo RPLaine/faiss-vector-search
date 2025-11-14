@@ -37,8 +37,9 @@ export class ConnectionLinesManager {
      * Create or update all connection lines for an agent and its tasks
      * @param {string} agentId - The agent ID
      * @param {boolean} isInitialCreation - Whether this is the initial creation (for animation)
+     * @param {boolean} shouldStartHidden - Whether connections should start hidden (for non-selected agents)
      */
-    updateConnectionsForAgent(agentId, isInitialCreation = false) {
+    updateConnectionsForAgent(agentId, isInitialCreation = false, shouldStartHidden = false) {
         if (!this.taskManager) return;
         
         const taskKeys = this.taskManager.agentTasks.get(agentId);
@@ -110,7 +111,8 @@ export class ConnectionLinesManager {
                         taskCenterScreen.x,
                         taskCenterScreen.y,
                         this.getStatusClass(taskData.element),
-                        true // isInitialCreation
+                        true, // isInitialCreation
+                        shouldStartHidden
                     );
                 }, staggerDelay);
                 // Store timeout ID for cleanup
@@ -123,7 +125,8 @@ export class ConnectionLinesManager {
                     taskCenterScreen.x,
                     taskCenterScreen.y,
                     this.getStatusClass(taskData.element),
-                    isInitialCreation
+                    isInitialCreation,
+                    shouldStartHidden
                 );
             }
         });
@@ -135,7 +138,7 @@ export class ConnectionLinesManager {
     /**
      * Create or update a single connection line
      */
-    createConnection(key, x1, y1, x2, y2, statusClass, isInitialCreation = false) {
+    createConnection(key, x1, y1, x2, y2, statusClass, isInitialCreation = false, shouldStartHidden = false) {
         if (!this.svg) return;
         
         let path = this.lines.get(key);
@@ -146,6 +149,12 @@ export class ConnectionLinesManager {
             path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             // Use className.baseVal for consistency with SVG API
             path.className.baseVal = 'connection-line';
+            
+            // Start hidden if requested (for non-selected agents)
+            if (shouldStartHidden) {
+                path.style.display = 'none';
+                path.style.opacity = '0';
+            }
             
             // Register with transition manager
             if (this.transitionManager) {

@@ -363,6 +363,28 @@ async def update_expand_state(agent_id: str, request_data: Dict[str, Any]):
     return {"success": True, "agent_id": agent_id, "expanded": expanded}
 
 
+@app.post("/api/agents/{agent_id}/select")
+async def select_agent(agent_id: str):
+    """Set the selected agent."""
+    if not agent_manager:
+        raise HTTPException(status_code=503, detail="Agent manager not initialized")
+    
+    # Validate agent exists
+    agent = agent_manager.get_agent(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    # Update selected agent
+    success = agent_manager.set_selected_agent_id(agent_id)
+    
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to set selected agent")
+    
+    logger.info(f"Agent {agent_id} selected")
+    
+    return {"success": True, "agent_id": agent_id}
+
+
 @app.post("/api/agents/{agent_id}/stop")
 async def stop_agent(agent_id: str):
     """Stop a running agent."""
@@ -783,10 +805,12 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         # Send initial state
         agents = agent_manager.list_agents() if agent_manager else []
+        selected_agent_id = agent_manager.get_selected_agent_id() if agent_manager else None
         await websocket.send_json({
             "type": "connection_established",
             "data": {
                 "agents": agents,
+                "selected_agent_id": selected_agent_id,
                 "timestamp": datetime.now().isoformat()
             }
         })

@@ -660,12 +660,14 @@ body {
     opacity: 0;
     transform: translateX(-30px) scale(0.95);
     pointer-events: none;
+    visibility: hidden;
 }
 
 .task-node.task-visible {
     opacity: 1;
     transform: translateX(0) scale(1);
     pointer-events: auto;
+    visibility: visible;
 }
 
 /* Initial creation animation - same style as agent nodes */

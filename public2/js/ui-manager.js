@@ -14,6 +14,7 @@
  */
 
 import { SCROLL_DELAYS } from './constants.js';
+import { APIService } from './services/api-service.js';
 
 export class UIManager {
     constructor(agentController, taskController, agentRenderer, canvasManager, modalManager) {
@@ -209,6 +210,11 @@ export class UIManager {
         if (this.taskManager.getAgentTasks(agentId)?.length > 0) {
             this.taskController.positionTasksForAgent(agentId);
         }
+        
+        // Persist selection to backend
+        APIService.selectAgent(agentId).catch(error => {
+            console.error(`[UIManager] Failed to persist agent selection: ${error}`);
+        });
     }
     
     // ========================================

@@ -108,6 +108,10 @@ export class APIService {
         return this._request('POST', `/agents/${agentId}/expand`, { expanded });
     }
     
+    static async selectAgent(agentId) {
+        return this._request('POST', `/agents/${agentId}/select`);
+    }
+    
     // Batch Operations
     
     static async clearCompletedAgents() {

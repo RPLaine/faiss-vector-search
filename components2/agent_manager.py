@@ -25,6 +25,7 @@ class AgentManager:
     def __init__(self, state_file: str = "agent_state.json"):
         """Initialize the agent manager."""
         self._agents: Dict[str, Dict[str, Any]] = {}
+        self._selected_agent_id: Optional[str] = None
         self.state_file = Path(state_file)
         self._load_state()
     
@@ -35,6 +36,7 @@ class AgentManager:
                 with open(self.state_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     self._agents = data.get("agents", {})
+                    self._selected_agent_id = data.get("selected_agent_id")
                     
                 # Reset running agents to created status and restore id field
                 for agent_id, agent in self._agents.items():
@@ -55,10 +57,15 @@ class AgentManager:
                             task["status"] = "failed"
                             logger.info(f"Corrected status for task {task.get('id')} in agent {agent_id} to 'failed' due to invalid validation")
                 
-                logger.info(f"Loaded {len(self._agents)} agents from state file")
+                # Validate selected agent exists
+                if self._selected_agent_id and self._selected_agent_id not in self._agents:
+                    self._selected_agent_id = None
+                    
+                logger.info(f"Loaded {len(self._agents)} agents from state file (selected: {self._selected_agent_id})")
             except Exception as e:
                 logger.error(f"Failed to load agent state: {e}")
                 self._agents = {}
+                self._selected_agent_id = None
         else:
             logger.info("No existing agent state file found")
     
@@ -75,13 +82,14 @@ class AgentManager:
             
             data = {
                 "agents": serializable_agents,
+                "selected_agent_id": self._selected_agent_id,
                 "last_updated": datetime.now().isoformat()
             }
             
             with open(self.state_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
                 
-            logger.debug(f"Saved {len(self._agents)} agents to state file")
+            logger.debug(f"Saved {len(self._agents)} agents to state file (selected: {self._selected_agent_id})")
         except Exception as e:
             logger.error(f"Failed to save agent state: {e}")
     
@@ -318,3 +326,31 @@ class AgentManager:
             True if agent exists, False otherwise
         """
         return agent_id in self._agents
+    
+    def get_selected_agent_id(self) -> Optional[str]:
+        """
+        Get the currently selected agent ID.
+        
+        Returns:
+            Selected agent ID or None
+        """
+        return self._selected_agent_id
+    
+    def set_selected_agent_id(self, agent_id: Optional[str]) -> bool:
+        """
+        Set the currently selected agent ID.
+        
+        Args:
+            agent_id: The agent ID to select, or None to clear selection
+            
+        Returns:
+            True if successful, False if agent doesn't exist
+        """
+        if agent_id is not None and agent_id not in self._agents:
+            logger.warning(f"Cannot select non-existent agent: {agent_id}")
+            return False
+        
+        self._selected_agent_id = agent_id
+        logger.info(f"Selected agent: {agent_id}")
+        self._save_state()
+        return True

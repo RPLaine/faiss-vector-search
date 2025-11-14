@@ -10,10 +10,11 @@
 import { POSITIONING_DELAYS } from '../constants.js';
 
 export class TaskController {
-    constructor(taskManager, taskRenderer, canvasManager) {
+    constructor(taskManager, taskRenderer, canvasManager, agentManager) {
         this.taskManager = taskManager;
         this.renderer = taskRenderer;
         this.canvasManager = canvasManager;
+        this.agentManager = agentManager;
         
         // Listen for centralized recalculation events
         window.addEventListener('recalculateTaskPositions', () => {
@@ -236,19 +237,22 @@ export class TaskController {
         // This ensures proper rendering order: agent nodes → task nodes → connection lines
         // Connection lines are NOT updated during centralized recalculation (handled separately)
         if (this.canvasManager && this.canvasManager.connectionLinesManager) {
+            // Determine if connections should start hidden (agent not selected)
+            const shouldStartHidden = this.agentManager && !this.agentManager.isAgentSelected(agentId);
+            
             if (immediate) {
                 // Update immediately if positioning is immediate
                 // Pass isInitialCreation flag for animation on first creation
-                this.canvasManager.connectionLinesManager.updateConnectionsForAgent(agentId, isInitialCreation);
+                this.canvasManager.connectionLinesManager.updateConnectionsForAgent(agentId, isInitialCreation, shouldStartHidden);
             } else {
                 // Update connection lines during transitions (similar to agent positioning)
                 // Tasks have transition, update multiple times to keep lines in sync
-                this.canvasManager.connectionLinesManager.updateConnectionsForAgent(agentId, isInitialCreation);
+                this.canvasManager.connectionLinesManager.updateConnectionsForAgent(agentId, isInitialCreation, shouldStartHidden);
                 POSITIONING_DELAYS.TASK_CONNECTION_UPDATES.forEach(delay => {
                     setTimeout(() => {
                         if (this.canvasManager && this.canvasManager.connectionLinesManager) {
                             // Don't animate on subsequent updates
-                            this.canvasManager.connectionLinesManager.updateConnectionsForAgent(agentId, false);
+                            this.canvasManager.connectionLinesManager.updateConnectionsForAgent(agentId, false, shouldStartHidden);
                         }
                     }, delay);
                 });

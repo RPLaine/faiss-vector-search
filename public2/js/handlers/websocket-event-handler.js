@@ -8,13 +8,14 @@
 import { SCROLL_DELAYS, POSITIONING_DELAYS, ANIMATION_DURATIONS } from '../constants.js';
 
 export class WebSocketEventHandler {
-    constructor(agentManager, agentController, taskController, uiManager, canvasManager, taskManager) {
+    constructor(agentManager, agentController, taskController, uiManager, canvasManager, taskManager, canvasInitializer) {
         this.agentManager = agentManager;
         this.agentController = agentController;
         this.taskController = taskController;
         this.uiManager = uiManager;
         this.canvasManager = canvasManager;
         this.taskManager = taskManager;
+        this.canvasInitializer = canvasInitializer;
     }
     
     /**
@@ -69,45 +70,9 @@ export class WebSocketEventHandler {
             return;
         }
         
-        const agentCount = data.data.agents.length;
-        let maxTaskCount = 0;
-        let firstAgentId = null;
-        
-        data.data.agents.forEach((agent, index) => {
-            if (!this.agentManager.getAgent(agent.id)) {
-                this.agentManager.addAgent(agent);
-                this.uiManager.renderAgent(agent);
-                
-                // Track first agent for auto-selection
-                if (index === 0) {
-                    firstAgentId = agent.id;
-                }
-                
-                if (agent.tasklist && agent.tasklist.tasks) {
-                    // Delay task creation to allow agent positioning to complete
-                    setTimeout(() => {
-                        this.taskController.createTasksForAgent(agent.id, agent.tasklist);
-                        
-                        // Hide tasks initially (only selected agent will show tasks)
-                        if (agent.id !== firstAgentId) {
-                            this.taskController.hideTasksForAgent(agent.id);
-                        }
-                    }, POSITIONING_DELAYS.AGENT_POSITION_DELAY);
-                    maxTaskCount = Math.max(maxTaskCount, agent.tasklist.tasks.length);
-                }
-            }
-        });
-        
-        // Auto-select first agent if any agents were loaded
-        if (firstAgentId) {
-            setTimeout(() => {
-                this.uiManager.handleSelectAgent(firstAgentId);
-            }, POSITIONING_DELAYS.AGENT_POSITION_DELAY + 100);
-        }
-        
-        // No autoscroll on page load - user can navigate freely
-        
-        this.statsService.update();
+        // Delegate to CanvasInitializer for proper initialization
+        const selectedAgentId = data.data.selected_agent_id;
+        this.canvasInitializer.initializeFromBackend(data.data.agents, selectedAgentId);
     }
     
     // Agent lifecycle handlers
@@ -115,18 +80,9 @@ export class WebSocketEventHandler {
     handleAgentCreated(data) {
         console.log('[WebSocket] agent_created:', data);
         const agent = data.data;
-        this.agentManager.addAgent(agent);
-        this.uiManager.renderAgent(agent);
-        this.statsService.update();
         
-        // Auto-select newly created agent
-        this.uiManager.handleSelectAgent(agent.id);
-        
-        // Scroll to center the newly created agent
-        // Delay to allow agent positioning to complete
-        setTimeout(() => {
-            this.canvasManager.scrollAgentToCenter(agent.id);
-        }, POSITIONING_DELAYS.AGENT_POSITION_DELAY);
+        // Delegate to CanvasInitializer for proper initialization
+        this.canvasInitializer.initializeNewAgent(agent);
     }
     
     handleAgentUpdated(data) {
@@ -226,15 +182,9 @@ export class WebSocketEventHandler {
             
             if (phase === 0 && tasklist) {
                 this.agentManager.updateAgentTasklist(agent_id, tasklist);
-                this.taskController.createTasksForAgent(agent_id, tasklist);
                 
-                // Only show tasks if this agent is selected
-                const isSelected = this.agentManager.isAgentSelected(agent_id);
-                if (!isSelected) {
-                    setTimeout(() => {
-                        this.taskController.hideTasksForAgent(agent_id);
-                    }, POSITIONING_DELAYS.TASK_POSITION_DELAY + 100);
-                }
+                // Delegate to CanvasInitializer for proper task initialization
+                this.canvasInitializer.initializeAgentTasks(agent_id, tasklist);
             }
         }
     }

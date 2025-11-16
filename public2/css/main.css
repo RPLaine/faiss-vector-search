@@ -517,7 +517,8 @@ body {
 
 /* Selection State */
 .agent-node.selected {
-    border-color: var(--color-accent-primary);
+    outline: 3px solid var(--color-accent-primary);
+    outline-offset: 2px;
     box-shadow: 0 0 30px rgba(37, 99, 235, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
     transform: scale(1.02);
     z-index: 10;

@@ -105,9 +105,13 @@ export class AgentRenderer {
         statusEl.className = `agent-node-status status-badge ${status}`;
         statusEl.textContent = displayStatus;
         
-        // Update node border color
+        // Update node border color (preserve selected class)
         const nodeClass = status === 'running' ? 'active' : status;
+        const isSelected = node.classList.contains('selected');
         node.className = `agent-node ${nodeClass}`;
+        if (isSelected) {
+            node.classList.add('selected');
+        }
     }
     
     /**

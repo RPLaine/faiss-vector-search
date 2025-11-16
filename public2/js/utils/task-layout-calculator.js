@@ -80,16 +80,17 @@ export class TaskLayoutCalculator {
      * Determine which task should align with agent top
      * 
      * Priority:
-     * 1. Running task
-     * 2. Last task if all completed
-     * 3. First task (default)
+     * 1. Running task (when agent is actively working)
+     * 2. Last completed task (when agent halted/stopped with partial progress)
+     * 3. Last task if all completed (when workflow finished)
+     * 4. First task (default - when no tasks started)
      * 
      * @param {Array} sortedTaskKeys - Task keys sorted by ID
      * @param {Function} getTaskData - Function to get task data by key
      * @returns {number} Index of task to align with agent
      */
     static _getAlignmentIndex(sortedTaskKeys, getTaskData) {
-        // Find running task
+        // Priority 1: Find running task
         for (let i = 0; i < sortedTaskKeys.length; i++) {
             const taskData = getTaskData(sortedTaskKeys[i]);
             const statusEl = taskData?.element.querySelector('.task-node-status');
@@ -99,27 +100,38 @@ export class TaskLayoutCalculator {
             }
         }
         
-        // Check if all tasks are completed
+        // Priority 2: Find last completed task (for halted/stopped agents)
+        let lastCompletedIndex = -1;
         let allCompleted = true;
         let hasAnyNonCreated = false;
-        for (const taskKey of sortedTaskKeys) {
-            const taskData = getTaskData(taskKey);
+        
+        for (let i = 0; i < sortedTaskKeys.length; i++) {
+            const taskData = getTaskData(sortedTaskKeys[i]);
             const statusEl = taskData?.element.querySelector('.task-node-status');
             const status = statusEl?.textContent.toLowerCase();
-            if (status !== 'completed') {
+            
+            if (status === 'completed') {
+                lastCompletedIndex = i;
+            } else {
                 allCompleted = false;
             }
+            
             if (status !== 'created' && status !== 'pending') {
                 hasAnyNonCreated = true;
             }
         }
         
-        // If all completed, align last task
+        // If we have some completed tasks (but not all), align with the last one
+        if (lastCompletedIndex >= 0 && !allCompleted) {
+            return lastCompletedIndex;
+        }
+        
+        // Priority 3: If all completed, align last task
         if (allCompleted && sortedTaskKeys.length > 0) {
             return sortedTaskKeys.length - 1;
         }
         
-        // If all tasks are in initial state (created/pending), start from agent position
+        // Priority 4: If all tasks are in initial state (created/pending), start from agent position
         // This prevents tasks from being positioned above the agent on page load
         if (!hasAnyNonCreated) {
             return 0; // First task aligns with agent, rest flow down

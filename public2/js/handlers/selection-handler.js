@@ -22,12 +22,13 @@ import { APIService } from '../services/api-service.js';
 import { POSITIONING_DELAYS, ANIMATION_DURATIONS } from '../constants.js';
 
 export class SelectionHandler {
-    constructor(agentManager, agentRenderer, taskController, controlPanelManager, canvasManager) {
+    constructor(agentManager, agentRenderer, taskController, controlPanelManager, canvasManager, controlPanelHandler = null) {
         this.agentManager = agentManager;
         this.agentRenderer = agentRenderer;
         this.taskController = taskController;
         this.controlPanelManager = controlPanelManager;
         this.canvasManager = canvasManager;
+        this.controlPanelHandler = controlPanelHandler; // For updating control panel enabled state
     }
     
     /**
@@ -117,6 +118,11 @@ export class SelectionHandler {
                 hasFailedTasks: this.taskController.taskManager?.hasFailedTasks(agentId)
             };
             this.controlPanelManager.updateForAgent(agentWithTaskInfo);
+            
+            // Update control panel enabled state based on running/halted status
+            if (this.controlPanelHandler) {
+                this.controlPanelHandler.updateAllControlPanels();
+            }
         }
         
         // Show tasks for selected agent

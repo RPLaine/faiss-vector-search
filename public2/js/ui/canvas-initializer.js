@@ -155,7 +155,13 @@ export class CanvasInitializer {
         // Step 7: Update stats
         this.statsService.update();
         
-        // Step 8: Scroll to selected agent after all animations complete
+        // Step 8: Update control panels to reflect running/halted status
+        // If any agent is running/halted, disable controls for other agents
+        if (this.uiManager.controlPanelHandler) {
+            this.uiManager.controlPanelHandler.updateAllControlPanels();
+        }
+        
+        // Step 9: Scroll to selected agent after all animations complete
         // Calculate delay based on number of tasks for smooth scroll timing
         const selectedAgentTasks = this.taskController.taskManager?.getAgentTasks(targetSelectedAgentId);
         const taskCount = selectedAgentTasks ? selectedAgentTasks.length : 0;

@@ -31,6 +31,34 @@ export class ControlPanelHandler {
     }
     
     /**
+     * Update control panel states for all agents based on running/halted status
+     * Called when any agent starts, stops, completes, or gets halted
+     */
+    updateAllControlPanels() {
+        const runningOrHaltedAgentId = this.agentManager.getRunningOrHaltedAgentId();
+        const selectedAgentId = this.agentManager.getSelectedAgentId();
+        
+        // Only update if an agent is selected
+        if (!selectedAgentId) {
+            return;
+        }
+        
+        const selectedAgent = this.agentManager.getAgent(selectedAgentId);
+        if (!selectedAgent) {
+            return;
+        }
+        
+        // If another agent is running/halted, disable controls for the selected agent
+        if (runningOrHaltedAgentId && runningOrHaltedAgentId !== selectedAgentId) {
+            this.controlPanelManager.setControlsEnabled(false);
+        } else {
+            // No other agent is running/halted, or this agent is the one running/halted
+            // Just enable controls - updateForAgent already set the correct button state
+            this.controlPanelManager.setControlsEnabled(true);
+        }
+    }
+    
+    /**
      * Attach handlers to control panel manager
      */
     _attachHandlers() {

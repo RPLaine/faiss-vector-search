@@ -71,6 +71,9 @@ class App {
         // Inject AgentStatusHandler into ControlPanelManager for centralized business logic
         this.controlPanelManager.agentStatusHandler = this.agentStatusHandler;
         
+        // Inject AgentManager into ControlPanelManager for checking running/halted status
+        this.controlPanelManager.agentManager = this.agentManager;
+        
         // Controllers (with full dependency injection)
         this.agentController = new AgentController(
             this.agentManager, 
@@ -103,6 +106,9 @@ class App {
             this.canvasManager
         );
         
+        // Inject ControlPanelHandler into SelectionHandler for control panel updates
+        this.selectionHandler.controlPanelHandler = this.controlPanelHandler;
+        
         // UI Manager (coordination) with dependency injection
         this.uiManager = new UIManager(
             this.agentController,
@@ -115,6 +121,7 @@ class App {
         );
         this.uiManager.taskManager = this.taskManager;
         this.uiManager.agentManager = this.agentManager; // Inject AgentManager
+        this.uiManager.controlPanelHandler = this.controlPanelHandler; // Inject ControlPanelHandler for WebSocket events
         
         // Canvas Initializer (handles page load initialization)
         this.canvasInitializer = new CanvasInitializer(

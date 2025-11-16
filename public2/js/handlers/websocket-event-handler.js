@@ -163,6 +163,11 @@ export class WebSocketEventHandler {
         
         this.taskController.clearTasksForAgent(agentId);
         this.statsService.update();
+        
+        // Update control panels for all agents (disable controls for other agents)
+        if (this.uiManager.controlPanelHandler) {
+            this.uiManager.controlPanelHandler.updateAllControlPanels();
+        }
     }
     
     handleAgentHalted(data) {
@@ -178,6 +183,11 @@ export class WebSocketEventHandler {
         }
         
         this.statsService.update();
+        
+        // Update control panels (halted also prevents other agents from starting)
+        if (this.uiManager.controlPanelHandler) {
+            this.uiManager.controlPanelHandler.updateAllControlPanels();
+        }
     }
     
     handleAgentContinued(data) {
@@ -199,6 +209,11 @@ export class WebSocketEventHandler {
         }
         
         this.statsService.update();
+        
+        // Update control panels (agent is running again)
+        if (this.uiManager.controlPanelHandler) {
+            this.uiManager.controlPanelHandler.updateAllControlPanels();
+        }
     }
     
     handleAgentRedo(data) {
@@ -220,6 +235,11 @@ export class WebSocketEventHandler {
         }
         
         this.statsService.update();
+        
+        // Update control panels (agent is running)
+        if (this.uiManager.controlPanelHandler) {
+            this.uiManager.controlPanelHandler.updateAllControlPanels();
+        }
     }
     
     handleAgentCompleted(data) {
@@ -229,6 +249,11 @@ export class WebSocketEventHandler {
         this.agentManager.completeAgent(agent_id, article, word_count, generation_time);
         this.uiManager.completeAgent(agent_id, { article, word_count, generation_time });
         this.statsService.update();
+        
+        // Update control panels (agent is no longer running, re-enable controls)
+        if (this.uiManager.controlPanelHandler) {
+            this.uiManager.controlPanelHandler.updateAllControlPanels();
+        }
     }
     
     handleAgentFailed(data) {
@@ -238,6 +263,11 @@ export class WebSocketEventHandler {
         this.agentManager.failAgent(agent_id, error);
         this.uiManager.showAgentError(agent_id, error);
         this.statsService.update();
+        
+        // Update control panels (agent is no longer running, re-enable controls)
+        if (this.uiManager.controlPanelHandler) {
+            this.uiManager.controlPanelHandler.updateAllControlPanels();
+        }
     }
     
     handleAgentStopped(data) {
@@ -269,6 +299,11 @@ export class WebSocketEventHandler {
         }
         
         this.statsService.update();
+        
+        // Update control panels (agent is no longer running, re-enable controls)
+        if (this.uiManager.controlPanelHandler) {
+            this.uiManager.controlPanelHandler.updateAllControlPanels();
+        }
     }
     
     handleAgentDeleted(data) {

@@ -94,4 +94,22 @@ export class AgentManager {
     clearSelection() {
         this.selectedAgentId = null;
     }
+    
+    // ========================================
+    // Running/Halted Status Tracking
+    // ========================================
+    
+    /**
+     * Get the ID of the agent that is currently running or halted
+     * Returns null if no agent is running/halted
+     * Used to disable controls for other agents during execution
+     */
+    getRunningOrHaltedAgentId() {
+        for (const agent of this.agents.values()) {
+            if (agent.status === 'running' || agent.status === 'halted') {
+                return agent.id;
+            }
+        }
+        return null;
+    }
 }

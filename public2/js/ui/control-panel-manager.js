@@ -126,9 +126,8 @@ export class ControlPanelManager {
             return;
         }
         
-        // Show panel and enable all controls
+        // Show panel
         this.show();
-        this._enableControls();
         
         // Update checkboxes
         if (this.autoCheckbox) {
@@ -145,6 +144,22 @@ export class ControlPanelManager {
         
         // Update button visibility and state based on agent status
         this._updateForStatus(agent.status, agent);
+        
+        // CRITICAL: Apply enable/disable logic LAST, after all button state updates
+        // This ensures disabled state isn't overridden by status updates
+        if (this.agentManager) {
+            const runningOrHaltedAgentId = this.agentManager.getRunningOrHaltedAgentId?.();
+            // Enable controls only if no agent is running/halted, OR this is the running/halted agent
+            if (!runningOrHaltedAgentId || runningOrHaltedAgentId === agent.id) {
+                this._enableControls();
+            } else {
+                // Another agent is running/halted - keep controls disabled
+                this._disableControls();
+            }
+        } else {
+            // Fallback: enable controls if no agentManager available
+            this._enableControls();
+        }
     }
     
     /**
@@ -293,6 +308,18 @@ export class ControlPanelManager {
         if (this.autoCheckbox) this.autoCheckbox.disabled = true;
         if (this.haltCheckbox) this.haltCheckbox.disabled = true;
         if (this.expandCheckbox) this.expandCheckbox.disabled = true;
+    }
+    
+    /**
+     * Set controls enabled/disabled state
+     * Used when another agent is running/halted to prevent starting other agents
+     */
+    setControlsEnabled(enabled) {
+        if (enabled) {
+            this._enableControls();
+        } else {
+            this._disableControls();
+        }
     }
     
     /**

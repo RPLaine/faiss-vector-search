@@ -19,6 +19,7 @@ import { AnimationUtils, Easing } from '../utils/animation-utils.js';
 import { ConnectionLinesManager } from './connection-lines-manager.js';
 import { DragHandler } from '../utils/drag-handler.js';
 import { ScrollHandler } from '../utils/scroll-handler.js';
+import { TaskPositionManager } from '../services/task-position-manager.js';
 
 export class CanvasManager {
     constructor(canvasId, taskManager, transitionManager, agentManager) {
@@ -41,6 +42,9 @@ export class CanvasManager {
         // Connection lines manager (delegated to separate class)
         this.taskManager = taskManager;
         this.connectionLinesManager = new ConnectionLinesManager('connectionLines', this, taskManager);
+        
+        // Centralized task positioning manager
+        this.taskPositionManager = new TaskPositionManager(this, transitionManager);
         
         // Drag handler (delegated to separate class)
         this.dragHandler = new DragHandler(this.canvas, this);
@@ -95,15 +99,26 @@ export class CanvasManager {
             agent.element.style.top = `${screenPos.y}px`;
         }
         
-        // Update all task positions directly (no events needed)
-        if (this.taskManager) {
+        // Update all task positions via centralized TaskPositionManager
+        if (this.taskManager && this.taskPositionManager) {
+            const taskUpdates = [];
             for (const [taskKey, taskData] of this.taskManager.taskNodes.entries()) {
                 if (!taskData.element) continue;
-                
-                // Convert global to screen coordinates
-                const screenPos = this.globalToScreen(taskData.globalX, taskData.globalY);
-                taskData.element.style.left = `${screenPos.x}px`;
-                taskData.element.style.top = `${screenPos.y}px`;
+                taskUpdates.push({
+                    taskKey,
+                    element: taskData.element,
+                    globalX: taskData.globalX,
+                    globalY: taskData.globalY
+                });
+            }
+            
+            // Batch update all tasks (transitions already disabled by caller)
+            if (taskUpdates.length > 0) {
+                this.taskPositionManager.updateMultipleTaskPositions(taskUpdates, {
+                    immediate: true,
+                    skipTransitionManager: true, // Caller already handled transitions
+                    reason: 'camera_update'
+                });
             }
         }
     }
@@ -354,10 +369,10 @@ export class CanvasManager {
         const totalDistance = Math.sqrt(cameraChangeX * cameraChangeX + cameraChangeY * cameraChangeY);
         const duration = Math.min(
             SCROLL_DELAYS.SCROLL_ANIMATION_MAX, 
-            Math.max(SCROLL_DELAYS.SCROLL_ANIMATION_MIN, totalDistance / 2)
+            Math.max(SCROLL_DELAYS.SCROLL_ANIMATION_MIN, totalDistance * 0.8)
         );
         
-        // Use centralized animation with easeInOutQuad for smooth acceleration and deceleration
+        // Use centralized animation with easeInOutCubic for smooth damped movement
         // Animate both X and Y camera positions simultaneously
         AnimationUtils.animateValue(
             0,  // Start at 0
@@ -371,7 +386,7 @@ export class CanvasManager {
                 this.updateAllElementPositions();
                 this.connectionLinesManager.updateAllConnections();
             },
-            Easing.easeInOutQuad  // Smoother than easeOutCubic - gradual start and end
+            Easing.easeInOutCubic  // Smooth damped easing - more natural than easeInOutQuad
         );
     }
 }

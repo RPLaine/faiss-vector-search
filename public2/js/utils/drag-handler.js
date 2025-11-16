@@ -20,7 +20,7 @@ export class DragHandler {
         this.dragStartY = 0;
         this.cameraStartX = 0;
         this.cameraStartY = 0;
-        this.dragUpdateScheduled = false; // RAF debouncing flag
+        this.rafPending = false; // RAF throttling to match screen refresh rate
         
         this.setupEventListeners();
     }
@@ -77,20 +77,22 @@ export class DragHandler {
         const deltaX = e.clientX - this.dragStartX;
         const deltaY = e.clientY - this.dragStartY;
         
-        // Update camera position (drag right = camera moves left = positive delta, negative camera change)
+        // Update camera position immediately (this is cheap)
         this.canvasManager.camera.x = this.cameraStartX - deltaX;
         this.canvasManager.camera.y = this.cameraStartY - deltaY;
         
-        // Schedule update on next frame to avoid excessive updates
-        if (!this.dragUpdateScheduled) {
-            this.dragUpdateScheduled = true;
+        // Throttle DOM updates to screen refresh rate (typically 60fps)
+        // This prevents update queue buildup during slow dragging while keeping transitions disabled
+        if (!this.rafPending) {
+            this.rafPending = true;
             requestAnimationFrame(() => {
-                // Update all element positions immediately
+                // Update all element positions (synchronous within this frame)
                 this.canvasManager.updateAllElementPositions();
                 
-                // Update connection lines immediately after positions are set
+                // Update connection lines after positions are set
                 this.canvasManager.connectionLinesManager.updateAllConnections();
-                this.dragUpdateScheduled = false;
+                
+                this.rafPending = false;
             });
         }
     }
@@ -102,8 +104,10 @@ export class DragHandler {
         if (this.isDragging) {
             this.isDragging = false;
             
-            // Re-enable transitions after drag completes
-            this.canvasManager.removeNoTransitionClass();
+            // Re-enable transitions after a short delay to ensure smooth settling
+            setTimeout(() => {
+                this.canvasManager.removeNoTransitionClass();
+            }, 50);
             
             // Final update of connections
             this.canvasManager.connectionLinesManager.updateAllConnections();

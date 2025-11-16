@@ -4,10 +4,11 @@
  * Coordinates between:
  * - TaskManager (state)
  * - TaskRenderer (UI updates)
- * - CanvasManager (layout updates)
+ * - CanvasManager (layout updates, TaskPositionManager)
  */
 
 import { POSITIONING_DELAYS } from '../constants.js';
+import { ANIMATION_DURATIONS } from '../constants.js';
 
 export class TaskController {
     constructor(taskManager, taskRenderer, canvasManager, agentManager) {
@@ -15,6 +16,9 @@ export class TaskController {
         this.renderer = taskRenderer;
         this.canvasManager = canvasManager;
         this.agentManager = agentManager;
+        
+        // Access centralized task positioning via CanvasManager
+        // (TaskPositionManager is initialized there)
         
         // Listen for centralized recalculation events
         window.addEventListener('recalculateTaskPositions', () => {
@@ -49,11 +53,17 @@ export class TaskController {
                 taskData.globalX = x;
                 taskData.globalY = y;
                 
-                // Convert to screen coordinates
-                const screenPos = this.taskManager.canvasManager.globalToScreen(x, y);
-                
-                // Apply to DOM with smooth transition (immediate = false for viewport resize smoothness)
-                this.renderer.setPosition(taskData.element, screenPos.x, screenPos.y, false);
+                // Apply to DOM with smooth transition via centralized TaskPositionManager
+                this.canvasManager.taskPositionManager.updateTaskPosition(
+                    taskKey,
+                    taskData.element,
+                    x,
+                    y,
+                    {
+                        immediate: false, // Smooth transition for viewport resize
+                        reason: 'recalculate_all'
+                    }
+                );
             });
         }
         
@@ -217,7 +227,8 @@ export class TaskController {
         // Calculate positions using layout logic from TaskManager (returns global coords)
         const positions = this.taskManager.calculateTaskPositions(agentId, agentPos);
         
-        // Apply positions to task elements
+        // Prepare batch update for centralized TaskPositionManager
+        const taskUpdates = [];
         positions.forEach(({ taskKey, x, y }) => {
             const taskData = this.taskManager.getTask(taskKey);
             if (!taskData) return;
@@ -226,12 +237,22 @@ export class TaskController {
             taskData.globalX = x;
             taskData.globalY = y;
             
-            // Convert to screen coordinates
-            const screenPos = this.canvasManager.globalToScreen(x, y);
-            
-            // Apply to DOM
-            this.renderer.setPosition(taskData.element, screenPos.x, screenPos.y, immediate);
+            // Add to batch update
+            taskUpdates.push({
+                taskKey,
+                element: taskData.element,
+                globalX: x,
+                globalY: y
+            });
         });
+        
+        // Apply all positions via centralized TaskPositionManager
+        if (taskUpdates.length > 0) {
+            this.canvasManager.taskPositionManager.updateMultipleTaskPositions(taskUpdates, {
+                immediate,
+                reason: isInitialCreation ? 'initial_creation' : 'layout_update'
+            });
+        }
         
         // CRITICAL: Connection lines are drawn AFTER all task nodes are positioned
         // This ensures proper rendering order: agent nodes → task nodes → connection lines
@@ -368,7 +389,15 @@ export class TaskController {
                 taskData.element.classList.add('task-visible');
                 
                 // Stagger the animation for each task
-                taskData.element.style.transitionDelay = `${index * 50}ms`;
+                taskData.element.style.transitionDelay = `${index * ANIMATION_DURATIONS.TASK_SHOW_STAGGER}ms`;
+                
+                // Clear transitionDelay after animation completes to prevent conflicts
+                // Total time = stagger delay + visibility animation duration
+                setTimeout(() => {
+                    if (taskData.element) {
+                        taskData.element.style.transitionDelay = '';
+                    }
+                }, (index * ANIMATION_DURATIONS.TASK_SHOW_STAGGER) + ANIMATION_DURATIONS.TASK_VISIBILITY_DURATION);
             }
         });
         
@@ -377,7 +406,7 @@ export class TaskController {
             if (this.canvasManager && this.canvasManager.connectionLinesManager) {
                 this.canvasManager.connectionLinesManager.showConnectionsForAgent(agentId);
             }
-        }, 100);
+        }, ANIMATION_DURATIONS.CONNECTION_SHOW_DELAY);
     }
     
     /**
@@ -401,9 +430,17 @@ export class TaskController {
                 taskData.element.classList.remove('task-visible');
                 taskData.element.classList.add('task-hidden');
                 
-                // Stagger the animation for each task (reverse order for hide)
+                // Stagger the animation for each task (reverse order for hide, faster than show)
                 const reverseIndex = taskKeys.length - 1 - index;
-                taskData.element.style.transitionDelay = `${reverseIndex * 30}ms`;
+                taskData.element.style.transitionDelay = `${reverseIndex * ANIMATION_DURATIONS.TASK_HIDE_STAGGER}ms`;
+                
+                // Clear transitionDelay after animation completes to prevent conflicts
+                // Total time = stagger delay + visibility animation duration
+                setTimeout(() => {
+                    if (taskData.element) {
+                        taskData.element.style.transitionDelay = '';
+                    }
+                }, (reverseIndex * ANIMATION_DURATIONS.TASK_HIDE_STAGGER) + ANIMATION_DURATIONS.TASK_VISIBILITY_DURATION);
             }
         });
     }

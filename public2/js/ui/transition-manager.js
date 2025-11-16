@@ -38,6 +38,7 @@ export class TransitionManager {
     }
     
     registerTask(taskKey, element) {
+        console.log(`[TransitionManager] Registering task: ${taskKey}`, element);
         this.taskElements.set(taskKey, element);
     }
     
@@ -63,6 +64,8 @@ export class TransitionManager {
     disableAllTransitions() {
         this.transitionsEnabled = false;
         
+        console.log(`[TransitionManager] Disabling transitions - ${this.agentElements.size} agents, ${this.taskElements.size} tasks`);
+        
         // Disable agent transitions
         for (const [, element] of this.agentElements.entries()) {
             if (element) {
@@ -71,9 +74,12 @@ export class TransitionManager {
         }
         
         // Disable task transitions
-        for (const [, element] of this.taskElements.entries()) {
+        for (const [taskKey, element] of this.taskElements.entries()) {
             if (element) {
+                console.log(`[TransitionManager] Adding no-transition to task ${taskKey}`, element.classList.toString());
                 element.classList.add('no-transition');
+                // Clear ALL inline transition styles that have higher specificity than CSS class
+                this._clearInlineTransitionStyles(element);
             }
         }
         
@@ -89,6 +95,27 @@ export class TransitionManager {
                 path.style.transition = 'none';
             }
         }
+        
+        // CRITICAL: Force a reflow to ensure the .no-transition class takes effect
+        // before any position updates occur. Without this, transitions may have already
+        // started when positions change.
+        if (this.agentElements.size > 0) {
+            const firstAgent = this.agentElements.values().next().value;
+            if (firstAgent) {
+                void firstAgent.offsetHeight; // Force reflow
+            }
+        }
+    }
+    
+    /**
+     * Clear inline transition styles that override CSS classes
+     * @private
+     */
+    _clearInlineTransitionStyles(element) {
+        element.style.transitionDelay = '';
+        element.style.transitionDuration = '';
+        element.style.transitionProperty = '';
+        element.style.transitionTimingFunction = '';
     }
     
     /**
@@ -108,6 +135,7 @@ export class TransitionManager {
         for (const [, element] of this.taskElements.entries()) {
             if (element) {
                 element.classList.remove('no-transition');
+                // Note: Don't restore transitionDelay here - it's set per-animation by TaskController
             }
         }
         

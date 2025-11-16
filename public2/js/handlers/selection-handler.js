@@ -19,7 +19,7 @@
  */
 
 import { APIService } from '../services/api-service.js';
-import { POSITIONING_DELAYS } from '../constants.js';
+import { POSITIONING_DELAYS, ANIMATION_DURATIONS } from '../constants.js';
 
 export class SelectionHandler {
     constructor(agentManager, agentRenderer, taskController, controlPanelManager, canvasManager) {
@@ -31,7 +31,12 @@ export class SelectionHandler {
     }
     
     /**
-     * Select an agent with full coordination
+     * Select an agent with full coordination and smooth transitions
+     * 
+     * Orchestrates a 3-phase animation sequence:
+     * 1. Hide previous agent's tasks (fast fade out)
+     * 2. Move agents to new positions (selected moves right, unselected move left)
+     * 3. Show new agent's tasks (staggered fade in)
      * 
      * @param {string} agentId - Agent ID to select
      * @returns {boolean} True if selection changed, false if already selected
@@ -48,13 +53,23 @@ export class SelectionHandler {
             return false;
         }
         
-        // Deselect previous agent
-        if (previouslySelected) {
-            this._deselectAgent(previouslySelected);
-        }
+        // Orchestrate smooth transition:
+        // Phase 1: Hide previous agent's tasks (if any)
+        // Phase 2: Wait for tasks to fade out
+        // Phase 3: Move agents + show new agent's tasks
         
-        // Select new agent
-        this._performSelection(agentId);
+        if (previouslySelected) {
+            // Deselect previous agent (starts task hide animation)
+            this._deselectAgent(previouslySelected);
+            
+            // Wait for task hide animation to mostly complete before moving agents
+            setTimeout(() => {
+                this._performSelection(agentId);
+            }, POSITIONING_DELAYS.SELECTION_TRANSITION_DELAY);
+        } else {
+            // No previous selection, select immediately
+            this._performSelection(agentId);
+        }
         
         // Persist selection to backend
         this._persistSelection(agentId);
@@ -116,11 +131,12 @@ export class SelectionHandler {
             this.taskController.positionTasksForAgent(agentId);
         }
         
-        // Auto-scroll to the selected agent after layout recalculation completes
-        // Use TASK_POSITION_DELAY to ensure tasks are positioned before scrolling
+        // Auto-scroll to the selected agent AFTER agent repositioning animation completes
+        // Agent repositioning uses CSS transition: --transition-canvas (800ms)
+        // Wait for it to complete before starting camera scroll for smooth visual flow
         setTimeout(() => {
             this.canvasManager.scrollAgentToCenter(agentId);
-        }, POSITIONING_DELAYS.TASK_POSITION_DELAY);
+        }, ANIMATION_DURATIONS.AGENT_REPOSITION);
     }
     
     /**

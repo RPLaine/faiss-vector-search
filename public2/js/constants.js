@@ -17,6 +17,7 @@ export const ANIMATION_DURATIONS = {
     AGENT_INITIAL_ANIMATION: 800,
     AGENT_TRANSITION: 800,
     AGENT_FADE_OUT: 400,
+    AGENT_REPOSITION: 800,              // Agent position transition (matches CSS --transition-canvas)
     
     // Task animations
     TASK_ANIMATION_IN: 200,
@@ -24,9 +25,15 @@ export const ANIMATION_DURATIONS = {
     TASK_TRANSITION: 400,
     TASK_ANIMATION_OUT: 400,
     
+    // Task visibility animations (selection system)
+    TASK_SHOW_STAGGER: 50,              // Stagger between each task when showing (50ms)
+    TASK_HIDE_STAGGER: 20,              // Stagger between each task when hiding (20ms, faster)
+    TASK_VISIBILITY_DURATION: 400,      // Duration of opacity/transform transition (matches CSS --transition-medium)
+    
     // Connection line animations
     CONNECTION_STAGGER_DELAY: 100,      // Delay between connection line animations
     CONNECTION_INITIAL_ANIMATION: 800,  // Duration of initial draw animation
+    CONNECTION_SHOW_DELAY: 100,         // Delay before showing connections after tasks
     
     // UI animations
     FADE_IN: 300,
@@ -57,6 +64,12 @@ export const POSITIONING_DELAYS = {
     // Validation UI
     VALIDATION_REPOSITION_DELAY: 400,   // Reposition after validation UI appears
     
+    // Agent selection transitions
+    // Total time = (max_tasks * TASK_HIDE_STAGGER) + TASK_VISIBILITY_DURATION
+    // Assuming max 10 tasks: (10 * 20ms) + 400ms = 600ms
+    // We use 350ms as a sweet spot - tasks are mostly faded, feels responsive
+    SELECTION_TRANSITION_DELAY: 350,    // Delay between hiding old tasks and moving agents
+    
     // Canvas height updates
     CANVAS_HEIGHT_DEBOUNCE: 150,        // Debounce delay for canvas height recalculation
     
@@ -83,9 +96,9 @@ export const SCROLL_DELAYS = {
     // Expand/collapse recentering
     RECENTER_AFTER_EXPAND: 400,         // Wait for expand transition
     
-    // Scroll animation durations (reduced for snappier feel)
-    SCROLL_ANIMATION_MIN: 400,          // Minimum scroll animation duration (was 1500)
-    SCROLL_ANIMATION_MAX: 1200,         // Maximum scroll animation duration (was 4000)
+    // Scroll animation durations (smooth damped feel)
+    SCROLL_ANIMATION_MIN: 600,          // Minimum scroll animation duration (smooth)
+    SCROLL_ANIMATION_MAX: 1500,         // Maximum scroll animation duration (not too slow)
     SCROLL_DEBOUNCE: 150                // Scroll handler debounce delay
 };
 

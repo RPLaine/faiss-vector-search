@@ -213,18 +213,9 @@ export class TaskRenderer {
     }
     
     /**
-     * Set task position
+     * REMOVED: setPosition() - Now handled by TaskPositionManager
+     * All task positioning is centralized through CanvasManager.taskPositionManager
      */
-    setPosition(element, x, y, immediate = false) {
-        if (immediate) {
-            element.classList.add('no-transition');
-        } else {
-            element.classList.remove('no-transition');
-        }
-        
-        element.style.left = `${x}px`;
-        element.style.top = `${y}px`;
-    }
     
     /**
      * Animate task out

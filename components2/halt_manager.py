@@ -184,7 +184,6 @@ class HaltManager:
     def mark_halted(
         self, 
         agent_id: str, 
-        phase: Optional[int] = None,
         task_id: Optional[int] = None
     ) -> bool:
         """
@@ -192,7 +191,6 @@ class HaltManager:
         
         Args:
             agent_id: The agent ID
-            phase: Current phase where halt occurred
             task_id: Current task ID where halt occurred (optional)
             
         Returns:
@@ -203,22 +201,22 @@ class HaltManager:
             logger.warning(f"Cannot mark halted - agent {agent_id} not found")
             return False
         
-        # Update status and position
+        # Update agent status
         self.agent_manager.update_agent_status(agent_id, "halted")
         
-        if phase is not None:
-            agent["current_phase"] = phase
-        
-        logger.info(
-            f"Agent {agent_id} marked as halted at "
-            f"phase {phase}{f', task {task_id}' if task_id else ''}"
-        )
+        log_msg = f"Agent {agent_id} marked as halted"
+        if task_id:
+            log_msg += f" at task {task_id}"
+        logger.info(log_msg)
         
         return True
     
     def prepare_continue(self, agent_id: str) -> bool:
         """
         Prepare agent to continue from halted state.
+        
+        Note: Does NOT clear the halt flag, allowing the workflow to re-halt
+        after the next task completes if halt mode is still enabled.
         
         Args:
             agent_id: The agent ID
@@ -229,19 +227,18 @@ class HaltManager:
         if not self.can_continue(agent_id):
             return False
         
-        # Clear halt flag
-        self.clear_halt(agent_id)
+        # Do NOT clear halt flag - preserve it for next task
+        # User can disable halt mode via the halt checkbox if they want to run all tasks
         
         # Update status to running
         self.agent_manager.update_agent_status(agent_id, "running")
         
-        logger.info(f"Agent {agent_id} prepared to continue")
+        logger.info(f"Agent {agent_id} prepared to continue (halt mode still active)")
         return True
     
     def get_halt_result(
         self, 
-        agent_id: str, 
-        phase: int,
+        agent_id: str,
         task_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
@@ -249,7 +246,6 @@ class HaltManager:
         
         Args:
             agent_id: The agent ID
-            phase: Phase where halt occurred
             task_id: Task ID where halt occurred (optional)
             
         Returns:
@@ -257,7 +253,7 @@ class HaltManager:
         """
         result = {
             "halted": True,
-            "phase": phase
+            "agent_id": agent_id
         }
         
         if task_id is not None:

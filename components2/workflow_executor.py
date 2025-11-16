@@ -91,12 +91,12 @@ class WorkflowExecutor:
         
         Args:
             agent: Agent record dictionary
-            phase_callback: Optional callback for phase updates
-                Signature: async def callback(phase: int, status: str, content: Optional[str])
-            chunk_callback: Optional callback for streaming chunks
-                Signature: def callback(phase: int, chunk: str)
-            action_callback: Optional callback for action events
-                Signature: def callback(action_data: Dict[str, Any])
+            phase_callback: Optional callback for workflow status updates
+                Signature: async def callback(status: str, message: Optional[str])
+            chunk_callback: Optional callback for streaming chunks (agent-level content)
+                Signature: def callback(chunk: str)
+            action_callback: Optional callback for action events (task-level events)
+                Signature: async def callback(action_data: Dict[str, Any])
                 
         Returns:
             Result dictionary with article and metadata
@@ -116,60 +116,37 @@ class WorkflowExecutor:
         self.llm_service.cancellation_checker = check_cancelled
         
         try:
-            # Get the current phase (for resuming after halt)
-            current_phase = agent.get("current_phase", -1)
-            
-            # Check if we're redoing a phase
-            redo_phase = agent.get("redo_phase")
-            if redo_phase is not None:
-                # Set current_phase to one less so we re-execute the redo phase
-                current_phase = redo_phase - 1
-                # Clear the redo flag
-                agent["redo_phase"] = None
-                logger.info(f"Agent {agent_id} redoing phase {redo_phase}, current_phase set to {current_phase}")
+            # Check if we need to regenerate tasklist
+            redo_tasklist = agent.pop("redo_tasklist", None)
             
             subject = agent.get("phase_0_response", "")
-            tasklist = agent.get("tasklist")  # Get tasklist at top level
+            tasklist = agent.get("tasklist")
             
-            # Fix for agents created before phase tracking was fixed:
-            # If current_phase is -1 but tasklist already exists, skip phase 0
-            if current_phase < 0 and tasklist and tasklist.get("tasks"):
-                logger.info(f"Agent {agent_id} has existing tasklist, skipping phase 0 regeneration")
-                current_phase = 0  # Mark as if phase 0 was completed
-                agent["current_phase"] = 0
-                if self.agent_manager:
-                    self.agent_manager._save_state()
-            
-            # Phase 0: Invent Subject
-            if current_phase < 0:
-                result = await self._phase_invent_subject(
+            # Generate tasklist if it doesn't exist or if regeneration requested
+            if not tasklist or redo_tasklist:
+                result = await self._generate_tasklist(
                     agent, phase_callback, chunk_callback
                 )
                 
-                # Check if phase returned an error dict
+                # Check if generation returned an error dict
                 if isinstance(result, dict) and result.get("error"):
-                    agent["current_phase"] = 0
                     logger.error(f"Agent {agent_id} tasklist validation failed: {result['error']}")
-                    return {"halted": True, "phase": 0, "error": result["error"]}
+                    return {"halted": True, "error": result["error"]}
                 
                 subject = result
                 
                 # Check halt dynamically before proceeding
                 if self.halt_manager and self.halt_manager.should_halt_before_phase(agent_id, 0):
-                    self.halt_manager.mark_halted(agent_id, phase=0)
-                    logger.info(f"Agent {agent_id} halted at phase 0, returning halted status")
-                    return self.halt_manager.get_halt_result(agent_id, phase=0)
+                    self.halt_manager.mark_halted(agent_id)
+                    logger.info(f"Agent {agent_id} halted after tasklist generation")
+                    return self.halt_manager.get_halt_result(agent_id)
                 
-                # Mark phase 0 as complete before proceeding to task execution
-                agent["current_phase"] = 0
-                if self.agent_manager:
-                    self.agent_manager._save_state()
-                logger.info(f"Agent {agent_id} phase 0 completed, proceeding to task execution")
+                logger.info(f"Agent {agent_id} tasklist generation completed, proceeding to task execution")
             
-            # Execute tasks (either after phase 0 completes or when continuing from halt)
-            # Task execution is part of phase 0
-            if current_phase <= 0:
-                # After phase 0, get updated tasklist and execute tasks
+            # Execute tasks (after tasklist generation or when continuing from halt)
+            tasklist = agent.get("tasklist")
+            if tasklist and tasklist.get("tasks"):
+                # After tasklist generation, get updated tasklist and execute tasks
                 tasklist = agent.get("tasklist")
                 if tasklist and tasklist.get("tasks"):
                     logger.info(f"Agent {agent_id} executing {len(tasklist['tasks'])} tasks")
@@ -209,9 +186,7 @@ class WorkflowExecutor:
                     
                     # Create task chunk callback wrapper
                     def task_chunk_callback(task_id: int, chunk: str):
-                        if chunk_callback:
-                            # Reuse the existing chunk_callback but with task metadata
-                            chunk_callback(-1, chunk)  # -1 indicates task phase
+                        # Only send task_chunk event - frontend routes to correct node
                         if action_callback:
                             # Schedule the coroutine in the main event loop
                             asyncio.run_coroutine_threadsafe(
@@ -256,12 +231,6 @@ class WorkflowExecutor:
                                 logger.info(f"Agent {agent_id} - Skipping task {task['id']} (status: {task_status})")
                                 continue
                         
-                        # Check halt before each task
-                        if self.halt_manager and self.halt_manager.should_halt_before_task(agent_id, task["id"]):
-                            self.halt_manager.mark_halted(agent_id, phase=0, task_id=task["id"])
-                            logger.info(f"Agent {agent_id} halted before task {task['id']}")
-                            return self.halt_manager.get_halt_result(agent_id, phase=0, task_id=task["id"])
-                        
                         # Check cancellation
                         if agent.get("cancelled", False):
                             raise asyncio.CancelledError("Agent cancelled during task execution")
@@ -296,9 +265,9 @@ class WorkflowExecutor:
                             
                             # Check halt after task completes (before moving to next task)
                             if self.halt_manager and self.halt_manager.should_halt_after_task(agent_id, task["id"]):
-                                self.halt_manager.mark_halted(agent_id, phase=0, task_id=task["id"])
+                                self.halt_manager.mark_halted(agent_id, task_id=task["id"])
                                 logger.info(f"Agent {agent_id} halted after task {task['id']} completed")
-                                return self.halt_manager.get_halt_result(agent_id, phase=0, task_id=task["id"])
+                                return self.halt_manager.get_halt_result(agent_id, task_id=task["id"])
                             
                         except asyncio.CancelledError:
                             logger.info(f"Agent {agent_id} - Task {task['id']} cancelled")
@@ -322,14 +291,7 @@ class WorkflowExecutor:
                     
                     logger.info(f"Agent {agent_id} completed all tasks")
             
-            # Workflow is now complete after tasks
-            # Phase 1-5: OLD RESEARCH PHASES - NOW REPLACED BY TASKS
-            # Phase 6: OLD ARTICLE WRITING - NOW REPLACED BY FINAL TASK OUTPUT
-            # The tasks themselves are the complete workflow
-            
-            # Clear current phase (workflow completed)
-            agent["current_phase"] = -1
-            
+            # Workflow complete - tasks are the complete workflow
             # Get the goal from tasklist as the "subject"
             goal = agent.get("goal", subject if isinstance(subject, str) else "Task completion")
             
@@ -380,18 +342,18 @@ class WorkflowExecutor:
         logger.warning(f"Agent {agent['id']} halt timeout")
         return False
     
-    async def _phase_invent_subject(
+    async def _generate_tasklist(
         self,
         agent: Dict[str, Any],
         phase_callback: Optional[Callable],
         chunk_callback: Optional[Callable]
     ) -> Union[str, Dict[str, Any]]:
-        """Execute Phase 0: Generate Tasklist. Returns str on success, dict with error on failure."""
+        """Generate tasklist for agent. Returns goal string on success, dict with error on failure."""
         agent_id = agent["id"]
         
         if phase_callback:
             await phase_callback(
-                0, "active", "Creating tasklist based on agent profile..."
+                "tasklist_generating", "Creating tasklist based on agent profile..."
             )
         
         # Build prompt from template
@@ -410,7 +372,7 @@ class WorkflowExecutor:
             """Collect chunks and stream to UI."""
             collected_chunks.append(chunk)
             if chunk_callback:
-                chunk_callback(0, chunk)
+                chunk_callback(chunk)
         
         # Execute LLM call in thread pool
         loop = asyncio.get_event_loop()
@@ -481,8 +443,8 @@ class WorkflowExecutor:
             
             if phase_callback:
                 await phase_callback(
-                    0, "completed",
-                    tasklist_json  # Send raw response as content
+                    "tasklist_generated",
+                    tasklist_json  # Send raw response as message
                 )
             
             logger.info(f"Agent {agent_id} generated tasklist: {tasklist.get('goal')}")
@@ -506,10 +468,10 @@ class WorkflowExecutor:
             }
             
             if phase_callback:
-                await phase_callback(0, "completed", f"ERROR: {str(e)}\n\n{tasklist_json}")  # Send error with raw response
+                await phase_callback("error", f"ERROR: {str(e)}\n\n{tasklist_json}")
             
             # Don't continue workflow, halt here
-            return {"halted": True, "phase": 0, "error": str(e)}
+            return {"halted": True, "error": str(e)}
     
     async def _phase_get_sources(
         self,
@@ -638,7 +600,7 @@ Keep it concise (300-500 words) and engaging. Use markdown formatting for better
         def stream_callback(chunk: str):
             """Forward chunks to article callback."""
             if chunk_callback:
-                chunk_callback(6, chunk)
+                chunk_callback(chunk)
         
         # Callback for action events
         def action_event_callback(action_data: Dict[str, Any]):

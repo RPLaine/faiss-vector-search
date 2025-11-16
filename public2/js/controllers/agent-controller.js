@@ -195,8 +195,6 @@ export class AgentController {
             if (hasFailedTasks) {
                 // Redo the first failed task
                 const failedTask = this.taskManager.getFirstFailedTask(agentId);
-                const confirmMsg = `Redo failed task "${failedTask.element.querySelector('h4').textContent}"?`;
-                if (!confirm(confirmMsg)) return;
                 
                 console.log(`[Agent ${agentId}] Redoing failed task ${failedTask.taskId}`);
                 
@@ -216,14 +214,10 @@ export class AgentController {
                 
                 console.log(`[Agent ${agentId}] Task redo initiated`);
             } else {
-                // No failed tasks, redo current phase
-                const phaseToRedo = agent.current_phase || 0;
-                const confirmMsg = `Redo phase ${phaseToRedo}? This will restart from this phase.`;
-                if (!confirm(confirmMsg)) return;
+                // No failed tasks, redo tasklist generation
+                console.log(`[Agent ${agentId}] Redoing tasklist generation`);
                 
-                console.log(`[Agent ${agentId}] Redoing phase ${phaseToRedo}`);
-                
-                const result = await APIService.redoPhase(agentId, phaseToRedo);
+                const result = await APIService.redoTasklist(agentId);
                 
                 if (!result.success) {
                     throw new Error(result.error);
@@ -240,8 +234,8 @@ export class AgentController {
                 // Clear UI content
                 this.renderer.clearContent(agentId);
                 
-                // Clear tasks immediately if redoing phase 0 (new tasklist will be generated)
-                if (phaseToRedo === 0) {
+                // Clear tasks immediately (new tasklist will be generated)
+                if (this.taskController) {
                     this.taskController._clearTasksImmediate(agentId);
                 }
                 

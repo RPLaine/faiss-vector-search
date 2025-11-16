@@ -90,8 +90,8 @@ export class APIService {
         return this._request('POST', `/agents/${agentId}/continue-from-failed`);
     }
     
-    static async redoPhase(agentId, phase) {
-        return this._request('POST', `/agents/${agentId}/redo`, { phase });
+    static async redoTasklist(agentId) {
+        return this._request('POST', `/agents/${agentId}/redo-tasklist`);
     }
     
     static async redoFailedTask(agentId) {

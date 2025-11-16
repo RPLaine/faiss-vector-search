@@ -17,6 +17,7 @@ export class WebSocketEventHandler {
         this.taskManager = taskManager;
         this.canvasInitializer = canvasInitializer;
         this.agentStatusHandler = agentStatusHandler;
+        this.tasklistStreamStarted = new Set();
     }
     
     /**
@@ -42,7 +43,7 @@ export class WebSocketEventHandler {
         wsService.on('agent_deleted', (data) => this.handleAgentDeleted(data));
         
         // Workflow events
-        wsService.on('workflow_phase', (data) => this.handleWorkflowPhase(data));
+        wsService.on('workflow_status', (data) => this.handleWorkflowStatus(data));
         
         // Task events
         wsService.on('task_running', (data) => this.handleTaskRunning(data));
@@ -54,8 +55,7 @@ export class WebSocketEventHandler {
         wsService.on('task_reset', (data) => this.handleTaskReset(data));
         
         // Streaming events
-        wsService.on('phase_chunk', (data) => this.handlePhaseChunk(data));
-        wsService.on('agent_chunk', (data) => this.handleAgentChunk(data));
+        wsService.on('chunk', (data) => this.handleChunk(data));
         
         // LLM action events
         wsService.on('action', (data) => this.handleAction(data));
@@ -85,6 +85,59 @@ export class WebSocketEventHandler {
         
         // Delegate to CanvasInitializer for proper initialization
         this.canvasInitializer.initializeNewAgent(agent);
+    }
+    
+    /**
+     * Handle chunk (streaming text during workflow execution)
+     */
+    handleChunk(data) {
+        const agentId = data.data.agent_id;
+        const chunk = data.data.chunk;
+        
+        // Append chunk to agent content
+        this.uiManager.updatePhaseContent(agentId, 0, chunk, true);
+    }
+    
+    /**
+     * Handle workflow status update
+     */
+    handleWorkflowStatus(data) {
+        const agentId = data.data.agent_id;
+        const workflowStatus = data.data.status;
+        const message = data.data.message;
+        
+        console.log(`[Agent ${agentId}] Workflow: ${workflowStatus}`);
+        
+        // Update agent status based on workflow status
+        if (workflowStatus === 'tasklist_generating') {
+            this.agentStatusHandler.updateStatus(agentId, 'running');
+            // Clear content when starting tasklist generation
+            if (!this.tasklistStreamStarted.has(agentId)) {
+                this.uiManager.clearAgentContent(agentId);
+                this.tasklistStreamStarted.add(agentId);
+            }
+        } else if (workflowStatus === 'tasklist_generated') {
+            // Create tasks from tasklist
+            const tasklist = data.data.tasklist;
+            if (tasklist && tasklist.tasks) {
+                console.log(`[Agent ${agentId}] Creating ${tasklist.tasks.length} tasks from tasklist`);
+                this.taskController.createTasksForAgent(agentId, tasklist);
+                
+                // If agent is currently selected, show tasks after positioning completes
+                if (this.agentManager.isAgentSelected(agentId)) {
+                    setTimeout(() => {
+                        this.taskController.showTasksForAgent(agentId);
+                    }, POSITIONING_DELAYS.TASK_POSITION_DELAY + 100);
+                }
+            }
+        } else if (workflowStatus === 'error') {
+            this.agentStatusHandler.updateStatus(agentId, 'failed');
+        }
+        
+        // If message provided, display it
+        if (message) {
+            this.uiManager.updatePhaseContent(agentId, 0, message, false);
+        }
     }
     
     handleAgentUpdated(data) {

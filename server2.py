@@ -443,9 +443,9 @@ async def stop_agent(agent_id: str):
     return {"success": True, "agent_id": agent_id}
 
 
-@app.post("/api/agents/{agent_id}/redo")
-async def redo_phase(agent_id: str, request_data: Dict[str, Any]):
-    """Redo the current phase of a halted or stopped agent."""
+@app.post("/api/agents/{agent_id}/redo-tasklist")
+async def redo_tasklist(agent_id: str):
+    """Regenerate the tasklist for a halted, stopped, or completed agent."""
     if not agent_manager:
         raise HTTPException(status_code=503, detail="Agent manager not initialized")
     
@@ -453,23 +453,19 @@ async def redo_phase(agent_id: str, request_data: Dict[str, Any]):
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     
-    # Accept both 'halted' and 'stopped' statuses for redo
-    if agent.get("status") not in ["halted", "stopped"]:
-        raise HTTPException(status_code=409, detail="Agent is not halted or stopped")
+    # Accept halted, stopped, completed, or failed statuses for redo
+    if agent.get("status") not in ["halted", "stopped", "completed", "failed"]:
+        raise HTTPException(status_code=409, detail="Agent must be halted, stopped, completed, or failed")
     
-    # Get current phase to redo
-    current_phase = agent.get("current_phase", 0)
+    # Clear tasklist and related data
+    agent.pop("phase_0_response", None)
+    agent.pop("tasklist", None)
+    agent.pop("goal", None)
     
-    # Clear the response for the phase being redone
-    if current_phase == 0:
-        agent.pop("phase_0_response", None)
-        agent.pop("tasklist", None)
-        agent.pop("goal", None)
+    # Set flag to regenerate tasklist
+    agent["redo_tasklist"] = True
     
-    # Set the phase to redo (workflow will check this and re-execute that phase)
-    agent["redo_phase"] = current_phase
-    
-    # Save state to persist redo_phase and cleared responses
+    # Save state to persist changes
     agent_manager._save_state()
     
     # Update status to running
@@ -481,14 +477,14 @@ async def redo_phase(agent_id: str, request_data: Dict[str, Any]):
         "data": {
             "agent_id": agent_id,
             "name": agent["name"],
-            "phase": current_phase
+            "redo_type": "tasklist"
         }
     })
     
-    # Restart the workflow to redo the phase
+    # Restart the workflow to regenerate tasklist
     asyncio.create_task(run_agent(agent_id))
     
-    return {"success": True, "agent_id": agent_id, "phase": current_phase}
+    return {"success": True, "agent_id": agent_id, "redo_type": "tasklist"}
 
 
 @app.post("/api/agents/{agent_id}/continue-from-failed")
@@ -632,37 +628,35 @@ async def run_agent(agent_id: str):
     if not agent:
         return
     
-    async def phase_callback(phase: int, status: str, content: Optional[str] = None):
-        """Callback for phase updates."""
+    async def phase_callback(workflow_status: str, message: Optional[str] = None):
+        """Callback for workflow status updates."""
         event_data = {
-            "type": "workflow_phase",
+            "type": "workflow_status",
             "timestamp": datetime.now().isoformat(),
-            "data": {"agent_id": agent_id, "phase": phase, "status": status}
+            "data": {"agent_id": agent_id, "status": workflow_status}
         }
         
-        if content:
-            event_data["data"]["content"] = content
+        if message:
+            event_data["data"]["message"] = message
         
-        # Include tasklist when phase 0 completes
-        if phase == 0 and status == "completed" and agent.get("tasklist"):
+        # Include tasklist when generation completes
+        if workflow_status == "tasklist_generated" and agent.get("tasklist"):
             event_data["data"]["tasklist"] = agent["tasklist"]
         
         await broadcast_event(event_data)
         
-        # Save to persistent store after phase completes
-        if status == "completed" and agent_manager:
+        # Save to persistent store after tasklist generation
+        if workflow_status == "tasklist_generated" and agent_manager:
             agent_manager._save_state()
     
-    def chunk_callback(phase: int, chunk: str):
+    def chunk_callback(chunk: str):
         """Callback for streaming chunks."""
         if main_loop and active_connections:
-            event_type = "phase_chunk" if phase == 0 else "agent_chunk"
             asyncio.run_coroutine_threadsafe(
                 broadcast_event({
-                    "type": event_type,
+                    "type": "chunk",
                     "data": {
                         "agent_id": agent_id,
-                        "phase": phase,
                         "chunk": chunk
                     }
                 }),

@@ -320,6 +320,32 @@ body {
     background: #dc2626;
 }
 
+/* Disabled button styles */
+.btn:disabled,
+.btn[disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.btn-primary:disabled,
+.btn-primary[disabled] {
+    background: var(--color-accent-primary);
+    transform: none;
+}
+
+.btn-secondary:disabled,
+.btn-secondary[disabled] {
+    background: var(--color-bg-tertiary);
+    transform: none;
+}
+
+.btn-danger:disabled,
+.btn-danger[disabled] {
+    background: var(--color-accent-danger);
+    transform: none;
+}
+
 .btn-icon {
     font-size: 16px;
 }

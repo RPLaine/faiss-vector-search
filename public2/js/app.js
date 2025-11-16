@@ -75,7 +75,8 @@ class App {
         this.agentController = new AgentController(
             this.agentManager, 
             this.agentRenderer,
-            this.taskManager  // Inject TaskManager for failed task queries
+            this.taskManager,  // Inject TaskManager for failed task queries
+            this.agentStatusHandler  // Inject AgentStatusHandler for centralized status updates
         );
         this.taskController = new TaskController(this.taskManager, this.taskRenderer, this.canvasManager, this.agentManager);
         this.haltController = new HaltController(this.agentManager);

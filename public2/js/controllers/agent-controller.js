@@ -10,10 +10,11 @@
 import { APIService } from '../services/api-service.js';
 
 export class AgentController {
-    constructor(agentManager, agentRenderer, taskManager = null) {
+    constructor(agentManager, agentRenderer, taskManager = null, agentStatusHandler = null) {
         this.agentManager = agentManager;
         this.renderer = agentRenderer;
         this.taskManager = taskManager; // Injected dependency for task queries
+        this.agentStatusHandler = agentStatusHandler; // Injected dependency for centralized status updates
     }
     
     /**
@@ -89,8 +90,12 @@ export class AgentController {
                     }
                     
                     // Immediately update agent status to running (optimistic update)
-                    this.agentManager.updateAgentStatus(agentId, 'running');
-                    this.renderer.updateStatus(agentId, 'running');
+                    if (this.agentStatusHandler) {
+                        this.agentStatusHandler.updateStatus(agentId, 'running');
+                    } else {
+                        this.agentManager.updateAgentStatus(agentId, 'running');
+                        this.renderer.updateStatus(agentId, 'running');
+                    }
                     
                     console.log(`[Agent ${agentId}] Continuing from failed/cancelled task`);
                     return;
@@ -110,8 +115,12 @@ export class AgentController {
                 }
                 
                 // Immediately update agent status to running (optimistic update)
-                this.agentManager.updateAgentStatus(agentId, 'running');
-                this.renderer.updateStatus(agentId, 'running');
+                if (this.agentStatusHandler) {
+                    this.agentStatusHandler.updateStatus(agentId, 'running');
+                } else {
+                    this.agentManager.updateAgentStatus(agentId, 'running');
+                    this.renderer.updateStatus(agentId, 'running');
+                }
                 
                 console.log(`[Agent ${agentId}] Continued to next task successfully`);
                 return;
@@ -132,8 +141,12 @@ export class AgentController {
         }
         
         // Immediately update agent status to running (optimistic update)
-        this.agentManager.updateAgentStatus(agentId, 'running');
-        this.renderer.updateStatus(agentId, 'running');
+        if (this.agentStatusHandler) {
+            this.agentStatusHandler.updateStatus(agentId, 'running');
+        } else {
+            this.agentManager.updateAgentStatus(agentId, 'running');
+            this.renderer.updateStatus(agentId, 'running');
+        }
         
         console.log(`[Agent ${agentId}] Continued successfully`);
     }
@@ -186,8 +199,12 @@ export class AgentController {
                 }
                 
                 // Immediately update agent status to running (optimistic update)
-                this.agentManager.updateAgentStatus(agentId, 'running');
-                this.renderer.updateStatus(agentId, 'running');
+                if (this.agentStatusHandler) {
+                    this.agentStatusHandler.updateStatus(agentId, 'running');
+                } else {
+                    this.agentManager.updateAgentStatus(agentId, 'running');
+                    this.renderer.updateStatus(agentId, 'running');
+                }
                 
                 console.log(`[Agent ${agentId}] Task redo initiated`);
             } else {
@@ -205,8 +222,12 @@ export class AgentController {
                 }
                 
                 // Immediately update agent status to running (optimistic update)
-                this.agentManager.updateAgentStatus(agentId, 'running');
-                this.renderer.updateStatus(agentId, 'running');
+                if (this.agentStatusHandler) {
+                    this.agentStatusHandler.updateStatus(agentId, 'running');
+                } else {
+                    this.agentManager.updateAgentStatus(agentId, 'running');
+                    this.renderer.updateStatus(agentId, 'running');
+                }
                 
                 // Clear UI content
                 this.renderer.clearContent(agentId);

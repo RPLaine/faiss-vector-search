@@ -8,7 +8,7 @@
 import { SCROLL_DELAYS, POSITIONING_DELAYS, ANIMATION_DURATIONS } from '../constants.js';
 
 export class WebSocketEventHandler {
-    constructor(agentManager, agentController, taskController, uiManager, canvasManager, taskManager, canvasInitializer) {
+    constructor(agentManager, agentController, taskController, uiManager, canvasManager, taskManager, canvasInitializer, agentStatusHandler = null) {
         this.agentManager = agentManager;
         this.agentController = agentController;
         this.taskController = taskController;
@@ -16,6 +16,7 @@ export class WebSocketEventHandler {
         this.canvasManager = canvasManager;
         this.taskManager = taskManager;
         this.canvasInitializer = canvasInitializer;
+        this.agentStatusHandler = agentStatusHandler;
     }
     
     /**
@@ -98,8 +99,15 @@ export class WebSocketEventHandler {
         console.log('[WebSocket] agent_started:', data);
         const agentId = data.data.agent_id;
         
-        this.agentManager.updateAgentStatus(agentId, 'running');
-        this.uiManager.updateAgentStatus(agentId, 'running');
+        // Use AgentStatusHandler as single entry point for status updates
+        if (this.agentStatusHandler) {
+            this.agentStatusHandler.updateStatus(agentId, 'running');
+        } else {
+            // Fallback to old flow if handler not available
+            this.agentManager.updateAgentStatus(agentId, 'running');
+            this.uiManager.updateAgentStatus(agentId, 'running');
+        }
+        
         this.taskController.clearTasksForAgent(agentId);
         this.statsService.update();
     }
@@ -108,8 +116,14 @@ export class WebSocketEventHandler {
         console.log('[WebSocket] agent_halted:', data);
         const agentId = data.data.agent_id;
         
-        this.agentManager.updateAgentStatus(agentId, 'halted');
-        this.uiManager.updateAgentStatus(agentId, 'halted');
+        // Use AgentStatusHandler as single entry point
+        if (this.agentStatusHandler) {
+            this.agentStatusHandler.updateStatus(agentId, 'halted');
+        } else {
+            this.agentManager.updateAgentStatus(agentId, 'halted');
+            this.uiManager.updateAgentStatus(agentId, 'halted');
+        }
+        
         this.statsService.update();
     }
     
@@ -117,8 +131,13 @@ export class WebSocketEventHandler {
         console.log('[WebSocket] agent_continued:', data);
         const agentId = data.data.agent_id;
         
-        this.agentManager.updateAgentStatus(agentId, 'running');
-        this.uiManager.updateAgentStatus(agentId, 'running');
+        // Use AgentStatusHandler as single entry point
+        if (this.agentStatusHandler) {
+            this.agentStatusHandler.updateStatus(agentId, 'running');
+        } else {
+            this.agentManager.updateAgentStatus(agentId, 'running');
+            this.uiManager.updateAgentStatus(agentId, 'running');
+        }
         
         // Scroll to first task if available
         const firstTask = this.taskManager.getFirstTask(agentId);
@@ -134,8 +153,13 @@ export class WebSocketEventHandler {
         const agentId = data.data.agent_id;
         const phase = data.data.phase;
         
-        this.agentManager.updateAgentStatus(agentId, 'running');
-        this.uiManager.updateAgentStatus(agentId, 'running');
+        // Use AgentStatusHandler as single entry point
+        if (this.agentStatusHandler) {
+            this.agentStatusHandler.updateStatus(agentId, 'running');
+        } else {
+            this.agentManager.updateAgentStatus(agentId, 'running');
+            this.uiManager.updateAgentStatus(agentId, 'running');
+        }
         
         // Clear tasks if redoing phase 0 (tasklist generation)
         if (phase === 0) {
@@ -170,8 +194,27 @@ export class WebSocketEventHandler {
         // Use 'stopped' status from backend (or default to 'stopped' if not provided)
         const status = data.data.status || 'stopped';
         
-        this.agentManager.updateAgentStatus(agentId, status);
-        this.uiManager.updateAgentStatus(agentId, status);
+        // Use AgentStatusHandler as single entry point
+        if (this.agentStatusHandler) {
+            this.agentStatusHandler.updateStatus(agentId, status);
+        } else {
+            this.agentManager.updateAgentStatus(agentId, status);
+            this.uiManager.updateAgentStatus(agentId, status);
+        }
+        
+        // If there's an error message (from LLM API failure), display it
+        if (data.data.error) {
+            const agent = this.agentManager.getAgent(agentId);
+            if (agent) {
+                // Show error in agent content area
+                this.uiManager.agentRenderer.updateContent(
+                    agentId,
+                    `⚠️ **Agent Stopped Due to Error:**\n\n${data.data.error}\n\n*Click Continue to retry.*`,
+                    false
+                );
+            }
+        }
+        
         this.statsService.update();
     }
     

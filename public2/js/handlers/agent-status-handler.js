@@ -153,9 +153,31 @@ export class AgentStatusHandler {
         return agent && AgentStatusPredicates.canStop(agent.status);
     }
     
-    canContinue(agentId) {
+    /**
+     * Check if agent can continue (context-aware - considers both status and tasks)
+     * This is the centralized business logic for determining continue eligibility
+     * 
+     * @param {string} agentId - Agent ID
+     * @param {Object} taskManager - Optional TaskManager for checking task state
+     * @returns {boolean} True if agent can continue
+     */
+    canContinue(agentId, taskManager = null) {
         const agent = this.agentManager.getAgent(agentId);
-        return agent && AgentStatusPredicates.canContinue(agent.status);
+        if (!agent) return false;
+        
+        // Basic predicate check (halted, stopped)
+        if (AgentStatusPredicates.canContinue(agent.status)) {
+            return true;
+        }
+        
+        // Extended logic: Failed agents can continue IF they have a tasklist
+        // (meaning Phase 0 completed successfully and tasks were created)
+        if (agent.status === AGENT_STATUS.FAILED && taskManager) {
+            const agentTasks = taskManager.getAgentTasks(agentId);
+            return agentTasks && agentTasks.length > 0;
+        }
+        
+        return false;
     }
     
     canEdit(agentId) {

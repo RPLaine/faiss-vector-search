@@ -170,13 +170,13 @@ class HaltManager:
         
         status = agent.get("status")
         
-        # Agent can continue if it's halted or stopped
-        can_continue = status in ["halted", "stopped"]
+        # Agent can continue if it's halted, stopped, or failed (with tasklist)
+        can_continue = status in ["halted", "stopped", "failed"]
         
         if not can_continue:
             logger.warning(
                 f"Agent {agent_id} cannot continue - status is {status}, "
-                f"expected 'halted' or 'stopped'"
+                f"expected 'halted', 'stopped', or 'failed'"
             )
         
         return can_continue

@@ -23,6 +23,7 @@ import asyncio
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 import uuid
+import requests
 
 from components.services import ConfigurationProvider
 from components2.llm_service import LLMService
@@ -507,9 +508,9 @@ async def continue_from_failed_task(agent_id: str):
             detail="Agent is already running"
         )
     
-    # Accept halted and stopped statuses
-    if agent.get("status") not in ["halted", "stopped"]:
-        raise HTTPException(status_code=409, detail="Agent is not halted or stopped")
+    # Accept halted, stopped, and failed statuses
+    if agent.get("status") not in ["halted", "stopped", "failed"]:
+        raise HTTPException(status_code=409, detail="Agent is not halted, stopped, or failed")
     
     # Find first failed or cancelled task
     tasklist = agent.get("tasklist", {})
@@ -570,9 +571,9 @@ async def redo_failed_task(agent_id: str):
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     
-    # Accept both 'halted' and 'stopped' statuses for redo-task
-    if agent.get("status") not in ["halted", "stopped"]:
-        raise HTTPException(status_code=409, detail="Agent is not halted or stopped")
+    # Accept 'halted', 'stopped', and 'failed' statuses for redo-task
+    if agent.get("status") not in ["halted", "stopped", "failed"]:
+        raise HTTPException(status_code=409, detail="Agent is not halted, stopped, or failed")
     
     # Find first failed task
     tasklist = agent.get("tasklist", {})
@@ -766,7 +767,23 @@ async def run_agent(agent_id: str):
             logger.info(f"Agent {agent_id} was cancelled during LLM call")
             # Don't update status - already handled by stop endpoint (status set to "stopped")
             # Don't broadcast - already handled by stop endpoint
+        # Check if it's an LLM API failure (timeout, connection error, etc.)
+        elif isinstance(e, (TimeoutError, RuntimeError, requests.exceptions.RequestException)):
+            logger.error(f"Agent {agent_id} LLM API error (auto-stopped): {e}")
+            # Set status to 'stopped' so user can retry with Continue button
+            agent_manager.update_agent_status(agent_id, "stopped")
+            
+            await broadcast_event({
+                "type": "agent_stopped",
+                "data": {
+                    "agent_id": agent_id,
+                    "name": agent["name"],
+                    "status": "stopped",
+                    "error": str(e)  # Include error message for UI display
+                }
+            })
         else:
+            # Other failures (validation errors, logic errors, etc.) - mark as failed
             logger.error(f"Agent {agent_id} failed: {e}")
             agent_manager.update_agent_status(agent_id, "failed", error=str(e))
             

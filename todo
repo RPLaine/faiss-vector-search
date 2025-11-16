@@ -1,1 +1,4 @@
 When an agent or a task is processing, the no-transition mark is either missing or not working for the task nodes when user is dragging the cavas with mouse.
+
+I would like that all data we in the #file:public2 application is public (except the python backend). So let's create a new directory public2/data/ that is accessible from the url 127.0.0.1:8001/data.
+Here we can have all the prompts in their own folder, each named agent can have their own folder, and all the agent state data.

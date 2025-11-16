@@ -68,31 +68,62 @@ export class AgentController {
             throw new Error(`Agent ${agentId} not found`);
         }
         
-        // Check if there are failed or cancelled tasks
-        const hasFailedOrCancelled = this.taskManager?.hasFailedOrCancelledTasks(agentId);
-        
-        if (hasFailedOrCancelled && (agent.status === 'stopped' || agent.status === 'halted')) {
-            // Get first failed/cancelled task
-            const failedTask = this.taskManager.getFirstFailedOrCancelledTask(agentId);
-            if (failedTask) {
-                const taskStatus = failedTask.element.querySelector('.task-node-status')?.textContent || 'failed';
+        // When agent is stopped or failed and there is a tasklist, check for next non-complete task
+        if ((agent.status === 'stopped' || agent.status === 'failed') && this.taskManager) {
+            // First check if there are failed or cancelled tasks to retry
+            const hasFailedOrCancelled = this.taskManager.hasFailedOrCancelledTasks(agentId);
+            
+            if (hasFailedOrCancelled) {
+                // Get first failed/cancelled task
+                const failedTask = this.taskManager.getFirstFailedOrCancelledTask(agentId);
+                if (failedTask) {
+                    const taskStatus = failedTask.element.querySelector('.task-node-status')?.textContent || 'failed';
+                    
+                    console.log(`[Agent ${agentId}] Continuing from ${taskStatus} task ${failedTask.taskId}`);
+                    
+                    // Call special endpoint to continue from failed task
+                    const result = await APIService.continueFromFailedTask(agentId);
+                    
+                    if (!result.success) {
+                        throw new Error(result.error);
+                    }
+                    
+                    // Immediately update agent status to running (optimistic update)
+                    this.agentManager.updateAgentStatus(agentId, 'running');
+                    this.renderer.updateStatus(agentId, 'running');
+                    
+                    console.log(`[Agent ${agentId}] Continuing from failed/cancelled task`);
+                    return;
+                }
+            }
+            
+            // No failed/cancelled tasks, check for next unexecuted task (created or halted)
+            const nextTask = this.taskManager.getNextUnexecutedTask(agentId);
+            if (nextTask) {
+                console.log(`[Agent ${agentId}] Continuing to process next non-complete task ${nextTask.taskId}`);
                 
-                console.log(`[Agent ${agentId}] Continuing from ${taskStatus} task ${failedTask.taskId}`);
-                
-                // Call special endpoint to continue from failed task
-                const result = await APIService.continueFromFailedTask(agentId);
+                // Call continue endpoint to process next task
+                const result = await APIService.continueAgent(agentId);
                 
                 if (!result.success) {
                     throw new Error(result.error);
                 }
                 
-                console.log(`[Agent ${agentId}] Continuing from failed/cancelled task`);
+                // Immediately update agent status to running (optimistic update)
+                this.agentManager.updateAgentStatus(agentId, 'running');
+                this.renderer.updateStatus(agentId, 'running');
+                
+                console.log(`[Agent ${agentId}] Continued to next task successfully`);
                 return;
             }
         }
         
-        // Normal continue (from halt or regular stop)
-        console.log(`[Agent ${agentId}] Continuing from phase ${agent.current_phase}`);
+        // For halted agents or normal continue flow
+        if (agent.status === 'halted') {
+            console.log(`[Agent ${agentId}] Continuing from halt at phase ${agent.current_phase}`);
+        } else {
+            console.log(`[Agent ${agentId}] Continuing from phase ${agent.current_phase}`);
+        }
         
         const result = await APIService.continueAgent(agentId);
         
@@ -100,7 +131,9 @@ export class AgentController {
             throw new Error(result.error);
         }
         
-        // Note: Control panel updates automatically via status changes
+        // Immediately update agent status to running (optimistic update)
+        this.agentManager.updateAgentStatus(agentId, 'running');
+        this.renderer.updateStatus(agentId, 'running');
         
         console.log(`[Agent ${agentId}] Continued successfully`);
     }

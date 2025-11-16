@@ -11,7 +11,7 @@
  */
 
 export class ControlPanelManager {
-    constructor(taskManager = null) {
+    constructor(taskManager = null, agentStatusHandler = null) {
         // Control panel elements
         this.panel = document.getElementById('agentNodeControls');
         this.actionBtn = document.getElementById('controlPanelAction');
@@ -25,6 +25,10 @@ export class ControlPanelManager {
         
         // Event handlers (will be set externally)
         this.handlers = {};
+        
+        // Dependencies for business logic delegation
+        this.taskManager = taskManager;
+        this.agentStatusHandler = agentStatusHandler;
         
         // Get selected agent ID callback (injected from SelectionHandler)
         this.getSelectedAgentId = null;
@@ -189,7 +193,18 @@ export class ControlPanelManager {
         } else if (status === 'completed' || status === 'failed') {
             this._setActionButton('redo', '🔄', 'Restart');
             this._showButton(this.actionBtn);
-            this._hideButton(this.continueBtn);
+            
+            // Delegate continue button visibility to AgentStatusHandler (centralized business logic)
+            if (this.agentStatusHandler && agent && agent.id) {
+                const canContinue = this.agentStatusHandler.canContinue(agent.id, this.taskManager);
+                if (canContinue) {
+                    this._showButton(this.continueBtn);
+                } else {
+                    this._hideButton(this.continueBtn);
+                }
+            } else {
+                this._hideButton(this.continueBtn);
+            }
         } else {
             // Default: created status with no tasks started
             this._setActionButton('start', '▶️', 'Start');

@@ -24,6 +24,7 @@ import { ControlPanelManager } from './ui/control-panel-manager.js';
 import { WebSocketEventHandler } from './handlers/websocket-event-handler.js';
 import { ControlPanelHandler } from './handlers/control-panel-handler.js';
 import { SelectionHandler } from './handlers/selection-handler.js';
+import { AgentStatusHandler } from './handlers/agent-status-handler.js';
 import { AgentController } from './controllers/agent-controller.js';
 import { TaskController } from './controllers/task-controller.js';
 import { HaltController } from './controllers/halt-controller.js';
@@ -47,8 +48,9 @@ class App {
         this.canvasManager = new CanvasManager('agentCanvas', this.taskManager, this.transitionManager, this.agentManager);
         this.taskManager.canvasManager = this.canvasManager;
         
-        // Control Panel Manager (inject TaskManager for interrupted workflow detection)
-        this.controlPanelManager = new ControlPanelManager(this.taskManager);
+        // Control Panel Manager (inject TaskManager and AgentStatusHandler for business logic delegation)
+        // Note: AgentStatusHandler will be set after it's created
+        this.controlPanelManager = new ControlPanelManager(this.taskManager, null);
         
         // Services
         this.statsService = new StatsService(this.agentManager);
@@ -58,6 +60,16 @@ class App {
         // Renderers
         this.agentRenderer = new AgentRenderer('#agentNodesContainer');
         this.taskRenderer = new TaskRenderer('#agentNodesContainer');
+        
+        // Status Handlers (business logic for status management)
+        this.agentStatusHandler = new AgentStatusHandler(
+            this.agentManager,
+            this.agentRenderer,
+            this.controlPanelManager
+        );
+        
+        // Inject AgentStatusHandler into ControlPanelManager for centralized business logic
+        this.controlPanelManager.agentStatusHandler = this.agentStatusHandler;
         
         // Controllers (with full dependency injection)
         this.agentController = new AgentController(
@@ -116,7 +128,7 @@ class App {
         // WebSocket service
         this.wsService = new WebSocketService('ws://localhost:8001/ws');
         
-        // WebSocket event handler
+        // WebSocket event handler (inject AgentStatusHandler for centralized status management)
         this.wsEventHandler = new WebSocketEventHandler(
             this.agentManager,
             this.agentController,
@@ -124,7 +136,8 @@ class App {
             this.uiManager,
             this.canvasManager,
             this.taskManager,
-            this.canvasInitializer
+            this.canvasInitializer,
+            this.agentStatusHandler
         );
         
         this.init();
@@ -153,11 +166,26 @@ class App {
     
     setupUIHandlers() {
         this.formHandler.setupEventListeners({
-            onAddAgent: () => this.modalManager.openCreateAgentModal(),
+            onAddAgent: async () => await this.handleAddAgent(),
             onClearCompleted: async () => await this.agentController.clearCompleted(),
             onCreateAgent: async () => await this.handleCreateAgent(),
             onEditAgent: async () => await this.handleEditAgent()
         });
+    }
+    
+    async handleAddAgent() {
+        try {
+            // Create agent with default values immediately
+            await this.agentController.createAgent(
+                null,  // name (will use default)
+                '',    // context (empty)
+                0.3,   // default temperature
+                false  // auto
+            );
+        } catch (error) {
+            this.loggerService.error('Failed to create agent:', error);
+            alert(`Failed to create agent: ${error.message}`);
+        }
     }
     
     async handleCreateAgent() {

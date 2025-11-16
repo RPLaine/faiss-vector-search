@@ -172,15 +172,13 @@ export class ControlPanelManager {
             // Agent is halted - show Redo/Restart + Continue buttons
             const isHaltModeEnabled = agent.halt || false;
             
-            // Show "Redo" button if halt mode enabled and failed tasks, otherwise show Restart
-            if (hasFailedTasks && isHaltModeEnabled) {
+            // Show "Redo" button if halt mode enabled, "Restart" otherwise
+            if (isHaltModeEnabled) {
                 this._setActionButton('redo', '🔄', 'Redo');
                 this._showButton(this.actionBtn);
-            } else if (!isHaltModeEnabled) {
+            } else {
                 this._setActionButton('restart', '🔄', 'Restart');
                 this._showButton(this.actionBtn);
-            } else {
-                this._hideButton(this.actionBtn);
             }
             
             // Show Continue button - user can continue from where they left off

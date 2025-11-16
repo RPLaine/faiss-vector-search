@@ -131,6 +131,15 @@ class WorkflowExecutor:
             subject = agent.get("phase_0_response", "")
             tasklist = agent.get("tasklist")  # Get tasklist at top level
             
+            # Fix for agents created before phase tracking was fixed:
+            # If current_phase is -1 but tasklist already exists, skip phase 0
+            if current_phase < 0 and tasklist and tasklist.get("tasks"):
+                logger.info(f"Agent {agent_id} has existing tasklist, skipping phase 0 regeneration")
+                current_phase = 0  # Mark as if phase 0 was completed
+                agent["current_phase"] = 0
+                if self.agent_manager:
+                    self.agent_manager._save_state()
+            
             # Phase 0: Invent Subject
             if current_phase < 0:
                 result = await self._phase_invent_subject(
@@ -150,6 +159,12 @@ class WorkflowExecutor:
                     self.halt_manager.mark_halted(agent_id, phase=0)
                     logger.info(f"Agent {agent_id} halted at phase 0, returning halted status")
                     return self.halt_manager.get_halt_result(agent_id, phase=0)
+                
+                # Mark phase 0 as complete before proceeding to task execution
+                agent["current_phase"] = 0
+                if self.agent_manager:
+                    self.agent_manager._save_state()
+                logger.info(f"Agent {agent_id} phase 0 completed, proceeding to task execution")
             
             # Execute tasks (either after phase 0 completes or when continuing from halt)
             # Task execution is part of phase 0

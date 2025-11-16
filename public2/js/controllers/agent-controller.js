@@ -152,7 +152,34 @@ export class AgentController {
     }
     
     /**
-     * Redo a phase or restart completed agent
+     * Restart agent from phase 0 (full restart)
+     */
+    async restartAgent(agentId) {
+        const agent = this.agentManager.getAgent(agentId);
+        if (!agent) {
+            throw new Error(`Agent ${agentId} not found`);
+        }
+        
+        const confirmMsg = `Restart this agent from the beginning? This will clear all progress.`;
+        if (!confirm(confirmMsg)) return;
+        
+        console.log(`[Agent ${agentId}] Restarting from phase 0`);
+        
+        // Use start endpoint to restart from beginning
+        const result = await APIService.startAgent(agentId, agent.halt || false);
+        
+        if (!result.success) {
+            throw new Error(result.error);
+        }
+        
+        // Update UI
+        this.renderer.clearContent(agentId);
+        
+        console.log(`[Agent ${agentId}] Restart initiated`);
+    }
+    
+    /**
+     * Redo a phase or retry failed task (halt mode only)
      */
     async redoPhase(agentId) {
         const agent = this.agentManager.getAgent(agentId);
@@ -160,27 +187,8 @@ export class AgentController {
             throw new Error(`Agent ${agentId} not found`);
         }
         
-        // If agent is completed or failed, use /start to restart
-        // If agent is halted or stopped, check for failed tasks to redo or redo current phase
-        if (agent.status === 'completed' || agent.status === 'failed') {
-            const confirmMsg = `Restart this agent from the beginning?`;
-            if (!confirm(confirmMsg)) return;
-            
-            console.log(`[Agent ${agentId}] Restarting completed agent`);
-            
-            // Use start endpoint for completed agents
-            const result = await APIService.startAgent(agentId, agent.halt || false);
-            
-            if (!result.success) {
-                throw new Error(result.error);
-            }
-            
-            // Update UI
-            this.renderer.clearContent(agentId);
-            // Note: Action buttons are managed by ControlPanelManager based on status
-            
-            console.log(`[Agent ${agentId}] Restart initiated`);
-        } else if (agent.status === 'halted' || agent.status === 'stopped') {
+        // Redo logic for halted/stopped/completed/failed agents in halt mode
+        if (agent.status === 'halted' || agent.status === 'stopped' || agent.status === 'completed' || agent.status === 'failed') {
             // Check if there are failed tasks
             const hasFailedTasks = this.taskManager?.hasFailedTasks(agentId);
             
@@ -239,6 +247,8 @@ export class AgentController {
                 
                 console.log(`[Agent ${agentId}] Redo initiated`);
             }
+        } else {
+            console.warn(`[Agent ${agentId}] Cannot redo - invalid status: ${agent.status}`);
         }
     }
     

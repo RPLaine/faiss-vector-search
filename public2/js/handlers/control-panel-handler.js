@@ -60,6 +60,8 @@ export class ControlPanelHandler {
             await this.agentController.stopAgent(agentId);
         } else if (action === 'redo') {
             await this.agentController.redoPhase(agentId);
+        } else if (action === 'restart') {
+            await this.agentController.restartAgent(agentId);
         }
     }
     

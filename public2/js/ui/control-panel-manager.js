@@ -169,11 +169,15 @@ export class ControlPanelManager {
             this._showButton(this.actionBtn);
             this._hideButton(this.continueBtn);
         } else if (status === 'halted') {
-            // Agent is halted - show Redo + Continue buttons
+            // Agent is halted - show Redo/Restart + Continue buttons
+            const isHaltModeEnabled = agent.halt || false;
             
-            // Show "Redo" button if there are failed tasks
-            if (hasFailedTasks) {
+            // Show "Redo" button if halt mode enabled and failed tasks, otherwise show Restart
+            if (hasFailedTasks && isHaltModeEnabled) {
                 this._setActionButton('redo', '🔄', 'Redo');
+                this._showButton(this.actionBtn);
+            } else if (!isHaltModeEnabled) {
+                this._setActionButton('restart', '🔄', 'Restart');
                 this._showButton(this.actionBtn);
             } else {
                 this._hideButton(this.actionBtn);
@@ -183,15 +187,27 @@ export class ControlPanelManager {
             this._showButton(this.continueBtn);
         } else if (status === 'stopped' || hasInterruptedWorkflow) {
             // Agent is stopped OR has interrupted workflow
+            const isHaltModeEnabled = agent.halt || false;
             
-            // Show Redo button alongside Continue
-            this._setActionButton('redo', '🔄', 'Redo');
+            // Show Redo button if halt mode enabled, Restart otherwise
+            if (isHaltModeEnabled) {
+                this._setActionButton('redo', '🔄', 'Redo');
+            } else {
+                this._setActionButton('restart', '🔄', 'Restart');
+            }
             this._showButton(this.actionBtn);
             
             // Show Continue button - will retry from first failed/cancelled task
             this._showButton(this.continueBtn);
         } else if (status === 'completed' || status === 'failed') {
-            this._setActionButton('redo', '🔄', 'Restart');
+            const isHaltModeEnabled = agent.halt || false;
+            
+            // Show Redo button if halt mode enabled, Restart otherwise
+            if (isHaltModeEnabled) {
+                this._setActionButton('redo', '🔄', 'Redo');
+            } else {
+                this._setActionButton('restart', '🔄', 'Restart');
+            }
             this._showButton(this.actionBtn);
             
             // Delegate continue button visibility to AgentStatusHandler (centralized business logic)

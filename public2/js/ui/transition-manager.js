@@ -76,7 +76,6 @@ export class TransitionManager {
         // Disable task transitions
         for (const [taskKey, element] of this.taskElements.entries()) {
             if (element) {
-                console.log(`[TransitionManager] Adding no-transition to task ${taskKey}`, element.classList.toString());
                 element.classList.add('no-transition');
                 // Clear ALL inline transition styles that have higher specificity than CSS class
                 this._clearInlineTransitionStyles(element);

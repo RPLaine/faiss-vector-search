@@ -28,6 +28,10 @@
                             <span class="btn-icon">🗑</span>
                             Clear Completed
                         </button>
+                        <button type="button" id="settingsBtn" class="btn btn-secondary" title="Settings">
+                            <span class="btn-icon">⚙️</span>
+                            Settings
+                        </button>
                     </div>
                 </div>
                 <div class="header-right">
@@ -206,6 +210,176 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="closeEditAgentModal()">Cancel</button>
                 <button type="submit" class="btn btn-primary" id="editAgentSubmit">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2 class="modal-title">System Settings</h2>
+                <button type="button" class="modal-close" id="closeSettingsBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Tabs -->
+                <div class="tabs">
+                    <button class="tab-button active" data-tab="llm">LLM Configuration</button>
+                    <button class="tab-button" data-tab="prompts">Prompt Templates</button>
+                </div>
+
+                <!-- LLM Configuration Tab -->
+                <div class="tab-content active" id="llmTab">
+                    <div class="form-group">
+                        <label for="llmUrl" class="form-label">LLM Server URL</label>
+                        <input 
+                            type="text" 
+                            id="llmUrl" 
+                            class="form-input" 
+                            placeholder="https://api.example.com/v1/chat/completions"
+                        >
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="llmModel" class="form-label">Model</label>
+                            <input 
+                                type="text" 
+                                id="llmModel" 
+                                class="form-input" 
+                                placeholder="qwen"
+                            >
+                        </div>
+                        <div class="form-group">
+                            <label for="llmPayloadType" class="form-label">Payload Type</label>
+                            <select id="llmPayloadType" class="form-input">
+                                <option value="message">Message</option>
+                                <option value="completion">Completion</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="llmTimeout" class="form-label">Timeout (seconds)</label>
+                            <input 
+                                type="number" 
+                                id="llmTimeout" 
+                                class="form-input" 
+                                min="1"
+                                placeholder="300"
+                            >
+                        </div>
+                        <div class="form-group">
+                            <label for="llmMaxTokens" class="form-label">Max Tokens</label>
+                            <input 
+                                type="number" 
+                                id="llmMaxTokens" 
+                                class="form-input" 
+                                min="1"
+                                placeholder="2000"
+                            >
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="llmTemperature" class="form-label">
+                                Temperature: <span id="llmTempValue">0.3</span>
+                            </label>
+                            <input 
+                                type="range" 
+                                id="llmTemperature" 
+                                class="form-range" 
+                                min="0" 
+                                max="2" 
+                                step="0.1" 
+                                value="0.3"
+                            >
+                        </div>
+                        <div class="form-group">
+                            <label for="llmTopP" class="form-label">
+                                Top P: <span id="llmTopPValue">0.90</span>
+                            </label>
+                            <input 
+                                type="range" 
+                                id="llmTopP" 
+                                class="form-range" 
+                                min="0" 
+                                max="1" 
+                                step="0.01" 
+                                value="0.90"
+                            >
+                        </div>
+                        <div class="form-group">
+                            <label for="llmTopK" class="form-label">Top K</label>
+                            <input 
+                                type="number" 
+                                id="llmTopK" 
+                                class="form-input" 
+                                min="1"
+                                placeholder="20"
+                            >
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Custom Headers</label>
+                        <div id="headersContainer" class="headers-container">
+                            <!-- Headers will be dynamically added here -->
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-small" id="addHeaderBtn">
+                            <span class="btn-icon">+</span>
+                            Add Header
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Prompts Tab -->
+                <div class="tab-content" id="promptsTab">
+                    <div class="form-group">
+                        <label for="promptHiddenContext" class="form-label">Hidden Context</label>
+                        <textarea 
+                            id="promptHiddenContext" 
+                            class="form-textarea code-editor" 
+                            rows="8"
+                            placeholder="System-wide instructions for AI behavior..."
+                        ></textarea>
+                        <div class="form-hint">System-wide instructions added to all LLM calls</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="promptPlanning" class="form-label">Tasklist Planning Prompt</label>
+                        <textarea 
+                            id="promptPlanning" 
+                            class="form-textarea code-editor" 
+                            rows="10"
+                            placeholder="Template for generating agent tasklists..."
+                        ></textarea>
+                        <div class="form-hint">Required variables: {agent_name}, {agent_context}</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="promptTaskExecution" class="form-label">Task Execution Prompt</label>
+                        <textarea 
+                            id="promptTaskExecution" 
+                            class="form-textarea code-editor" 
+                            rows="8"
+                            placeholder="Template for executing individual tasks..."
+                        ></textarea>
+                        <div class="form-hint">Required variables: {agent_name}, {goal}, {task_name}, {task_description}, {expected_output}, {context}</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="promptTaskValidation" class="form-label">Task Validation Prompt</label>
+                        <textarea 
+                            id="promptTaskValidation" 
+                            class="form-textarea code-editor" 
+                            rows="8"
+                            placeholder="Template for validating task outputs..."
+                        ></textarea>
+                        <div class="form-hint">Required variables: {task_name}, {task_description}, {expected_output}, {actual_output}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="resetSettingsBtn">Reset to Defaults</button>
+                <button type="button" class="btn btn-secondary" id="cancelSettingsBtn">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveSettingsBtn">Save Settings</button>
             </div>
         </div>
     </div>

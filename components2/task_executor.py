@@ -31,7 +31,8 @@ class TaskExecutor:
         self,
         llm_service: LLMService,
         executor: ThreadPoolExecutor,
-        event_loop: asyncio.AbstractEventLoop
+        event_loop: asyncio.AbstractEventLoop,
+        settings_manager: Any = None
     ):
         """
         Initialize the task executor.
@@ -40,10 +41,12 @@ class TaskExecutor:
             llm_service: LLM service instance for AI calls
             executor: Thread pool executor for LLM operations
             event_loop: Main event loop for coroutine scheduling
+            settings_manager: Settings manager for prompts and config
         """
         self.llm_service = llm_service
         self.executor = executor
         self.event_loop = event_loop
+        self.settings_manager = settings_manager
     
     async def execute_task(
         self,
@@ -184,12 +187,24 @@ class TaskExecutor:
         Returns:
             Formatted prompt string
         """
-        # Get agent context
+        # Get agent data
         agent_name = agent.get("name", "Journalist")
         agent_context = agent.get("context", "")
         goal = agent.get("goal", "Complete the assigned task")
         
-        # Build prompt
+        # Get prompt template from settings
+        if self.settings_manager:
+            template = self.settings_manager.get_prompt("task_execution")
+            return template.format(
+                agent_name=agent_name,
+                goal=goal,
+                task_name=task['name'],
+                task_description=task['description'],
+                expected_output=task['expected_output'],
+                context=f"Additional Context: {agent_context}" if agent_context else ""
+            )
+        
+        # Fallback if no settings manager
         prompt_parts = [
             f"You are {agent_name}, an AI journalist.",
             f"Overall Goal: {goal}",
@@ -232,8 +247,17 @@ class TaskExecutor:
         task_id = task["id"]
         expected = task["expected_output"]
         
-        # Build validation prompt
-        validation_prompt = f"""You are a quality assurance reviewer. Your job is to determine if a task output meets the expected requirements.
+        # Get validation prompt template from settings
+        if self.settings_manager:
+            validation_prompt = self.settings_manager.get_prompt("task_validation").format(
+                task_name=task['name'],
+                task_description=task['description'],
+                expected_output=expected,
+                actual_output=output
+            )
+        else:
+            # Fallback if no settings manager
+            validation_prompt = f"""You are a quality assurance reviewer. Your job is to determine if a task output meets the expected requirements.
 
 Task Name: {task['name']}
 Task Description: {task['description']}

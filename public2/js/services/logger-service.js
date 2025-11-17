@@ -84,6 +84,13 @@ export class LoggerService {
     }
     
     /**
+     * Log debug message
+     */
+    debug(message, ...args) {
+        console.debug(`[App] ${message}`, ...args);
+    }
+    
+    /**
      * Log error message
      */
     error(message, ...args) {

@@ -25,7 +25,7 @@ from concurrent.futures import ThreadPoolExecutor
 import uuid
 import requests
 
-from components.services import ConfigurationProvider
+from components2.settings_manager import SettingsManager
 from components2.llm_service import LLMService
 from components2 import AgentManager, WorkflowExecutor
 from components2.halt_manager import HaltManager
@@ -53,7 +53,7 @@ active_connections: List[WebSocket] = []
 main_loop: Optional[asyncio.AbstractEventLoop] = None
 
 # Services (initialized during startup)
-config_provider: Optional[ConfigurationProvider] = None
+settings_manager: Optional[SettingsManager] = None
 llm_service: Optional[LLMService] = None
 agent_manager: Optional[AgentManager] = None
 workflow_executor: Optional[WorkflowExecutor] = None
@@ -77,18 +77,18 @@ async def broadcast_event(data: Dict[str, Any]):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown events."""
-    global main_loop, config_provider, llm_service, agent_manager, workflow_executor, halt_manager
+    global main_loop, settings_manager, llm_service, agent_manager, workflow_executor, halt_manager
     
     # Startup
     main_loop = asyncio.get_running_loop()
     logger.info("Initializing AI Journalist Demo system...")
     
     try:
-        # Initialize configuration
-        config_provider = ConfigurationProvider.from_file("config.json")
+        # Initialize settings manager
+        settings_manager = SettingsManager("settings.json")
         
         # Initialize LLM service
-        llm_service = LLMService(config_provider.get_llm_config())
+        llm_service = LLMService(settings_manager.get_llm_config())
         
         # Initialize agent manager
         agent_manager = AgentManager()
@@ -96,8 +96,10 @@ async def lifespan(app: FastAPI):
         # Initialize halt manager
         halt_manager = HaltManager(agent_manager)
         
-        # Initialize workflow executor (with agent_manager for state persistence)
-        workflow_executor = WorkflowExecutor(llm_service, executor, main_loop, agent_manager)
+        # Initialize workflow executor (with settings_manager and agent_manager)
+        workflow_executor = WorkflowExecutor(
+            llm_service, executor, main_loop, agent_manager, settings_manager
+        )
         
         logger.info("AI Journalist Demo system initialized successfully")
         
@@ -902,6 +904,89 @@ async def clear_agents():
     })
     
     return {"success": True, "cleared": cleared}
+
+
+# Settings API Endpoints
+
+@app.get("/api/settings")
+async def get_settings():
+    """Get all settings (LLM config and prompts)."""
+    if not settings_manager:
+        raise HTTPException(status_code=503, detail="Settings manager not initialized")
+    
+    try:
+        return settings_manager.get_all_settings()
+    except Exception as e:
+        logger.error(f"Failed to get settings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/settings")
+async def update_settings(settings_data: Dict[str, Any]):
+    """
+    Update settings (LLM config and/or prompts).
+    
+    Request body:
+        {
+            "llm": { ... } (optional),
+            "prompts": { ... } (optional)
+        }
+    """
+    if not settings_manager:
+        raise HTTPException(status_code=503, detail="Settings manager not initialized")
+    
+    try:
+        # Update LLM config if provided
+        if "llm" in settings_data:
+            settings_manager.update_llm_config(settings_data["llm"])
+            # Update LLM service with new config
+            if llm_service:
+                llm_service.config = settings_manager.get_llm_config()
+                logger.info("LLM service updated with new configuration")
+        
+        # Update prompts if provided
+        if "prompts" in settings_data:
+            settings_manager.update_prompts(settings_data["prompts"])
+        
+        # Broadcast settings update to all clients
+        await broadcast_event({
+            "type": "settings_updated",
+            "data": settings_manager.get_all_settings()
+        })
+        
+        return {"success": True, "settings": settings_manager.get_all_settings()}
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to update settings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/settings/reset")
+async def reset_settings():
+    """Reset all settings to defaults."""
+    if not settings_manager:
+        raise HTTPException(status_code=503, detail="Settings manager not initialized")
+    
+    try:
+        settings_manager.reset_to_defaults()
+        
+        # Update LLM service with reset config
+        if llm_service:
+            llm_service.config = settings_manager.get_llm_config()
+        
+        # Broadcast settings reset
+        await broadcast_event({
+            "type": "settings_reset",
+            "data": settings_manager.get_all_settings()
+        })
+        
+        return {"success": True, "settings": settings_manager.get_all_settings()}
+        
+    except Exception as e:
+        logger.error(f"Failed to reset settings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # WebSocket Endpoint

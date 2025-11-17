@@ -39,7 +39,8 @@ class WorkflowExecutor:
         llm_service: LLMService,
         executor: ThreadPoolExecutor,
         event_loop: asyncio.AbstractEventLoop,
-        agent_manager: Any = None
+        agent_manager: Any = None,
+        settings_manager: Any = None
     ):
         """
         Initialize the workflow executor.
@@ -49,35 +50,19 @@ class WorkflowExecutor:
             executor: Thread pool executor for LLM operations
             event_loop: Main event loop for coroutine scheduling
             agent_manager: Agent manager for state persistence
+            settings_manager: Settings manager for prompts and config
         """
         self.llm_service = llm_service
         self.executor = executor
         self.event_loop = event_loop
         self.agent_manager = agent_manager
+        self.settings_manager = settings_manager
         
         # Initialize halt manager
         self.halt_manager = HaltManager(agent_manager) if agent_manager else None
         
         # Initialize task executor
-        self.task_executor = TaskExecutor(llm_service, executor, event_loop)
-        
-        # Load prompts
-        self.prompts_dir = Path("prompts2")
-        self.hidden_context = self._load_prompt("hidden_context.txt")
-        self.phase_0_prompt = self._load_prompt("phase_0_planning.txt")
-    
-    def _load_prompt(self, filename: str) -> str:
-        """Load a prompt file from prompts2 directory."""
-        try:
-            prompt_path = self.prompts_dir / filename
-            if prompt_path.exists():
-                return prompt_path.read_text(encoding="utf-8")
-            else:
-                logger.warning(f"Prompt file not found: {filename}")
-                return ""
-        except Exception as e:
-            logger.error(f"Failed to load prompt {filename}: {e}")
-            return ""
+        self.task_executor = TaskExecutor(llm_service, executor, event_loop, settings_manager)
     
     async def execute_workflow(
         self,
@@ -356,15 +341,18 @@ class WorkflowExecutor:
                 "tasklist_generating", "Creating tasklist based on agent profile..."
             )
         
+        # Get prompts from settings manager
+        hidden_context = self.settings_manager.get_prompt("hidden_context") if self.settings_manager else ""
+        phase_0_template = self.settings_manager.get_prompt("phase_0_planning") if self.settings_manager else ""
+        
         # Build prompt from template
-        prompt = self.phase_0_prompt.format(
+        prompt = phase_0_template.format(
             agent_name=agent["name"],
-            agent_context=agent.get("context", "No additional context provided"),
-            agent_style=agent.get("style", "professional")
+            agent_context=agent.get("context", "No additional context provided")
         )
         
         # Add hidden context
-        full_prompt = f"{self.hidden_context}\n\n{prompt}"
+        full_prompt = f"{hidden_context}\n\n{prompt}"
         
         # Collect chunks and stream to UI
         collected_chunks = []
@@ -586,7 +574,7 @@ class WorkflowExecutor:
                 6, "active", "Composing article with markdown formatting..."
             )
         
-        prompt = f"""You are a {agent['style']} writer. Write a complete article about: {subject}
+        prompt = f"""You are {agent['name']}, a journalist. Write a complete article about: {subject}
 
 Structure your article with:
 - A compelling headline

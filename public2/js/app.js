@@ -19,15 +19,18 @@ import { StatsService } from './services/stats-service.js';
 import { FormHandler } from './services/form-handler.js';
 import { LoggerService } from './services/logger-service.js';
 import { ModalManager } from './services/modal-manager.js';
+import { SettingsService } from './services/settings-service.js';
 import { TransitionManager } from './ui/transition-manager.js';
 import { ControlPanelManager } from './ui/control-panel-manager.js';
 import { WebSocketEventHandler } from './handlers/websocket-event-handler.js';
 import { ControlPanelHandler } from './handlers/control-panel-handler.js';
+import { SettingsHandler } from './handlers/settings-handler.js';
 import { SelectionHandler } from './handlers/selection-handler.js';
 import { AgentStatusHandler } from './handlers/agent-status-handler.js';
 import { AgentController } from './controllers/agent-controller.js';
 import { TaskController } from './controllers/task-controller.js';
 import { HaltController } from './controllers/halt-controller.js';
+import { SettingsController } from './controllers/settings-controller.js';
 import { AgentRenderer } from './renderers/agent-renderer.js';
 import { TaskRenderer } from './renderers/task-renderer.js';
 import { UIManager } from './ui/ui-manager.js';
@@ -56,6 +59,11 @@ class App {
         this.statsService = new StatsService(this.agentManager);
         this.formHandler = new FormHandler();
         this.loggerService = new LoggerService();
+        
+        // Settings
+        this.settingsService = new SettingsService();
+        this.settingsController = new SettingsController(this.settingsService, this.loggerService);
+        this.settingsHandler = new SettingsHandler(this.settingsController, this.modalManager, this.loggerService);
         
         // Renderers
         this.agentRenderer = new AgentRenderer('#agentNodesContainer');

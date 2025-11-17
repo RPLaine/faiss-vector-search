@@ -1458,3 +1458,165 @@ body {
         opacity: 0;
     }
 }
+
+/* ========================================
+   Settings Modal Styles
+   ======================================== */
+
+.modal-large {
+    max-width: 900px;
+    width: 90%;
+}
+
+.modal-large .modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+    padding-right: 2px;
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: var(--color-border) transparent; /* Firefox */
+}
+
+.modal-large .modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.modal-large .modal-body::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 3px;
+}
+
+.modal-large .modal-body::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
+}
+
+.modal-large .modal-body::-webkit-scrollbar-thumb:hover {
+    background: var(--color-border-light);
+}
+
+/* Code editor scrollbars */
+.code-editor {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.6;
+    resize: vertical;
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: var(--color-border) transparent; /* Firefox */
+}
+
+.code-editor::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.code-editor::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 3px;
+}
+
+.code-editor::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
+}
+
+.code-editor::-webkit-scrollbar-thumb:hover {
+    background: var(--color-border-light);
+}
+
+/* Tabs */
+.tabs {
+    display: flex;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-lg);
+    border-bottom: 2px solid var(--color-border);
+}
+
+.tab-button {
+    padding: var(--space-sm) var(--space-lg);
+    background: transparent;
+    border: none;
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    position: relative;
+    transition: color var(--transition-fast);
+}
+
+.tab-button:hover {
+    color: var(--color-text-primary);
+}
+
+.tab-button.active {
+    color: var(--color-accent-primary);
+}
+
+.tab-button.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--color-accent-primary);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Form rows */
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-md);
+}
+
+/* Headers container */
+.headers-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+}
+
+.header-row {
+    display: grid;
+    grid-template-columns: 1fr 2fr auto;
+    gap: var(--space-sm);
+    align-items: center;
+}
+
+.header-key,
+.header-value {
+    margin: 0;
+}
+
+.btn-small {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+.btn-icon.btn-small {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+}
+
+.remove-header-btn {
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+    font-size: 18px;
+    line-height: 1;
+}
+
+.remove-header-btn:hover {
+    background: var(--color-accent-danger);
+    border-color: var(--color-accent-danger);
+    color: white;
+}

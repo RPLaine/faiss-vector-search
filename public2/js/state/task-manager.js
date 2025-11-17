@@ -23,6 +23,7 @@ export class TaskManager {
         this.taskNodes = new Map(); // task_key -> {element, agentId, taskId, globalX, globalY}
         this.agentTasks = new Map(); // agent_id -> Set of task_keys
         this.isAligning = new Map(); // agent_id -> boolean (prevents conflicts during alignment)
+        this.selectedTaskKey = null; // Currently selected task
         
         // Note: DOM position updates are handled centrally by CanvasManager.updateAllElementPositions()
         // Centralized recalculation is handled by TaskController listening to 'recalculateTaskPositions' events
@@ -94,6 +95,47 @@ export class TaskManager {
             .map(key => this.taskNodes.get(key))
             .filter(task => task != null)
             .sort((a, b) => a.taskId - b.taskId);
+    }
+    
+    // ========================================
+    // Task Selection Methods
+    // ========================================
+    
+    /**
+     * Select a task
+     */
+    selectTask(taskKey) {
+        this.selectedTaskKey = taskKey;
+    }
+    
+    /**
+     * Get the currently selected task key
+     */
+    getSelectedTaskKey() {
+        return this.selectedTaskKey;
+    }
+    
+    /**
+     * Check if a task is selected
+     */
+    isTaskSelected(taskKey) {
+        return this.selectedTaskKey === taskKey;
+    }
+    
+    /**
+     * Clear task selection
+     */
+    clearTaskSelection() {
+        this.selectedTaskKey = null;
+    }
+    
+    /**
+     * Get the agent ID of the currently selected task
+     */
+    getSelectedTaskAgentId() {
+        if (!this.selectedTaskKey) return null;
+        const taskData = this.taskNodes.get(this.selectedTaskKey);
+        return taskData?.agentId || null;
     }
     
     // ========================================

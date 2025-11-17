@@ -836,6 +836,23 @@ body {
     animation: borderPulse var(--animation-pulse) ease-in-out infinite;
 }
 
+/* Task selection visual feedback - green outline to differentiate from agent blue */
+.task-node.task-selected {
+    outline: 3px solid var(--color-accent-success);
+    outline-offset: 2px;
+    box-shadow: 0 0 30px rgba(16, 185, 129, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+    transform: scale(1.02);
+    z-index: 11; /* Higher than agent z-index: 10 */
+}
+
+.task-node:not(.task-selected) {
+    cursor: pointer;
+}
+
+.task-node:not(.task-selected):hover {
+    border-color: var(--color-border-light);
+}
+
 .task-node-header {
     display: flex;
     justify-content: space-between;

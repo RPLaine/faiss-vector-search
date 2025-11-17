@@ -26,6 +26,7 @@ import { WebSocketEventHandler } from './handlers/websocket-event-handler.js';
 import { ControlPanelHandler } from './handlers/control-panel-handler.js';
 import { SettingsHandler } from './handlers/settings-handler.js';
 import { SelectionHandler } from './handlers/selection-handler.js';
+import { TaskSelectionHandler } from './handlers/task-selection-handler.js';
 import { AgentStatusHandler } from './handlers/agent-status-handler.js';
 import { AgentController } from './controllers/agent-controller.js';
 import { TaskController } from './controllers/task-controller.js';
@@ -75,6 +76,9 @@ class App {
         this.taskRenderer = new TaskRenderer('#agentNodesContainer');
         this.toolRenderer = new ToolRenderer('#agentNodesContainer');
         
+        // Inject TaskManager reference into TaskRenderer for selection
+        this.taskRenderer.taskManager = this.taskManager;
+        
         // Status Handlers (business logic for status management)
         this.agentStatusHandler = new AgentStatusHandler(
             this.agentManager,
@@ -99,6 +103,13 @@ class App {
         this.toolController = new ToolController(this.toolManager, this.toolRenderer, this.canvasManager, this.taskManager, this.agentManager);
         this.haltController = new HaltController(this.agentManager);
         
+        // Task Selection Handler (handles task selection with tool visibility)
+        this.taskSelectionHandler = new TaskSelectionHandler(
+            this.taskManager,
+            this.taskRenderer,
+            this.toolController
+        );
+        
         // Selection Handler (centralized selection coordination)
         this.selectionHandler = new SelectionHandler(
             this.agentManager,
@@ -107,6 +118,10 @@ class App {
             this.controlPanelManager,
             this.canvasManager
         );
+        
+        // Inject dependencies into SelectionHandler for task selection clearing
+        this.selectionHandler.taskSelectionHandler = this.taskSelectionHandler;
+        this.selectionHandler.taskManager = this.taskManager;
         
         // Inject getSelectedAgentId callback into ControlPanelManager
         this.controlPanelManager.getSelectedAgentId = () => this.selectionHandler.getSelectedAgentId();

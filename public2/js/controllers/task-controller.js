@@ -95,8 +95,10 @@ export class TaskController {
         sortedTasks.forEach((task, index) => {
             const taskKey = `${agentId}-task-${task.id}`;
             
-            // Render task node
-            const taskNode = this.renderer.renderTask(agentId, task, index, sortedTasks.length);
+            // Render task node with event handlers
+            const taskNode = this.renderer.renderTask(agentId, task, index, sortedTasks.length, {
+                onSelect: (taskKey) => this.handleTaskSelection(taskKey)
+            });
             
             // Store task data
             this.taskManager.addTask(taskKey, {
@@ -443,9 +445,8 @@ export class TaskController {
             }
         }, ANIMATION_DURATIONS.CONNECTION_SHOW_DELAY);
         
-        // Also show tools for this agent's tasks
-        const showToolsEvent = new CustomEvent('showToolsForAgent', { detail: { agentId } });
-        document.dispatchEvent(showToolsEvent);
+        // Note: Tool visibility is now controlled at the task level via TaskSelectionHandler
+        // Tools only show when their parent task is selected
     }
     
     /**
@@ -457,9 +458,8 @@ export class TaskController {
         
         console.log(`[TaskController] Hiding tasks for agent ${agentId}`);
         
-        // Hide tools first
-        const hideToolsEvent = new CustomEvent('hideToolsForAgent', { detail: { agentId } });
-        document.dispatchEvent(hideToolsEvent);
+        // Note: Tool visibility is controlled at the task level - tools hide when task deselects
+        // No need for agent-level tool hiding
         
         // Hide connection lines first, await completion
         if (this.canvasManager && this.canvasManager.connectionLinesManager) {
@@ -486,5 +486,20 @@ export class TaskController {
                 }, (reverseIndex * ANIMATION_DURATIONS.TASK_HIDE_STAGGER) + ANIMATION_DURATIONS.TASK_VISIBILITY_DURATION);
             }
         });
+    }
+    
+    /**
+     * Handle task selection click
+     * Delegates to TaskSelectionHandler via app global
+     */
+    handleTaskSelection(taskKey) {
+        console.log(`[TaskController] Task selection requested: ${taskKey}`);
+        
+        // Delegate to TaskSelectionHandler (wired up in app.js)
+        if (window.app && window.app.taskSelectionHandler) {
+            window.app.taskSelectionHandler.selectTask(taskKey);
+        } else {
+            console.warn('[TaskController] TaskSelectionHandler not available');
+        }
     }
 }

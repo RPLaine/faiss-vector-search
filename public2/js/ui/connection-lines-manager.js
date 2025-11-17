@@ -446,6 +446,67 @@ export class ConnectionLinesManager {
     }
     
     /**
+     * Show tool connections for a specific task
+     * Matches task-{taskKey}-to-tool-* connections
+     */
+    showToolConnectionsForTask(taskKey) {
+        return new Promise((resolve) => {
+            const matchingPaths = [];
+            
+            for (const [key, path] of this.lines.entries()) {
+                if (key.startsWith(`task-${taskKey}-to-tool-`)) {
+                    matchingPaths.push(path);
+                }
+            }
+            
+            // Force-set initial state to ensure visibility is properly applied
+            matchingPaths.forEach(path => {
+                path.style.opacity = '0';
+                path.style.display = 'block';
+            });
+            
+            // Trigger fade-in animation
+            requestAnimationFrame(() => {
+                matchingPaths.forEach(path => {
+                    path.style.opacity = '1';
+                });
+                
+                // Resolve after animation completes
+                setTimeout(resolve, 300);
+            });
+        });
+    }
+    
+    /**
+     * Hide tool connections for a specific task
+     * Matches task-{taskKey}-to-tool-* connections
+     */
+    hideToolConnectionsForTask(taskKey) {
+        return new Promise((resolve) => {
+            const matchingPaths = [];
+            
+            for (const [key, path] of this.lines.entries()) {
+                if (key.startsWith(`task-${taskKey}-to-tool-`)) {
+                    matchingPaths.push(path);
+                }
+            }
+            
+            // Force-set opacity to trigger fade-out
+            matchingPaths.forEach(path => {
+                path.style.opacity = '0';
+            });
+            
+            // Hide after animation completes
+            setTimeout(() => {
+                matchingPaths.forEach(path => {
+                    path.style.display = 'none';
+                });
+                resolve();
+            }, 300);
+        });
+    }
+    
+    /**
      * Create connection from task to its tool node
      * @param {string} taskKey - The task key (agentId-taskId)
      * @param {string} toolKey - The tool key (agentId-taskId-toolId)

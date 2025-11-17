@@ -22,7 +22,7 @@ export class TaskRenderer {
     /**
      * Render a task node
      */
-    renderTask(agentId, task, index, totalTasks) {
+    renderTask(agentId, task, index, totalTasks, eventHandlers = {}) {
         const node = DOMUtils.createElement('div', {
             className: `task-node card-base ${task.status || 'created'} initial-animation task-hidden`,
             id: `task-${agentId}-${task.id}`,
@@ -41,6 +41,17 @@ export class TaskRenderer {
         setTimeout(() => {
             node.classList.remove('initial-animation');
         }, ANIMATION_DURATIONS.AGENT_INITIAL_ANIMATION + staggerDelay);
+        
+        // Add click handler for selection
+        if (eventHandlers.onSelect) {
+            node.addEventListener('click', (e) => {
+                // Don't trigger selection if clicking interactive elements
+                if (!e.target.closest('button, input, label')) {
+                    const taskKey = `${agentId}-task-${task.id}`;
+                    eventHandlers.onSelect(taskKey);
+                }
+            });
+        }
         
         return node;
     }
@@ -123,6 +134,21 @@ export class TaskRenderer {
                 </div>
             </div>
         `;
+    }
+    
+    /**
+     * Set task as selected (visual feedback)
+     * Mirrors AgentRenderer.setSelected() pattern
+     */
+    setSelected(taskKey, selected) {
+        const taskData = this.taskManager?.getTask(taskKey);
+        if (!taskData || !taskData.element) return;
+        
+        if (selected) {
+            taskData.element.classList.add('task-selected');
+        } else {
+            taskData.element.classList.remove('task-selected');
+        }
     }
     
     /**

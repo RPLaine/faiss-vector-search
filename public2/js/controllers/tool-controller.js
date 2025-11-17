@@ -42,16 +42,8 @@ export class ToolController {
             this.positionToolsForAllTasks();
         });
         
-        // Listen for agent selection visibility events
-        document.addEventListener('showToolsForAgent', (e) => {
-            const { agentId } = e.detail;
-            this.showToolsForAgent(agentId);
-        });
-        
-        document.addEventListener('hideToolsForAgent', (e) => {
-            const { agentId } = e.detail;
-            this.hideToolsForAgent(agentId);
-        });
+        // Tool visibility is now controlled at the task level via TaskSelectionHandler
+        // No need for agent-level visibility events
         
         // Listen for tool call loading from backend state
         document.addEventListener('loadToolCall', (e) => {
@@ -166,15 +158,18 @@ export class ToolController {
                 { immediate: true, reason: 'tool_created' }
             );
             
-            // Show with fade-in
+            // Only show if parent task is selected, otherwise stay hidden
+            const isTaskSelected = this.taskManager.isTaskSelected(taskKey);
             setTimeout(() => {
-                this.renderer.show(toolNode);
+                if (isTaskSelected) {
+                    this.renderer.show(toolNode);
+                }
+                // else: stays hidden (default state from renderer)
             }, 100);
             
             // Draw connection line from task to tool
-            // Check if agent is selected to determine if connection should start hidden
-            const agentId = agent_id;
-            const shouldStartHidden = this.agentManager && !this.agentManager.isAgentSelected(agentId);
+            // Check if parent task is selected to determine if connection should start hidden
+            const shouldStartHidden = !isTaskSelected;
             
             setTimeout(() => {
                 this.canvasManager.connectionLinesManager.createTaskToToolConnection(taskKey, toolKey, true, shouldStartHidden);
@@ -409,12 +404,16 @@ export class ToolController {
                 { immediate: true, reason: 'tool_loaded' }
             );
             
-            // Show immediately (no fade for loaded tools)
-            toolNode.classList.remove('tool-hidden');
+            // Only show if parent task is selected, otherwise stay hidden
+            const isTaskSelected = this.taskManager.isTaskSelected(taskKey);
+            if (isTaskSelected) {
+                toolNode.classList.remove('tool-hidden');
+            }
+            // else: stays hidden (default state from renderer)
             
             // Draw connection line from task to tool
-            // Check if agent is selected to determine if connection should start hidden
-            const shouldStartHidden = this.agentManager && !this.agentManager.isAgentSelected(agentId);
+            // Check if parent task is selected to determine if connection should start hidden
+            const shouldStartHidden = !isTaskSelected;
             
             setTimeout(() => {
                 this.canvasManager.connectionLinesManager.createTaskToToolConnection(taskKey, toolKey, true, shouldStartHidden);
@@ -574,6 +573,59 @@ export class ToolController {
             if (toolData && toolData.element) {
                 toolData.element.classList.remove('tool-visible');
                 toolData.element.classList.add('tool-hidden');
+            }
+        });
+    }
+    
+    /**
+     * Show tools for a specific task (when task is selected)
+     */
+    async showToolsForTask(agentId, taskId) {
+        const toolKeys = this.toolManager.getTaskTools(agentId, taskId);
+        if (!toolKeys || toolKeys.length === 0) return;
+        
+        console.log(`[ToolController] Showing tools for task ${agentId}-${taskId}`);
+        
+        toolKeys.forEach((toolKey, index) => {
+            const toolData = this.toolManager.getTool(toolKey);
+            if (toolData && toolData.element) {
+                // Stagger the animation
+                setTimeout(() => {
+                    toolData.element.classList.remove('tool-hidden');
+                    toolData.element.classList.add('tool-visible');
+                }, index * ANIMATION_DURATIONS.TASK_SHOW_STAGGER);
+            }
+        });
+        
+        // Show connection lines with delay
+        setTimeout(() => {
+            const taskKey = this.toolManager.constructor.getTaskKey(agentId, taskId);
+            this.canvasManager.connectionLinesManager.showToolConnectionsForTask(taskKey);
+        }, ANIMATION_DURATIONS.CONNECTION_SHOW_DELAY);
+    }
+    
+    /**
+     * Hide tools for a specific task (when task is deselected)
+     */
+    async hideToolsForTask(agentId, taskId) {
+        const toolKeys = this.toolManager.getTaskTools(agentId, taskId);
+        if (!toolKeys || toolKeys.length === 0) return;
+        
+        console.log(`[ToolController] Hiding tools for task ${agentId}-${taskId}`);
+        
+        // Hide connection lines first
+        const taskKey = this.toolManager.constructor.getTaskKey(agentId, taskId);
+        await this.canvasManager.connectionLinesManager.hideToolConnectionsForTask(taskKey);
+        
+        toolKeys.forEach((toolKey, index) => {
+            const toolData = this.toolManager.getTool(toolKey);
+            if (toolData && toolData.element) {
+                // Reverse stagger
+                const reverseIndex = toolKeys.length - 1 - index;
+                setTimeout(() => {
+                    toolData.element.classList.remove('tool-visible');
+                    toolData.element.classList.add('tool-hidden');
+                }, reverseIndex * ANIMATION_DURATIONS.TASK_HIDE_STAGGER);
             }
         });
     }

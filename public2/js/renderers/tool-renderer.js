@@ -25,7 +25,7 @@ export class ToolRenderer {
      */
     renderTool(agentId, taskId, toolId, toolData) {
         const node = DOMUtils.createElement('div', {
-            className: `tool-node card-base initial-animation tool-hidden tool-visible`,
+            className: `tool-node card-base initial-animation tool-hidden`,
             id: `tool-${agentId}-${taskId}-${toolId}`,
             dataset: {
                 agentId: agentId,

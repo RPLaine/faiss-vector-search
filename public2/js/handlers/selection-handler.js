@@ -86,6 +86,17 @@ export class SelectionHandler {
     async _deselectAgent(agentId) {
         console.log(`[SelectionHandler] Deselecting agent ${agentId}`);
         
+        // Clear task selection if a task from this agent is selected
+        if (this.taskSelectionHandler) {
+            const selectedTaskKey = this.taskSelectionHandler.getSelectedTaskKey();
+            if (selectedTaskKey) {
+                const taskData = this.taskManager?.getTask(selectedTaskKey);
+                if (taskData && taskData.agentId === agentId) {
+                    await this.taskSelectionHandler.clearSelection();
+                }
+            }
+        }
+        
         // Update renderer (visual state)
         this.agentRenderer.setSelected(agentId, false);
         

@@ -53,8 +53,11 @@ export class CanvasManager {
         // Scroll handler (delegated to separate class)
         this.scrollHandler = new ScrollHandler(this);
         
+        // Zoom detection - track zoom level for automatic recalculation
+        this.currentZoom = window.devicePixelRatio;
+        
         this.resize();
-        window.addEventListener('resize', () => this.resize());
+        window.addEventListener('resize', () => this.handleResize());
     }
     
     /**
@@ -168,6 +171,22 @@ export class CanvasManager {
                 });
             }
         }
+    }
+    
+    /**
+     * Handle window resize events - detects zoom changes and triggers appropriate updates
+     */
+    handleResize() {
+        const newZoom = window.devicePixelRatio;
+        const zoomChanged = Math.abs(newZoom - this.currentZoom) > 0.01;
+        
+        if (zoomChanged) {
+            console.log(`[CanvasManager] Zoom detected: ${this.currentZoom.toFixed(2)} → ${newZoom.toFixed(2)}`);
+            this.currentZoom = newZoom;
+        }
+        
+        // Always call resize to update dimensions and positions
+        this.resize();
     }
     
     resize() {
@@ -315,8 +334,8 @@ export class CanvasManager {
     }
     
     /**
-     * Recalculate all positions (agents and tasks) in correct order
-     * Order: Agent positions → Task positions → Connection lines
+     * Recalculate all positions (agents, tasks, and tools) in correct order
+     * Order: Agent positions → Task positions → Tool positions → Connection lines
      */
     recalculateAllPositions() {
         // Avoid nested RAF calls if already in progress
@@ -336,13 +355,21 @@ export class CanvasManager {
             });
             window.dispatchEvent(taskRecalculationEvent);
             
-            // Step 3: Wait for task positioning to complete, then update connection lines
+            // Step 3: Wait for task positioning to complete, then reposition tools
             requestAnimationFrame(() => {
-                // Update all connection lines last
-                this.connectionLinesManager.updateAllConnections();
+                // Step 3a: Reposition tools based on updated task positions
+                const toolRecalculationEvent = new CustomEvent('recalculateToolPositions', {
+                    detail: { immediate: true }
+                });
+                window.dispatchEvent(toolRecalculationEvent);
                 
-                this.isRecalculating = false;
-                console.log('[CanvasManager] Recalculation complete');
+                // Step 3b: Update all connection lines last (after tools repositioned)
+                requestAnimationFrame(() => {
+                    this.connectionLinesManager.updateAllConnections();
+                    
+                    this.isRecalculating = false;
+                    console.log('[CanvasManager] Recalculation complete');
+                });
             });
         });
     }

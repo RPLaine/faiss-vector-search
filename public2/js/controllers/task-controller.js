@@ -272,6 +272,15 @@ export class TaskController {
                 immediate,
                 reason: isInitialCreation ? 'initial_creation' : 'layout_update'
             });
+            
+            // CRITICAL: Trigger tool repositioning after task positions change
+            // Tools need to follow their parent tasks whenever tasks move
+            setTimeout(() => {
+                const toolRecalculationEvent = new CustomEvent('recalculateToolPositions', {
+                    detail: { immediate: true }
+                });
+                window.dispatchEvent(toolRecalculationEvent);
+            }, immediate ? 0 : 100); // Small delay if not immediate to allow transitions
         }
         
         // CRITICAL: Connection lines are drawn AFTER all task nodes are positioned
@@ -436,7 +445,7 @@ export class TaskController {
     /**
      * Hide tasks for an agent (when agent is deselected)
      */
-    hideTasksForAgent(agentId) {
+    async hideTasksForAgent(agentId) {
         const taskKeys = this.taskManager.getAgentTasks(agentId);
         if (!taskKeys || taskKeys.length === 0) return;
         
@@ -446,9 +455,9 @@ export class TaskController {
         const hideToolsEvent = new CustomEvent('hideToolsForAgent', { detail: { agentId } });
         document.dispatchEvent(hideToolsEvent);
         
-        // Hide connection lines first
+        // Hide connection lines first, await completion
         if (this.canvasManager && this.canvasManager.connectionLinesManager) {
-            this.canvasManager.connectionLinesManager.hideConnectionsForAgent(agentId);
+            await this.canvasManager.connectionLinesManager.hideConnectionsForAgent(agentId);
         }
         
         taskKeys.forEach((taskKey, index) => {

@@ -86,10 +86,10 @@ export class CanvasInitializer {
         
         // Step 2: Apply initial visual selection state (WITHOUT calling SelectionHandler yet)
         // SelectionHandler will be called AFTER tasks are created to avoid showing non-existent tasks
+        // CRITICAL: Set state BEFORE requestAnimationFrame so it's available when tasks are created
+        this.agentManager.selectAgent(targetSelectedAgentId);
+        
         requestAnimationFrame(() => {
-            // Update state
-            this.agentManager.selectAgent(targetSelectedAgentId);
-            
             // Update visual state
             agents.forEach((agent) => {
                 const isSelected = agent.id === targetSelectedAgentId;
@@ -117,8 +117,8 @@ export class CanvasInitializer {
             // since we pre-set the state in Step 2
             const selectedAgent = this.agentManager.getAgent(targetSelectedAgentId);
             if (selectedAgent) {
-                // Show tasks for selected agent
-                this.taskController.showTasksForAgent(targetSelectedAgentId);
+                // Show tasks for selected agent, await completion
+                await this.taskController.showTasksForAgent(targetSelectedAgentId);
                 
                 // Update control panel with task info
                 const agentWithTaskInfo = {
@@ -138,7 +138,7 @@ export class CanvasInitializer {
             // Fallback path
             const selectedAgent = agentsWithTasks.find(a => a.id === targetSelectedAgentId);
             if (selectedAgent) {
-                this.taskController.showTasksForAgent(selectedAgent.id);
+                await this.taskController.showTasksForAgent(selectedAgent.id);
                 
                 // Update control panel now that tasks are loaded
                 const agent = this.agentManager.getAgent(selectedAgent.id);
@@ -152,16 +152,25 @@ export class CanvasInitializer {
             }
         }
         
-        // Step 7: Update stats
+        // Step 7: Ensure unselected agents have hidden connection lines
+        // This enforces visibility state after all connection lines are created
+        agentsWithTasks.forEach(({ id }) => {
+            if (id !== targetSelectedAgentId && this.canvasManager?.connectionLinesManager) {
+                // Force-hide connection lines for unselected agents
+                this.canvasManager.connectionLinesManager.hideConnectionsForAgent(id);
+            }
+        });
+        
+        // Step 8: Update stats
         this.statsService.update();
         
-        // Step 8: Update control panels to reflect running/halted status
+        // Step 9: Update control panels to reflect running/halted status
         // If any agent is running/halted, disable controls for other agents
         if (this.uiManager.controlPanelHandler) {
             this.uiManager.controlPanelHandler.updateAllControlPanels();
         }
         
-        // Step 9: Scroll to selected agent after all animations complete
+        // Step 10: Scroll to selected agent after all animations complete
         // Calculate delay based on number of tasks for smooth scroll timing
         const selectedAgentTasks = this.taskController.taskManager?.getAgentTasks(targetSelectedAgentId);
         const taskCount = selectedAgentTasks ? selectedAgentTasks.length : 0;
@@ -204,10 +213,10 @@ export class CanvasInitializer {
     }
     
     /**
-     * Initialize tasks for an agent
+     * Initialize tasks for a single agent
      * Called when agent completes Phase 0 and generates tasklist
      */
-    initializeAgentTasks(agentId, tasklist) {
+    async initializeAgentTasks(agentId, tasklist) {
         console.log(`[CanvasInitializer] Initializing tasks for agent ${agentId}`);
         
         // Create tasks
@@ -215,13 +224,12 @@ export class CanvasInitializer {
         
         // Show or hide tasks based on selection state
         const isSelected = this.agentManager.isAgentSelected(agentId);
-        setTimeout(() => {
-            if (isSelected) {
-                this.taskController.showTasksForAgent(agentId);
-            } else {
-                this.taskController.hideTasksForAgent(agentId);
-            }
-        }, POSITIONING_DELAYS.TASK_POSITION_DELAY + 100);
+        await new Promise(resolve => setTimeout(resolve, POSITIONING_DELAYS.TASK_POSITION_DELAY + 100));
+        if (isSelected) {
+            await this.taskController.showTasksForAgent(agentId);
+        } else {
+            await this.taskController.hideTasksForAgent(agentId);
+        }
     }
     
     /**

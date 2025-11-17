@@ -132,9 +132,10 @@ export class WebSocketEventHandler {
                 
                 // If agent is currently selected, show tasks after positioning completes
                 if (this.agentManager.isAgentSelected(agentId)) {
-                    setTimeout(() => {
-                        this.taskController.showTasksForAgent(agentId);
-                    }, POSITIONING_DELAYS.TASK_POSITION_DELAY + 100);
+                    (async () => {
+                        await new Promise(resolve => setTimeout(resolve, POSITIONING_DELAYS.TASK_POSITION_DELAY + 100));
+                        await this.taskController.showTasksForAgent(agentId);
+                    })();
                 }
             }
         } else if (workflowStatus === 'error') {

@@ -173,8 +173,8 @@ export class ConnectionLinesManager {
                 this.transitionManager.registerConnection(key, path);
             }
             
-            // Apply initial animation for new connections
-            if (isInitialCreation) {
+            // Apply initial animation for new connections ONLY if not starting hidden
+            if (isInitialCreation && !shouldStartHidden) {
                 path.className.baseVal = 'connection-line initial-animation';
                 
                 // Remove animation class after animation completes
@@ -380,40 +380,69 @@ export class ConnectionLinesManager {
     
     /**
      * Show connection lines for an agent
+     * Matches both agent-to-task and task-to-tool connections
      */
     showConnectionsForAgent(agentId) {
-        for (const [key, path] of this.lines.entries()) {
-            if (key.includes(`agent-${agentId}`)) {
-                // Animate in with fade (use CSS classes, not inline styles to avoid conflicts)
+        return new Promise((resolve) => {
+            const matchingPaths = [];
+            
+            // Match both connection types:
+            // - agent-{agentId}-to-task-{taskId} (agent-to-task)
+            // - task-{agentId}-task-{taskId}-to-tool-{toolKey} (task-to-tool)
+            for (const [key, path] of this.lines.entries()) {
+                if (key.includes(`agent-${agentId}-`) || key.includes(`task-${agentId}-task-`)) {
+                    matchingPaths.push(path);
+                }
+            }
+            
+            // Force-set initial state to ensure visibility is properly applied
+            matchingPaths.forEach(path => {
                 path.style.opacity = '0';
                 path.style.display = 'block';
-                
-                // Trigger fade-in animation via CSS (let TransitionManager control transitions)
-                requestAnimationFrame(() => {
-                    // Don't set inline transition - let CSS handle it
-                    // (TransitionManager might have disabled transitions, respect that)
+            });
+            
+            // Trigger fade-in animation (let CSS handle transitions)
+            requestAnimationFrame(() => {
+                matchingPaths.forEach(path => {
                     path.style.opacity = '1';
                 });
-            }
-        }
+                
+                // Resolve after animation completes
+                setTimeout(resolve, 300);
+            });
+        });
     }
     
     /**
      * Hide connection lines for an agent
+     * Matches both agent-to-task and task-to-tool connections
      */
     hideConnectionsForAgent(agentId) {
-        for (const [key, path] of this.lines.entries()) {
-            if (key.includes(`agent-${agentId}`)) {
-                // Animate out with fade (use CSS classes, not inline styles)
-                // Don't set inline transition - let CSS handle it
-                path.style.opacity = '0';
-                
-                // Hide after animation completes (CSS defines transition duration)
-                setTimeout(() => {
-                    path.style.display = 'none';
-                }, 300); // Match CSS transition duration (0.3s)
+        return new Promise((resolve) => {
+            const matchingPaths = [];
+            
+            // Match both connection types:
+            // - agent-{agentId}-to-task-{taskId} (agent-to-task)
+            // - task-{agentId}-task-{taskId}-to-tool-{toolKey} (task-to-tool)
+            for (const [key, path] of this.lines.entries()) {
+                if (key.includes(`agent-${agentId}-`) || key.includes(`task-${agentId}-task-`)) {
+                    matchingPaths.push(path);
+                }
             }
-        }
+            
+            // Force-set opacity to trigger fade-out
+            matchingPaths.forEach(path => {
+                path.style.opacity = '0';
+            });
+            
+            // Hide after animation completes (match CSS transition duration)
+            setTimeout(() => {
+                matchingPaths.forEach(path => {
+                    path.style.display = 'none';
+                });
+                resolve();
+            }, 300);
+        });
     }
     
     /**
@@ -421,8 +450,9 @@ export class ConnectionLinesManager {
      * @param {string} taskKey - The task key (agentId-taskId)
      * @param {string} toolKey - The tool key (agentId-taskId-toolId)
      * @param {boolean} isInitialCreation - Whether this is initial creation
+     * @param {boolean} shouldStartHidden - Whether connection should start hidden (for non-selected agents)
      */
-    createTaskToToolConnection(taskKey, toolKey, isInitialCreation = false) {
+    createTaskToToolConnection(taskKey, toolKey, isInitialCreation = false, shouldStartHidden = false) {
         if (!this.taskManager || !this.toolManager) return;
         
         const taskData = this.taskManager.taskNodes.get(taskKey);
@@ -460,7 +490,8 @@ export class ConnectionLinesManager {
             toolLeftScreen.x,
             toolLeftScreen.y,
             'tool-connection', // Special class for tool connections
-            isInitialCreation
+            isInitialCreation,
+            shouldStartHidden
         );
     }
     

@@ -42,7 +42,7 @@ export class SelectionHandler {
      * @param {string} agentId - Agent ID to select
      * @returns {boolean} True if selection changed, false if already selected
      */
-    selectAgent(agentId) {
+    async selectAgent(agentId) {
         console.log(`[SelectionHandler] Selecting agent ${agentId}`);
         
         // Get previously selected agent
@@ -60,16 +60,15 @@ export class SelectionHandler {
         // Phase 3: Move agents + show new agent's tasks
         
         if (previouslySelected) {
-            // Deselect previous agent (starts task hide animation)
-            this._deselectAgent(previouslySelected);
+            // Deselect previous agent (starts task hide animation), await completion
+            await this._deselectAgent(previouslySelected);
             
             // Wait for task hide animation to mostly complete before moving agents
-            setTimeout(() => {
-                this._performSelection(agentId);
-            }, POSITIONING_DELAYS.SELECTION_TRANSITION_DELAY);
+            await new Promise(resolve => setTimeout(resolve, POSITIONING_DELAYS.SELECTION_TRANSITION_DELAY));
+            await this._performSelection(agentId);
         } else {
             // No previous selection, select immediately
-            this._performSelection(agentId);
+            await this._performSelection(agentId);
         }
         
         // Persist selection to backend
@@ -84,14 +83,14 @@ export class SelectionHandler {
      * @param {string} agentId - Agent ID to deselect
      * @private
      */
-    _deselectAgent(agentId) {
+    async _deselectAgent(agentId) {
         console.log(`[SelectionHandler] Deselecting agent ${agentId}`);
         
         // Update renderer (visual state)
         this.agentRenderer.setSelected(agentId, false);
         
-        // Hide tasks for deselected agent
-        this.taskController.hideTasksForAgent(agentId);
+        // Hide tasks for deselected agent, await completion
+        await this.taskController.hideTasksForAgent(agentId);
     }
     
     /**
@@ -100,7 +99,7 @@ export class SelectionHandler {
      * @param {string} agentId - Agent ID to select
      * @private
      */
-    _performSelection(agentId) {
+    async _performSelection(agentId) {
         console.log(`[SelectionHandler] Performing selection for agent ${agentId}`);
         
         // Update state manager
@@ -125,8 +124,8 @@ export class SelectionHandler {
             }
         }
         
-        // Show tasks for selected agent
-        this.taskController.showTasksForAgent(agentId);
+        // Show tasks for selected agent, await completion
+        await this.taskController.showTasksForAgent(agentId);
         
         // Recalculate agent positions (selected agent moves right, unselected move left)
         this.canvasManager.recalculateAgentPositions();
@@ -179,10 +178,10 @@ export class SelectionHandler {
     /**
      * Clear selection and hide control panel
      */
-    clearSelection() {
+    async clearSelection() {
         const currentlySelected = this.agentManager.getSelectedAgentId();
         if (currentlySelected) {
-            this._deselectAgent(currentlySelected);
+            await this._deselectAgent(currentlySelected);
             this.agentManager.clearSelection();
         }
         // Always hide control panel when no agent is selected

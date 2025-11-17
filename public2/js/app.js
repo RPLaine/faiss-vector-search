@@ -96,7 +96,7 @@ class App {
             this.agentStatusHandler  // Inject AgentStatusHandler for centralized status updates
         );
         this.taskController = new TaskController(this.taskManager, this.taskRenderer, this.canvasManager, this.agentManager);
-        this.toolController = new ToolController(this.toolManager, this.toolRenderer, this.canvasManager, this.taskManager);
+        this.toolController = new ToolController(this.toolManager, this.toolRenderer, this.canvasManager, this.taskManager, this.agentManager);
         this.haltController = new HaltController(this.agentManager);
         
         // Selection Handler (centralized selection coordination)

@@ -13,11 +13,12 @@ import { UUIDGenerator } from '../utils/uuid-generator.js';
 import { APIService } from '../services/api-service.js';
 
 export class ToolController {
-    constructor(toolManager, toolRenderer, canvasManager, taskManager) {
+    constructor(toolManager, toolRenderer, canvasManager, taskManager, agentManager) {
         this.toolManager = toolManager;
         this.renderer = toolRenderer;
         this.canvasManager = canvasManager;
         this.taskManager = taskManager; // For task lookups
+        this.agentManager = agentManager; // For agent selection state
         
         // Pending tool calls waiting for tasks to be positioned
         this.pendingToolLoads = new Map(); // task_key -> [{agentId, taskId, toolCallData}]
@@ -36,8 +37,8 @@ export class ToolController {
             this._processPendingToolLoads(agentId);
         });
         
-        // Listen for task position recalculation (tools follow tasks)
-        document.addEventListener('recalculateTaskPositions', () => {
+        // Listen for tool position recalculation (happens after tasks are repositioned)
+        window.addEventListener('recalculateToolPositions', () => {
             this.positionToolsForAllTasks();
         });
         
@@ -165,8 +166,12 @@ export class ToolController {
             }, 100);
             
             // Draw connection line from task to tool
+            // Check if agent is selected to determine if connection should start hidden
+            const agentId = agent_id;
+            const shouldStartHidden = this.agentManager && !this.agentManager.isAgentSelected(agentId);
+            
             setTimeout(() => {
-                this.canvasManager.connectionLinesManager.createTaskToToolConnection(taskKey, toolKey, true);
+                this.canvasManager.connectionLinesManager.createTaskToToolConnection(taskKey, toolKey, true, shouldStartHidden);
             }, POSITIONING_DELAYS.TASK_CONNECTION_UPDATES[0]);
             
             // Update connection lines during transition (staggered)
@@ -402,8 +407,11 @@ export class ToolController {
             toolNode.classList.remove('tool-hidden');
             
             // Draw connection line from task to tool
+            // Check if agent is selected to determine if connection should start hidden
+            const shouldStartHidden = this.agentManager && !this.agentManager.isAgentSelected(agentId);
+            
             setTimeout(() => {
-                this.canvasManager.connectionLinesManager.createTaskToToolConnection(taskKey, toolKey, true);
+                this.canvasManager.connectionLinesManager.createTaskToToolConnection(taskKey, toolKey, true, shouldStartHidden);
             }, POSITIONING_DELAYS.TASK_CONNECTION_UPDATES[0]);
             
             // Update connection lines during transition (staggered)
@@ -474,7 +482,9 @@ export class ToolController {
      * Position tools for all tasks (called during recalculation events)
      */
     positionToolsForAllTasks() {
-        console.log('[ToolController] Positioning tools for all tasks');
+        console.log('[ToolController] Positioning tools for all tasks - START');
+        
+        let totalToolsUpdated = 0;
         
         // Get all tasks
         for (const [taskKey, taskData] of this.taskManager.taskNodes.entries()) {
@@ -491,6 +501,10 @@ export class ToolController {
                 taskWidth
             );
             
+            if (positions.length > 0) {
+                console.log(`[ToolController] Task ${taskKey} at (${taskData.globalX}, ${taskData.globalY}) has ${positions.length} tools:`, positions);
+            }
+            
             // Apply positions
             const updates = positions.map(({ toolKey, x, y }) => {
                 const toolData = this.toolManager.getTool(toolKey);
@@ -503,12 +517,16 @@ export class ToolController {
             }).filter(update => update.element);
             
             if (updates.length > 0) {
+                console.log(`[ToolController] Updating ${updates.length} tools for task ${taskKey}`);
                 this.canvasManager.taskPositionManager.updateMultipleToolPositions(updates, {
                     immediate: false,
                     reason: 'recalculate_all'
                 });
+                totalToolsUpdated += updates.length;
             }
         }
+        
+        console.log(`[ToolController] Positioning tools for all tasks - COMPLETE (${totalToolsUpdated} tools updated)`);
         
         // Update all connection lines during transition
         POSITIONING_DELAYS.TASK_CONNECTION_UPDATES.forEach((delay) => {

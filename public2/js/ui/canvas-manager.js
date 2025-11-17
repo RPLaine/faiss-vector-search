@@ -343,8 +343,6 @@ export class CanvasManager {
         this.isRecalculating = true;
         
         requestAnimationFrame(() => {
-            console.log(`[CanvasManager] Recalculating - viewport: ${this.canvas.width}x${this.canvas.height}`);
-            
             // Step 1: Calculate and apply agent positions (in global coords)
             this.recalculateAgentPositions();
             
@@ -368,7 +366,6 @@ export class CanvasManager {
                     this.connectionLinesManager.updateAllConnections();
                     
                     this.isRecalculating = false;
-                    console.log('[CanvasManager] Recalculation complete');
                 });
             });
         });

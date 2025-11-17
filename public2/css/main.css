@@ -560,7 +560,6 @@ body {
     outline: 3px solid var(--color-accent-primary);
     outline-offset: 2px;
     box-shadow: 0 0 30px rgba(37, 99, 235, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
-    transform: scale(1.02);
     z-index: 10;
 }
 
@@ -772,9 +771,12 @@ body {
 /* Visibility states for selection system */
 .task-node.task-hidden {
     opacity: 0;
-    transform: translateX(-30px) scale(0.95);
+    transform: translateX(-40px) scale(0.92);
     pointer-events: none;
     visibility: hidden;
+    transition: opacity var(--transition-medium) var(--easing-out), 
+                transform var(--transition-medium) var(--easing-out),
+                visibility 0s linear var(--transition-medium);
 }
 
 .task-node.task-visible {
@@ -782,6 +784,9 @@ body {
     transform: translateX(0) scale(1);
     pointer-events: auto;
     visibility: visible;
+    transition: opacity var(--transition-medium) var(--easing-smooth), 
+                transform var(--transition-medium) var(--easing-smooth),
+                visibility 0s linear 0s;
 }
 
 /* Initial creation animation - same style as agent nodes */
@@ -838,10 +843,9 @@ body {
 
 /* Task selection visual feedback - green outline to differentiate from agent blue */
 .task-node.task-selected {
-    outline: 3px solid var(--color-accent-success);
+    outline: 3px solid var(--color-accent-primary);
     outline-offset: 2px;
     box-shadow: 0 0 30px rgba(16, 185, 129, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
-    transform: scale(1.02);
     z-index: 11; /* Higher than agent z-index: 10 */
 }
 
@@ -1712,9 +1716,12 @@ body {
 /* Visibility states for selection system */
 .tool-node.tool-hidden {
     opacity: 0;
-    transform: translateX(30px) scale(0.95);
+    transform: translateX(40px) scale(0.92);
     pointer-events: none;
     visibility: hidden;
+    transition: opacity var(--transition-medium) var(--easing-out), 
+                transform var(--transition-medium) var(--easing-out),
+                visibility 0s linear var(--transition-medium);
 }
 
 .tool-node.tool-visible {
@@ -1722,6 +1729,9 @@ body {
     transform: translateX(0) scale(1);
     pointer-events: auto;
     visibility: visible;
+    transition: opacity var(--transition-medium) var(--easing-smooth), 
+                transform var(--transition-medium) var(--easing-smooth),
+                visibility 0s linear 0s;
 }
 
 /* Initial creation animation */

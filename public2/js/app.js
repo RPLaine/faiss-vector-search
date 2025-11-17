@@ -136,6 +136,9 @@ class App {
             this.canvasManager
         );
         
+        // Inject ControlPanelHandler into TaskController for final task completion detection
+        this.taskController.controlPanelHandler = this.controlPanelHandler;
+        
         // Inject ControlPanelHandler into SelectionHandler for control panel updates
         this.selectionHandler.controlPanelHandler = this.controlPanelHandler;
         
@@ -152,6 +155,7 @@ class App {
         this.uiManager.taskManager = this.taskManager;
         this.uiManager.agentManager = this.agentManager; // Inject AgentManager
         this.uiManager.controlPanelHandler = this.controlPanelHandler; // Inject ControlPanelHandler for WebSocket events
+        this.uiManager.taskSelectionHandler = this.taskSelectionHandler; // Inject TaskSelectionHandler for auto-selection
         
         // Canvas Initializer (handles page load initialization)
         this.canvasInitializer = new CanvasInitializer(

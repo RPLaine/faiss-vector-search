@@ -272,6 +272,29 @@ export class TaskManager {
     }
     
     /**
+     * Get the currently running task for an agent
+     * Used for auto-selection during workflow progression
+     */
+    getNextRunningTask(agentId) {
+        const tasks = this.getSortedTasksForAgent(agentId);
+        
+        for (const taskData of tasks) {
+            if (!taskData || !taskData.element) continue;
+            
+            const statusEl = taskData.element.querySelector('.task-node-status');
+            if (!statusEl) continue;
+            
+            const status = statusEl.textContent.toLowerCase();
+            
+            if (status === 'running') {
+                return taskData;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
      * Check if agent has any failed or cancelled tasks
      */
     hasFailedOrCancelledTasks(agentId) {

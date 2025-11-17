@@ -364,6 +364,12 @@ export class WebSocketEventHandler {
         const { agent_id, task_id, status } = data.data;
         this.taskController.updateTaskStatus(agent_id, task_id, status);
         this.taskController.updateTaskContent(agent_id, task_id, '');
+        
+        // Auto-select running task with smooth transition
+        if (this.uiManager.taskSelectionHandler) {
+            const taskKey = `${agent_id}-task-${task_id}`;
+            this.uiManager.taskSelectionHandler.selectTaskWithTransition(taskKey, { isAutomatic: true });
+        }
     }
     
     handleTaskCompleted(data) {
@@ -393,6 +399,32 @@ export class WebSocketEventHandler {
                 validation.reason,
                 validation.score
             );
+        }
+        
+        // Auto-deselect completed task and select next running task for smooth workflow progression
+        // Keep failed tasks selected for user review/debugging
+        if (actualStatus === 'completed' && this.uiManager.taskSelectionHandler) {
+            const taskKey = `${agent_id}-task-${task_id}`;
+            const selectedTaskKey = this.uiManager.taskSelectionHandler.getSelectedTaskKey();
+            
+            if (selectedTaskKey === taskKey) {
+                console.log(`[WebSocket] Auto-deselecting completed task ${taskKey}`);
+                this.uiManager.taskSelectionHandler.deselectTask(taskKey);
+                
+                // Find and auto-select next running task with smooth transition
+                const nextRunningTask = this.taskManager.getNextRunningTask(agent_id);
+                if (nextRunningTask) {
+                    const nextTaskKey = `${agent_id}-task-${nextRunningTask.taskId}`;
+                    console.log(`[WebSocket] Auto-selecting next running task: ${nextTaskKey}`);
+                    
+                    // Use selectTaskWithTransition with delay for smooth transition choreography
+                    // Delay allows deselection animation to complete before new selection
+                    this.uiManager.taskSelectionHandler.selectTaskWithTransition(nextTaskKey, {
+                        isAutomatic: true,
+                        delay: 350 // SELECTION_TRANSITION_DELAY from constants
+                    });
+                }
+            }
         }
     }
     

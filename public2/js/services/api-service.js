@@ -33,7 +33,12 @@ export class APIService {
             
             if (!response.ok) {
                 console.error(`[API] ${method} ${endpoint} failed:`, data);
-                throw new Error(`HTTP ${response.status}: ${JSON.stringify(data)}`);
+                // Extract error message from backend response
+                const errorMessage = data.error || data.detail || JSON.stringify(data);
+                const error = new Error(`HTTP ${response.status}: ${errorMessage}`);
+                error.statusCode = response.status;
+                error.responseData = data;
+                throw error;
             }
             
             console.log(`[API] ${method} ${endpoint} success:`, data);
@@ -41,7 +46,12 @@ export class APIService {
             
         } catch (error) {
             console.error(`[API] ${method} ${endpoint} error:`, error);
-            return { success: false, error: error.message, status: 0 };
+            return { 
+                success: false, 
+                error: error.message, 
+                statusCode: error.statusCode || 0,
+                responseData: error.responseData || null
+            };
         }
     }
     

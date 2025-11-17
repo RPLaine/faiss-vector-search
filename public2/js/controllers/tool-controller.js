@@ -178,7 +178,7 @@ export class ToolController {
             // Update connection lines during transition (staggered)
             POSITIONING_DELAYS.TASK_CONNECTION_UPDATES.forEach((delay) => {
                 setTimeout(() => {
-                    this.canvasManager.connectionLinesManager.updateConnectionsForTask(taskKey);
+                    this.canvasManager.connectionLinesManager.updateToolConnectionsForTask(taskKey);
                 }, delay);
             });
         } else {
@@ -486,9 +486,7 @@ export class ToolController {
     /**
      * Position tools for all tasks (called during recalculation events)
      */
-    positionToolsForAllTasks() {
-        console.log('[ToolController] Positioning tools for all tasks - START');
-        
+    positionToolsForAllTasks() {        
         let totalToolsUpdated = 0;
         
         // Get all tasks
@@ -506,10 +504,6 @@ export class ToolController {
                 taskWidth
             );
             
-            if (positions.length > 0) {
-                console.log(`[ToolController] Task ${taskKey} at (${taskData.globalX}, ${taskData.globalY}) has ${positions.length} tools:`, positions);
-            }
-            
             // Apply positions
             const updates = positions.map(({ toolKey, x, y }) => {
                 const toolData = this.toolManager.getTool(toolKey);
@@ -522,7 +516,6 @@ export class ToolController {
             }).filter(update => update.element);
             
             if (updates.length > 0) {
-                console.log(`[ToolController] Updating ${updates.length} tools for task ${taskKey}`);
                 this.canvasManager.taskPositionManager.updateMultipleToolPositions(updates, {
                     immediate: false,
                     reason: 'recalculate_all'
@@ -530,9 +523,7 @@ export class ToolController {
                 totalToolsUpdated += updates.length;
             }
         }
-        
-        console.log(`[ToolController] Positioning tools for all tasks - COMPLETE (${totalToolsUpdated} tools updated)`);
-        
+                
         // Update all connection lines during transition
         POSITIONING_DELAYS.TASK_CONNECTION_UPDATES.forEach((delay) => {
             setTimeout(() => {

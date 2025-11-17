@@ -49,6 +49,18 @@ export class AgentController {
      * Stop an agent
      */
     async stopAgent(agentId) {
+        // Check current state before making API call
+        const agent = this.agentManager.getAgent(agentId);
+        if (!agent) {
+            throw new Error(`Agent ${agentId} not found`);
+        }
+        
+        // Only attempt to stop if agent is actually running
+        if (agent.status !== 'running') {
+            console.info(`[Agent ${agentId}] Stop ignored - agent is ${agent.status}, not running`);
+            return;
+        }
+        
         console.log(`[Agent ${agentId}] Stopping`);
         
         const result = await APIService.stopAgent(agentId);
@@ -67,6 +79,13 @@ export class AgentController {
         const agent = this.agentManager.getAgent(agentId);
         if (!agent) {
             throw new Error(`Agent ${agentId} not found`);
+        }
+        
+        // Check if agent can be continued based on current status
+        const validContinueStates = ['halted', 'stopped', 'failed'];
+        if (!validContinueStates.includes(agent.status)) {
+            console.info(`[Agent ${agentId}] Continue ignored - agent is ${agent.status}, expected one of: ${validContinueStates.join(', ')}`);
+            return;
         }
         
         // When agent is stopped or failed and there is a tasklist, check for next non-complete task

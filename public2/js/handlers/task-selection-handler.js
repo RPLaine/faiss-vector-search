@@ -54,6 +54,58 @@ export class TaskSelectionHandler {
     }
     
     /**
+     * Select a task with transition support for both auto and manual selection
+     * Centralized method ensuring consistent animation choreography
+     * 
+     * @param {string} taskKey - Task key to select
+     * @param {Object} options - Selection options
+     * @param {boolean} options.isAutomatic - If true, this is automatic workflow selection
+     * @param {number} options.delay - Optional delay before selection (for transition choreography)
+     * @returns {Promise<boolean>} True if selection changed
+     */
+    async selectTaskWithTransition(taskKey, options = {}) {
+        const { isAutomatic = false, delay = 0 } = options;
+        
+        console.log(`[TaskSelectionHandler] Selecting task ${taskKey} (${isAutomatic ? 'automatic' : 'manual'})`);
+        
+        // Wrapper for delayed execution
+        const performSelection = async () => {
+            const previouslySelected = this.taskManager.getSelectedTaskKey();
+            
+            // If clicking already-selected task (manual only), deselect it
+            if (!isAutomatic && previouslySelected === taskKey) {
+                await this.deselectTask(taskKey);
+                return false;
+            }
+            
+            // For automatic selection during workflow, allow selecting even if another task is selected
+            // Deselect previous task (if any) with smooth transition
+            if (previouslySelected && previouslySelected !== taskKey) {
+                await this._deselectTask(previouslySelected);
+                // Wait for deselection transition to complete before selecting new task
+                await new Promise(resolve => setTimeout(resolve, POSITIONING_DELAYS.SELECTION_TRANSITION_DELAY));
+            }
+            
+            // Perform selection
+            await this._performSelection(taskKey);
+            
+            return true;
+        };
+        
+        // Apply delay if specified (for transition choreography)
+        if (delay > 0) {
+            return new Promise(resolve => {
+                setTimeout(async () => {
+                    const result = await performSelection();
+                    resolve(result);
+                }, delay);
+            });
+        } else {
+            return await performSelection();
+        }
+    }
+    
+    /**
      * Deselect current task
      * 
      * @param {string} taskKey - Optional task key to deselect (defaults to currently selected)
@@ -74,12 +126,14 @@ export class TaskSelectionHandler {
     async _deselectTask(taskKey) {
         console.log(`[TaskSelectionHandler] Deselecting task ${taskKey}`);
         
-        // Update visual state
-        this.taskRenderer.setSelected(taskKey, false);
+        const taskData = this.taskManager.getTask(taskKey);
+        if (!taskData) return;
+        
+        // Update visual state (pass element directly for pure rendering)
+        this.taskRenderer.setSelected(taskData.element, false);
         
         // Hide tools for this task
-        const taskData = this.taskManager.getTask(taskKey);
-        if (taskData) {
+        if (taskData.agentId && taskData.taskId) {
             await this.toolController.hideToolsForTask(taskData.agentId, taskData.taskId);
         }
     }
@@ -92,15 +146,17 @@ export class TaskSelectionHandler {
     async _performSelection(taskKey) {
         console.log(`[TaskSelectionHandler] Performing selection for task ${taskKey}`);
         
+        const taskData = this.taskManager.getTask(taskKey);
+        if (!taskData) return;
+        
         // Update state
         this.taskManager.selectTask(taskKey);
         
-        // Update visual state
-        this.taskRenderer.setSelected(taskKey, true);
+        // Update visual state (pass element directly for pure rendering)
+        this.taskRenderer.setSelected(taskData.element, true);
         
         // Show tools for selected task
-        const taskData = this.taskManager.getTask(taskKey);
-        if (taskData) {
+        if (taskData.agentId && taskData.taskId) {
             await this.toolController.showToolsForTask(taskData.agentId, taskData.taskId);
         }
     }
@@ -128,5 +184,28 @@ export class TaskSelectionHandler {
             this._deselectTask(currentlySelected);
             this.taskManager.clearTaskSelection();
         }
+    }
+    
+    /**
+     * Auto-select a task if no other task is currently selected
+     * Used for automatic selection when task starts running
+     * 
+     * @param {string} agentId - Agent ID
+     * @param {string} taskId - Task ID
+     * @returns {boolean} True if task was auto-selected
+     */
+    async selectTaskIfNoneSelected(agentId, taskId) {
+        const currentlySelected = this.taskManager.getSelectedTaskKey();
+        
+        // Don't auto-select if user has manually selected another task
+        if (currentlySelected) {
+            return false;
+        }
+        
+        const taskKey = `${agentId}-task-${taskId}`;
+        console.log(`[TaskSelectionHandler] Auto-selecting running task ${taskKey}`);
+        
+        await this._performSelection(taskKey);
+        return true;
     }
 }

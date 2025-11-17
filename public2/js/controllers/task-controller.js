@@ -11,11 +11,12 @@ import { POSITIONING_DELAYS } from '../constants.js';
 import { ANIMATION_DURATIONS } from '../constants.js';
 
 export class TaskController {
-    constructor(taskManager, taskRenderer, canvasManager, agentManager) {
+    constructor(taskManager, taskRenderer, canvasManager, agentManager, controlPanelHandler = null) {
         this.taskManager = taskManager;
         this.renderer = taskRenderer;
         this.canvasManager = canvasManager;
         this.agentManager = agentManager;
+        this.controlPanelHandler = controlPanelHandler; // For triggering button updates on task completion
         
         // Access centralized task positioning via CanvasManager
         // (TaskPositionManager is initialized there)
@@ -30,9 +31,7 @@ export class TaskController {
      * Recalculate and apply positions for all tasks
      * Called by centralized canvas recalculation system
      */
-    recalculateAllTaskPositions() {
-        console.log('[TaskController] Recalculating all task positions');
-        
+    recalculateAllTaskPositions() {        
         // Get all agents that have tasks
         for (const agentId of this.taskManager.agentTasks.keys()) {
             const taskKeys = this.taskManager.getAgentTasks(agentId);
@@ -65,10 +64,7 @@ export class TaskController {
                     }
                 );
             });
-        }
-        
-        console.log('[TaskController] Task repositioning complete');
-        
+        }        
         // Note: Canvas height and connection lines are updated by CanvasManager
         // after this method completes as part of the coordinated recalculation
     }
@@ -163,9 +159,51 @@ export class TaskController {
         // Update UI
         this.renderer.updateStatus(taskData.element, status);
         
+        // Update connection lines to reflect new status and ensure correct positioning
+        this.canvasManager.connectionLinesManager.updateConnectionsForAgent(agentId);
+        
         // Handle status-specific actions
         if (status === 'running') {
             this.handleTaskRunning(agentId, taskId);
+        }
+        
+        // Check if this was the final task completing
+        if (status === 'completed' && this.controlPanelHandler) {
+            this._checkIfFinalTaskCompleted(agentId, taskId);
+        }
+    }
+    
+    /**
+     * Check if the completed task was the final task
+     * If so, trigger control panel update to hide Continue button
+     */
+    _checkIfFinalTaskCompleted(agentId, taskId) {
+        // Get all tasks for this agent
+        const allTaskKeys = this.taskManager.getAgentTasks(agentId);
+        if (!allTaskKeys || allTaskKeys.length === 0) {
+            return;
+        }
+        
+        // Check if all tasks are in terminal state (completed, failed, or cancelled)
+        const allTasksTerminal = allTaskKeys.every(taskKey => {
+            const taskData = this.taskManager.getTask(taskKey);
+            if (!taskData || !taskData.element) return false;
+            
+            const statusEl = taskData.element.querySelector('.task-node-status');
+            if (!statusEl) return false;
+            
+            const status = statusEl.textContent.toLowerCase();
+            return status === 'completed' || status === 'failed' || status === 'cancelled';
+        });
+        
+        // If all tasks are done, trigger immediate control panel update
+        // This hides Continue button before agent_completed event arrives
+        if (allTasksTerminal) {
+            console.log(`[TaskController] All tasks completed for agent ${agentId} - updating control panel`);
+            // Small delay to ensure task status has fully updated in DOM
+            setTimeout(() => {
+                this.controlPanelHandler.updateAllControlPanels();
+            }, 50);
         }
     }
     

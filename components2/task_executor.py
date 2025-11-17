@@ -221,43 +221,97 @@ class TaskExecutor:
             Formatted prompt string
         """
         # Get agent data
-        agent_name = agent.get("name", "Journalist")
+        agent_name = agent.get("name", "AI Agent")
         agent_context = agent.get("context", "")
         goal = agent.get("goal", "Complete the assigned task")
+        current_task_id = task["id"]
         
-        # Build context section
-        context_parts = []
+        # Collect previous task outputs
+        tasklist = agent.get("tasklist", {})
+        all_tasks = tasklist.get("tasks", [])
+        
+        # Filter tasks completed before current task
+        previous_tasks = [
+            t for t in all_tasks 
+            if t["id"] < current_task_id 
+            and t.get("status") == "completed"
+            and t.get("output")  # Only include tasks with output
+        ]
+        
+        # Build additional context (agent context + FAISS docs)
+        additional_context_parts = []
         if agent_context:
-            context_parts.append(f"Additional Context: {agent_context}")
+            additional_context_parts.append(f"Agent Context: {agent_context}")
         
-        # Add retrieved documents as context if available
+        # Add retrieved documents as additional resources
         if retrieval_result and retrieval_result.get('documents'):
-            context_parts.append("\n**Knowledge Base Context:**")
+            additional_context_parts.append("\n**Knowledge Base Documents:**")
             for i, doc in enumerate(retrieval_result['documents'], 1):
                 score = doc.get('score', 0.0)
                 filename = doc.get('filename', 'unknown')
                 content = doc.get('content', '')
-                context_parts.append(
+                additional_context_parts.append(
                     f"\n[Source {i}] {filename} (Relevance: {score:.2f})\n{content}"
                 )
         
-        context_str = "\n".join(context_parts) if context_parts else ""
+        additional_context = "\n".join(additional_context_parts) if additional_context_parts else "No additional context provided."
         
-        # Get prompt template from settings
+        # Choose template based on whether previous tasks exist
         if self.settings_manager:
-            template = self.settings_manager.get_prompt("task_execution")
-            return template.format(
-                agent_name=agent_name,
-                goal=goal,
-                task_name=task['name'],
-                task_description=task['description'],
-                expected_output=task['expected_output'],
-                context=context_str
-            )
+            if previous_tasks:
+                # Sequential task template - has previous task dependencies
+                previous_tasks_context_parts = []
+                for prev_task in sorted(previous_tasks, key=lambda x: x["id"]):
+                    task_name = prev_task.get("name", f"Task {prev_task['id']}")
+                    task_output = prev_task.get("output", "")
+                    previous_tasks_context_parts.append(
+                        f"--- Task {prev_task['id']}: {task_name} ---\n{task_output}"
+                    )
+                
+                previous_tasks_context = "\n\n".join(previous_tasks_context_parts)
+                
+                template = self.settings_manager.get_prompt("task_execution_sequential")
+                return template.format(
+                    agent_name=agent_name,
+                    goal=goal,
+                    task_id=current_task_id,
+                    task_name=task['name'],
+                    task_description=task['description'],
+                    expected_output=task['expected_output'],
+                    previous_tasks_context=previous_tasks_context,
+                    additional_context=additional_context
+                )
+            else:
+                # First task template - no dependencies
+                # Combine agent context and FAISS docs for first task
+                context_parts = []
+                if agent_context:
+                    context_parts.append(f"Agent Context: {agent_context}")
+                if retrieval_result and retrieval_result.get('documents'):
+                    context_parts.append("\n**Knowledge Base Documents:**")
+                    for i, doc in enumerate(retrieval_result['documents'], 1):
+                        score = doc.get('score', 0.0)
+                        filename = doc.get('filename', 'unknown')
+                        content = doc.get('content', '')
+                        context_parts.append(
+                            f"\n[Source {i}] {filename} (Relevance: {score:.2f})\n{content}"
+                        )
+                
+                context_str = "\n".join(context_parts) if context_parts else "No additional context provided."
+                
+                template = self.settings_manager.get_prompt("task_execution_first")
+                return template.format(
+                    agent_name=agent_name,
+                    goal=goal,
+                    task_name=task['name'],
+                    task_description=task['description'],
+                    expected_output=task['expected_output'],
+                    context=context_str
+                )
         
-        # Fallback if no settings manager
+        # Fallback if no settings manager - use simple template
         prompt_parts = [
-            f"You are {agent_name}, an AI journalist.",
+            f"You are {agent_name}.",
             f"Overall Goal: {goal}",
             "",
             f"Current Task: {task['name']}",
@@ -265,8 +319,8 @@ class TaskExecutor:
             f"Expected Output: {task['expected_output']}",
         ]
         
-        if context_str:
-            prompt_parts.insert(2, context_str)
+        if agent_context:
+            prompt_parts.append(f"\nContext: {agent_context}")
         
         prompt_parts.extend([
             "",

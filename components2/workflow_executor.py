@@ -267,11 +267,18 @@ class WorkflowExecutor:
                             
                             logger.info(f"Agent {agent_id} completed task {task['id']}: {task['name']} (status: {task['status']})")
                             
-                            # Check halt after task completes (before moving to next task)
-                            if self.halt_manager and self.halt_manager.should_halt_after_task(agent_id, task["id"]):
+                            # Check if this is the last task in the workflow
+                            task_index = sorted_tasks.index(task)
+                            is_last_task = (task_index == len(sorted_tasks) - 1)
+                            
+                            # Check halt after task completes (only if NOT the last task)
+                            # If this is the last task, skip halting and allow normal completion
+                            if not is_last_task and self.halt_manager and self.halt_manager.should_halt_after_task(agent_id, task["id"]):
                                 self.halt_manager.mark_halted(agent_id, task_id=task["id"])
                                 logger.info(f"Agent {agent_id} halted after task {task['id']} completed")
                                 return self.halt_manager.get_halt_result(agent_id, task_id=task["id"])
+                            elif is_last_task and self.halt_manager and agent.get("halt", False):
+                                logger.info(f"Agent {agent_id} completed final task {task['id']} - proceeding to completion despite halt mode")
                             
                         except asyncio.CancelledError:
                             logger.info(f"Agent {agent_id} - Task {task['id']} cancelled")

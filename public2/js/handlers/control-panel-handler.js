@@ -82,14 +82,34 @@ export class ControlPanelHandler {
         
         const action = this.controlPanelManager.actionBtn?.dataset.action;
         
-        if (action === 'start') {
-            await this.agentController.startAgent(agentId);
-        } else if (action === 'stop') {
-            await this.agentController.stopAgent(agentId);
-        } else if (action === 'redo') {
-            await this.agentController.redoPhase(agentId);
-        } else if (action === 'restart') {
-            await this.agentController.restartAgent(agentId);
+        try {
+            if (action === 'start') {
+                await this.agentController.startAgent(agentId);
+            } else if (action === 'stop') {
+                await this.agentController.stopAgent(agentId);
+            } else if (action === 'redo') {
+                await this.agentController.redoPhase(agentId);
+            } else if (action === 'restart') {
+                await this.agentController.restartAgent(agentId);
+            }
+        } catch (error) {
+            // Check if this is a 409 conflict error (race condition)
+            const is409Conflict = error.message && (
+                error.message.includes('409') || 
+                error.message.includes('already running') ||
+                error.message.includes('not running')
+            );
+            
+            if (is409Conflict) {
+                // Log as info - this is expected during race conditions
+                console.info(`[ControlPanelHandler] ${action} ignored - agent state changed:`, error.message);
+                // Trigger control panel refresh to sync button state
+                this.updateAllControlPanels();
+            } else {
+                // Unexpected error - show to user
+                console.error(`[ControlPanelHandler] ${action} failed:`, error);
+                alert(`Action failed: ${error.message}`);
+            }
         }
     }
     
@@ -97,7 +117,27 @@ export class ControlPanelHandler {
      * Handle continue button click
      */
     async handleContinueAgent(agentId) {
-        await this.agentController.continueAgent(agentId);
+        try {
+            await this.agentController.continueAgent(agentId);
+        } catch (error) {
+            // Check if this is a 409 conflict error (race condition)
+            const is409Conflict = error.message && (
+                error.message.includes('409') || 
+                error.message.includes('already running') ||
+                error.message.includes('cannot continue')
+            );
+            
+            if (is409Conflict) {
+                // Log as info - this is expected during race conditions
+                console.info(`[ControlPanelHandler] Continue ignored - agent state changed:`, error.message);
+                // Trigger control panel refresh to sync button state
+                this.updateAllControlPanels();
+            } else {
+                // Unexpected error - show to user
+                console.error(`[ControlPanelHandler] Continue failed:`, error);
+                alert(`Continue failed: ${error.message}`);
+            }
+        }
     }
     
     /**

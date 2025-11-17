@@ -138,16 +138,18 @@ export class TaskRenderer {
     
     /**
      * Set task as selected (visual feedback)
-     * Mirrors AgentRenderer.setSelected() pattern
+     * Pure rendering function - accepts element directly
+     * 
+     * @param {HTMLElement} element - Task element to update
+     * @param {boolean} selected - Whether task is selected
      */
-    setSelected(taskKey, selected) {
-        const taskData = this.taskManager?.getTask(taskKey);
-        if (!taskData || !taskData.element) return;
+    setSelected(element, selected) {
+        if (!element) return;
         
         if (selected) {
-            taskData.element.classList.add('task-selected');
+            element.classList.add('task-selected');
         } else {
-            taskData.element.classList.remove('task-selected');
+            element.classList.remove('task-selected');
         }
     }
     
@@ -166,8 +168,9 @@ export class TaskRenderer {
         element.classList.add(status);
         
         // Add pulse animation when task becomes active
+        // Use TASK_TRANSITION (400ms) instead of PULSE (300ms) to match taskPulseScale animation
         if (status === 'running') {
-            AnimationUtils.pulse(element, ANIMATION_DURATIONS.PULSE);
+            AnimationUtils.pulse(element, ANIMATION_DURATIONS.TASK_TRANSITION);
         }
     }
     

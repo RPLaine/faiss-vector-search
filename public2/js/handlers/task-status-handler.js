@@ -21,9 +21,10 @@ import {
 } from '../constants/status-constants.js';
 
 export class TaskStatusHandler {
-    constructor(taskManager, taskRenderer) {
+    constructor(taskManager, taskRenderer, controlPanelHandler = null) {
         this.taskManager = taskManager;
         this.taskRenderer = taskRenderer;
+        this.controlPanelHandler = controlPanelHandler; // For triggering button updates
     }
     
     /**
@@ -64,6 +65,11 @@ export class TaskStatusHandler {
         // Trigger layout alignment if task is becoming active
         if (newStatus === TASK_STATUS.RUNNING && oldStatus !== TASK_STATUS.RUNNING) {
             this._handleTaskBecameActive(agentId, taskId);
+        }
+        
+        // Check if this was the final task completing
+        if (newStatus === TASK_STATUS.COMPLETED && this.controlPanelHandler) {
+            this._checkIfFinalTaskCompleted(agentId, taskId);
         }
         
         return true;
@@ -189,5 +195,37 @@ export class TaskStatusHandler {
         const taskData = this.taskManager.getTask(taskKey);
         
         return taskData ? this._getCurrentStatus(taskData) : null;
+    }
+    
+    /**
+     * Check if the completed task was the final task
+     * If so, trigger control panel update to hide Continue button
+     */
+    _checkIfFinalTaskCompleted(agentId, taskId) {
+        // Get all tasks for this agent
+        const allTasks = this.taskManager.getAgentTasks(agentId);
+        if (!allTasks || allTasks.length === 0) {
+            return;
+        }
+        
+        // Check if all tasks are in terminal state (completed, failed, or cancelled)
+        const allTasksTerminal = allTasks.every(task => {
+            const status = this._getCurrentStatus(task);
+            return status === TASK_STATUS.COMPLETED || 
+                   status === TASK_STATUS.FAILED || 
+                   status === TASK_STATUS.CANCELLED;
+        });
+        
+        // If all tasks are done, trigger immediate control panel update
+        // This hides Continue button before agent_completed event arrives
+        if (allTasksTerminal) {
+            console.log(`[TaskStatusHandler] All tasks completed for agent ${agentId} - updating control panel`);
+            if (this.controlPanelHandler) {
+                // Small delay to ensure task status has fully updated in DOM
+                setTimeout(() => {
+                    this.controlPanelHandler.updateAllControlPanels();
+                }, 50);
+            }
+        }
     }
 }

@@ -22,7 +22,7 @@ import { ScrollHandler } from '../utils/scroll-handler.js';
 import { TaskPositionManager } from '../services/task-position-manager.js';
 
 export class CanvasManager {
-    constructor(canvasId, taskManager, transitionManager, agentManager) {
+    constructor(canvasId, taskManager, transitionManager, agentManager, toolManager = null) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
         this.agents = new Map(); // agent_id -> {globalX, globalY, element}
@@ -41,7 +41,8 @@ export class CanvasManager {
         
         // Connection lines manager (delegated to separate class)
         this.taskManager = taskManager;
-        this.connectionLinesManager = new ConnectionLinesManager('connectionLines', this, taskManager);
+        this.toolManager = toolManager; // Tool manager for tool connections
+        this.connectionLinesManager = new ConnectionLinesManager('connectionLines', this, taskManager, toolManager);
         
         // Centralized task positioning manager
         this.taskPositionManager = new TaskPositionManager(this, transitionManager);
@@ -88,8 +89,20 @@ export class CanvasManager {
     }
     
     /**
+     * Update a single element's position based on global coordinates
+     * @param {HTMLElement} element - The element to position
+     * @param {number} globalX - Global X coordinate
+     * @param {number} globalY - Global Y coordinate
+     */
+    updateElementPosition(element, globalX, globalY) {
+        const screenPos = this.globalToScreen(globalX, globalY);
+        element.style.left = `${screenPos.x}px`;
+        element.style.top = `${screenPos.y}px`;
+    }
+    
+    /**
      * Update all element DOM positions based on current camera position
-     * Centralized handler for both agents and tasks
+     * Centralized handler for agents, tasks, and tools
      */
     updateAllElementPositions() {
         // Update all agent positions
@@ -115,6 +128,40 @@ export class CanvasManager {
             // Batch update all tasks (transitions already disabled by caller)
             if (taskUpdates.length > 0) {
                 this.taskPositionManager.updateMultipleTaskPositions(taskUpdates, {
+                    immediate: true,
+                    skipTransitionManager: true, // Caller already handled transitions
+                    reason: 'camera_update'
+                });
+            }
+        }
+        
+        // Update all tool positions via centralized TaskPositionManager
+        if (this.toolManager && this.taskPositionManager) {
+            const toolUpdates = [];
+            for (const [toolKey, toolData] of this.toolManager.toolNodes.entries()) {
+                if (!toolData.element) continue;
+                
+                // Skip tools with invalid positions
+                if (toolData.globalX === undefined || toolData.globalY === undefined ||
+                    isNaN(toolData.globalX) || isNaN(toolData.globalY)) {
+                    console.warn(`[CanvasManager] Skipping tool ${toolKey} with invalid position:`, {
+                        globalX: toolData.globalX,
+                        globalY: toolData.globalY
+                    });
+                    continue;
+                }
+                
+                toolUpdates.push({
+                    toolKey,
+                    element: toolData.element,
+                    globalX: toolData.globalX,
+                    globalY: toolData.globalY
+                });
+            }
+            
+            // Batch update all tools (transitions already disabled by caller)
+            if (toolUpdates.length > 0) {
+                this.taskPositionManager.updateMultipleToolPositions(toolUpdates, {
                     immediate: true,
                     skipTransitionManager: true, // Caller already handled transitions
                     reason: 'camera_update'

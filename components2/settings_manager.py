@@ -109,6 +109,20 @@ class SettingsManager:
                 "phase_0_planning": "",
                 "task_execution": "",
                 "task_validation": ""
+            },
+            "retrieval": {
+                "enabled": False,
+                "embedding_model": "TurkuNLP/sbert-cased-finnish-paraphrase",
+                "dimension": 768,
+                "index_type": "IndexFlatIP",
+                "index_path": "data2/faiss.index",
+                "metadata_path": "data2/metadata.pkl",
+                "hit_target": 3,
+                "top_k": 10,
+                "step": 0.05,
+                "use_dynamic_threshold": True,
+                "store_task_outputs": False,
+                "max_context_length": 5000
             }
         }
     
@@ -157,8 +171,62 @@ class SettingsManager:
         """
         return {
             "llm": self.get_llm_config(),
-            "prompts": self.get_all_prompts()
+            "prompts": self.get_all_prompts(),
+            "retrieval": self.get_retrieval_config()
         }
+    
+    def get_retrieval_config(self) -> Dict[str, Any]:
+        """
+        Get retrieval configuration.
+        
+        Returns:
+            Retrieval configuration dictionary
+        """
+        return self._settings.get("retrieval", {}).copy()
+    
+    def update_retrieval_config(self, config: Dict[str, Any]) -> None:
+        """
+        Update retrieval configuration (supports partial updates).
+        
+        Args:
+            config: New retrieval configuration dictionary (can be partial)
+            
+        Raises:
+            ValueError: If configuration is invalid
+        """
+        # Get existing config and merge with updates
+        existing = self._settings.get("retrieval", {})
+        updated = existing.copy()
+        updated.update(config)
+        
+        # Validate required fields in merged config
+        required_fields = ["enabled", "embedding_model", "dimension", "index_path", "metadata_path"]
+        missing_fields = [f for f in required_fields if f not in updated]
+        if missing_fields:
+            raise ValueError(f"Missing required retrieval config fields: {', '.join(missing_fields)}")
+        
+        # Validate types
+        if not isinstance(updated["enabled"], bool):
+            raise ValueError("enabled must be a boolean")
+        
+        if not isinstance(updated["dimension"], int) or updated["dimension"] <= 0:
+            raise ValueError("dimension must be a positive integer")
+        
+        if "hit_target" in updated and (not isinstance(updated["hit_target"], int) or updated["hit_target"] <= 0):
+            raise ValueError("hit_target must be a positive integer")
+        
+        if "top_k" in updated and (not isinstance(updated["top_k"], int) or updated["top_k"] <= 0):
+            raise ValueError("top_k must be a positive integer")
+        
+        if "step" in updated:
+            step = updated["step"]
+            if not isinstance(step, (int, float)) or step <= 0 or step > 1:
+                raise ValueError("step must be a number between 0 and 1")
+        
+        # Update settings with merged config
+        self._settings["retrieval"] = updated
+        self._save_settings()
+        logger.info("Updated retrieval configuration")
     
     def update_llm_config(self, config: Dict[str, Any]) -> None:
         """

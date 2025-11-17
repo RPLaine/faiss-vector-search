@@ -8,10 +8,11 @@
 import { SCROLL_DELAYS, POSITIONING_DELAYS, ANIMATION_DURATIONS } from '../constants.js';
 
 export class WebSocketEventHandler {
-    constructor(agentManager, agentController, taskController, uiManager, canvasManager, taskManager, canvasInitializer, agentStatusHandler = null) {
+    constructor(agentManager, agentController, taskController, uiManager, canvasManager, taskManager, canvasInitializer, agentStatusHandler = null, toolController = null) {
         this.agentManager = agentManager;
         this.agentController = agentController;
         this.taskController = taskController;
+        this.toolController = toolController;
         this.uiManager = uiManager;
         this.canvasManager = canvasManager;
         this.taskManager = taskManager;
@@ -53,6 +54,12 @@ export class WebSocketEventHandler {
         wsService.on('task_chunk', (data) => this.handleTaskChunk(data));
         wsService.on('task_validation', (data) => this.handleTaskValidation(data));
         wsService.on('task_reset', (data) => this.handleTaskReset(data));
+        
+        // Tool call events (FAISS retrieval)
+        wsService.on('tool_call_start', (data) => this.handleToolCallStart(data));
+        wsService.on('tool_threshold_attempt', (data) => this.handleToolThresholdAttempt(data));
+        wsService.on('tool_call_complete', (data) => this.handleToolCallComplete(data));
+        wsService.on('tool_call_failed', (data) => this.handleToolCallFailed(data));
         
         // Streaming events
         wsService.on('chunk', (data) => this.handleChunk(data));
@@ -492,6 +499,12 @@ export class WebSocketEventHandler {
                 
                 // Remove tasks and connections first
                 this.taskController.removeTasksForAgent(agent.id);
+                
+                // Remove tools if tool controller exists
+                if (this.toolController) {
+                    this.toolController.clearAgentTools(agent.id);
+                }
+                
                 // Then remove agent UI
                 this.uiManager.removeAgent(agent.id);
                 // Finally remove from data model
@@ -505,5 +518,43 @@ export class WebSocketEventHandler {
         }
         
         this.statsService.update();
+    }
+    
+    // Tool call event handlers
+    
+    handleToolCallStart(data) {
+        if (!this.toolController) {
+            console.warn('[WebSocket] Tool controller not available');
+            return;
+        }
+        
+        console.log('[WebSocket] tool_call_start:', data);
+        this.toolController.handleToolCallStart(data.data);
+    }
+    
+    handleToolThresholdAttempt(data) {
+        if (!this.toolController) return;
+        
+        this.toolController.handleToolThresholdAttempt(data.data);
+    }
+    
+    handleToolCallComplete(data) {
+        if (!this.toolController) {
+            console.warn('[WebSocket] Tool controller not available');
+            return;
+        }
+        
+        console.log('[WebSocket] tool_call_complete:', data);
+        this.toolController.handleToolCallComplete(data.data);
+    }
+    
+    handleToolCallFailed(data) {
+        if (!this.toolController) {
+            console.warn('[WebSocket] Tool controller not available');
+            return;
+        }
+        
+        console.log('[WebSocket] tool_call_failed:', data);
+        this.toolController.handleToolCallFailed(data.data);
     }
 }

@@ -67,15 +67,20 @@ export class SettingsController {
      * Update both LLM config and prompts.
      * @param {Object} llmConfig - LLM configuration
      * @param {Object} prompts - Prompt templates
+     * @param {Object} retrieval - Retrieval configuration
      * @returns {Promise<Object>} Updated settings
      */
-    async updateAllSettings(llmConfig, prompts) {
+    async updateAllSettings(llmConfig, prompts, retrieval = null) {
         try {
             this.logger.debug('Updating all settings');
-            const response = await this.settingsService.updateSettings({
+            const payload = {
                 llm: llmConfig,
                 prompts: prompts
-            });
+            };
+            if (retrieval) {
+                payload.retrieval = retrieval;
+            }
+            const response = await this.settingsService.updateSettings(payload);
             this.currentSettings = response.settings;
             this.logger.info('All settings updated successfully');
             return response;
@@ -176,6 +181,51 @@ export class SettingsController {
 
         if (missing.length > 0) {
             errors.push(`Missing required template variables: ${missing.join(', ')}`);
+        }
+
+        return errors;
+    }
+    
+    /**
+     * Validate retrieval configuration.
+     * @param {Object} config - Retrieval configuration to validate
+     * @returns {Array<string>} Array of validation error messages (empty if valid)
+     */
+    validateRetrievalConfig(config) {
+        const errors = [];
+
+        if (config.enabled) {
+            if (!config.embedding_model || config.embedding_model.trim() === '') {
+                errors.push('Embedding model is required when retrieval is enabled');
+            }
+
+            if (config.hit_target !== undefined) {
+                const hitTarget = parseInt(config.hit_target);
+                if (isNaN(hitTarget) || hitTarget < 1 || hitTarget > 20) {
+                    errors.push('Hit target must be a number between 1 and 20');
+                }
+            }
+
+            if (config.top_k !== undefined) {
+                const topK = parseInt(config.top_k);
+                if (isNaN(topK) || topK < 1 || topK > 50) {
+                    errors.push('Top K must be a number between 1 and 50');
+                }
+            }
+
+            if (config.step !== undefined) {
+                const step = parseFloat(config.step);
+                if (isNaN(step) || step < 0.01 || step > 0.2) {
+                    errors.push('Threshold step must be a number between 0.01 and 0.2');
+                }
+            }
+
+            if (config.max_context_length !== undefined) {
+                const maxContext = parseInt(config.max_context_length);
+                if (isNaN(maxContext) || maxContext < 100 || maxContext > 20000) {
+                    errors.push('Max context length must be a number between 100 and 20000');
+                }
+            }
         }
 
         return errors;

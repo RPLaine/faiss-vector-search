@@ -35,8 +35,11 @@ import { AgentRenderer } from './renderers/agent-renderer.js';
 import { TaskRenderer } from './renderers/task-renderer.js';
 import { UIManager } from './ui/ui-manager.js';
 import { TaskManager } from './state/task-manager.js';
+import { ToolManager } from './state/tool-manager.js';
 import { CanvasManager } from './ui/canvas-manager.js';
 import { CanvasInitializer } from './ui/canvas-initializer.js';
+import { ToolRenderer } from './renderers/tool-renderer.js';
+import { ToolController } from './controllers/tool-controller.js';
 
 class App {
     constructor() {
@@ -48,8 +51,10 @@ class App {
         // State managers (Note: TaskManager is injected into CanvasManager for connection lines)
         this.agentManager = new AgentManager();
         this.taskManager = new TaskManager(null, this.transitionManager); // canvasManager will be set below
-        this.canvasManager = new CanvasManager('agentCanvas', this.taskManager, this.transitionManager, this.agentManager);
+        this.toolManager = new ToolManager(null, this.transitionManager); // canvasManager will be set below
+        this.canvasManager = new CanvasManager('agentCanvas', this.taskManager, this.transitionManager, this.agentManager, this.toolManager);
         this.taskManager.canvasManager = this.canvasManager;
+        this.toolManager.canvasManager = this.canvasManager;
         
         // Control Panel Manager (inject TaskManager and AgentStatusHandler for business logic delegation)
         // Note: AgentStatusHandler will be set after it's created
@@ -68,6 +73,7 @@ class App {
         // Renderers
         this.agentRenderer = new AgentRenderer('#agentNodesContainer');
         this.taskRenderer = new TaskRenderer('#agentNodesContainer');
+        this.toolRenderer = new ToolRenderer('#agentNodesContainer');
         
         // Status Handlers (business logic for status management)
         this.agentStatusHandler = new AgentStatusHandler(
@@ -90,6 +96,7 @@ class App {
             this.agentStatusHandler  // Inject AgentStatusHandler for centralized status updates
         );
         this.taskController = new TaskController(this.taskManager, this.taskRenderer, this.canvasManager, this.agentManager);
+        this.toolController = new ToolController(this.toolManager, this.toolRenderer, this.canvasManager, this.taskManager);
         this.haltController = new HaltController(this.agentManager);
         
         // Selection Handler (centralized selection coordination)
@@ -153,7 +160,8 @@ class App {
             this.canvasManager,
             this.taskManager,
             this.canvasInitializer,
-            this.agentStatusHandler
+            this.agentStatusHandler,
+            this.toolController  // Inject ToolController for tool event handling
         );
         
         this.init();

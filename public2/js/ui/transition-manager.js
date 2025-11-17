@@ -21,6 +21,7 @@ export class TransitionManager {
     constructor() {
         this.agentElements = new Map(); // agentId -> element
         this.taskElements = new Map();  // taskKey -> element
+        this.toolElements = new Map();  // toolKey -> element
         this.connectionElements = new Map(); // connectionKey -> SVG path element
         this.transitionsEnabled = true; // Track current state
     }
@@ -46,6 +47,15 @@ export class TransitionManager {
         this.taskElements.delete(taskKey);
     }
     
+    registerTool(toolKey, element) {
+        console.log(`[TransitionManager] Registering tool: ${toolKey}`, element);
+        this.toolElements.set(toolKey, element);
+    }
+    
+    unregisterTool(toolKey) {
+        this.toolElements.delete(toolKey);
+    }
+    
     registerConnection(connectionKey, pathElement) {
         this.connectionElements.set(connectionKey, pathElement);
     }
@@ -63,9 +73,7 @@ export class TransitionManager {
      */
     disableAllTransitions() {
         this.transitionsEnabled = false;
-        
-        console.log(`[TransitionManager] Disabling transitions - ${this.agentElements.size} agents, ${this.taskElements.size} tasks`);
-        
+         
         // Disable agent transitions
         for (const [, element] of this.agentElements.entries()) {
             if (element) {
@@ -78,6 +86,14 @@ export class TransitionManager {
             if (element) {
                 element.classList.add('no-transition');
                 // Clear ALL inline transition styles that have higher specificity than CSS class
+                this._clearInlineTransitionStyles(element);
+            }
+        }
+        
+        // Disable tool transitions
+        for (const [toolKey, element] of this.toolElements.entries()) {
+            if (element) {
+                element.classList.add('no-transition');
                 this._clearInlineTransitionStyles(element);
             }
         }
@@ -138,6 +154,13 @@ export class TransitionManager {
             }
         }
         
+        // Enable tool transitions
+        for (const [, element] of this.toolElements.entries()) {
+            if (element) {
+                element.classList.remove('no-transition');
+            }
+        }
+        
         // Enable connection line transitions (SVG uses className.baseVal + clear inline style)
         for (const [, path] of this.connectionElements.entries()) {
             if (path) {
@@ -155,6 +178,7 @@ export class TransitionManager {
     clearAll() {
         this.agentElements.clear();
         this.taskElements.clear();
+        this.toolElements.clear();
         this.connectionElements.clear();
     }
 }

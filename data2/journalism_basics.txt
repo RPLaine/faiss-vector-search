@@ -1,0 +1,39 @@
+# Journalism Basics
+
+## The 5 W's and 1 H
+Every good news article should answer six fundamental questions:
+- Who: Who is involved in the story?
+- What: What happened?
+- When: When did it happen?
+- Where: Where did it happen?
+- Why: Why did it happen?
+- How: How did it happen?
+
+## Inverted Pyramid Structure
+The inverted pyramid is the most common structure for news articles:
+1. Lead (most important information first)
+2. Body (supporting details in descending order of importance)
+3. Tail (background information and minor details)
+
+## Lead Writing
+A strong lead should:
+- Be concise (typically 25-35 words)
+- Capture the most newsworthy element
+- Hook the reader's attention
+- Answer the most critical W's
+
+## News Values
+Criteria for determining newsworthiness:
+- Timeliness: Recent events are more newsworthy
+- Proximity: Local events matter more to local readers
+- Impact: How many people are affected?
+- Prominence: Are famous people involved?
+- Conflict: Controversy attracts readers
+- Unusualness: "Man bites dog" is news
+
+## Objectivity and Fairness
+- Report facts, not opinions
+- Present multiple perspectives
+- Attribute information to sources
+- Avoid bias in language and framing
+- Verify information before publishing

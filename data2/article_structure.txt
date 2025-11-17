@@ -1,0 +1,76 @@
+# Article Structure and Style
+
+## Article Components
+
+### Headline
+- Clear and specific
+- Active voice preferred
+- Typically 5-10 words
+- Avoid puns that obscure meaning
+- Include key information or intrigue
+
+### Subheadline (optional)
+- Provides additional context
+- 10-20 words
+- Clarifies or expands on headline
+
+### Byline
+- Author name and credentials
+- Date of publication
+- Location if relevant
+
+### Lead Paragraph
+- Summary of the story (nut graf)
+- 1-3 sentences
+- Answers primary W's
+- Sets tone for piece
+
+### Body Paragraphs
+- One main idea per paragraph
+- Short paragraphs (2-4 sentences)
+- Use transitions between ideas
+- Include quotes to add voices
+- Provide evidence and examples
+
+### Conclusion
+- Summarize or provide closure
+- Look forward or provide context
+- Avoid introducing new information
+- End with impact or resonance
+
+## Writing Style Guidelines
+
+### Voice and Tone
+- Active voice: "The mayor announced..." not "It was announced by the mayor..."
+- Present tense for current events
+- Past tense for completed actions
+- Third person for news reporting
+- First person only in opinion/feature pieces
+
+### Clarity and Conciseness
+- Short, simple sentences
+- Avoid jargon and technical terms
+- Define acronyms on first use
+- One idea per sentence
+- Eliminate unnecessary words
+
+### Attribution
+- Attribute opinions and claims
+- "According to..." or "Smith said..."
+- Place attribution at end of quote
+- Avoid "states," "claimed," "admitted" (loaded verbs)
+- Use "said" as default attribution
+
+### Quotes
+- Use direct quotes for unique language or opinions
+- Paraphrase for routine information
+- Never alter quotes (use [...] for omissions)
+- Introduce quote with context
+- Alternate between direct quotes and paraphrase
+
+## Common Style Points
+- Numbers: Spell out one through nine, use numerals for 10+
+- Dates: Month Day, Year (January 15, 2024)
+- Time: Use numerals with a.m./p.m.
+- Titles: Capitalize before names, lowercase after
+- Abbreviations: FBI, CIA, UN (no periods for well-known organizations)

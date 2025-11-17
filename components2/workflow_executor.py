@@ -16,6 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 from components2.llm_service import LLMService
 from components2.task_executor import TaskExecutor
 from components2.halt_manager import HaltManager
+from components2.faiss_retriever import FaissRetriever
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +62,21 @@ class WorkflowExecutor:
         # Initialize halt manager
         self.halt_manager = HaltManager(agent_manager) if agent_manager else None
         
+        # Initialize FAISS retriever if enabled
+        self.faiss_retriever = None
+        if settings_manager:
+            try:
+                retrieval_config = settings_manager.get_retrieval_config()
+                if retrieval_config.get('enabled', False):
+                    self.faiss_retriever = FaissRetriever(retrieval_config)
+                    logger.info("FAISS retriever initialized successfully")
+            except Exception as e:
+                logger.warning(f"Failed to initialize FAISS retriever: {e}")
+        
         # Initialize task executor
-        self.task_executor = TaskExecutor(llm_service, executor, event_loop, settings_manager)
+        self.task_executor = TaskExecutor(
+            llm_service, executor, event_loop, settings_manager, self.faiss_retriever
+        )
     
     async def execute_workflow(
         self,
@@ -227,7 +241,8 @@ class WorkflowExecutor:
                                 task=task,
                                 task_callback=task_callback,
                                 chunk_callback=task_chunk_callback,
-                                validation_callback=validation_callback
+                                validation_callback=validation_callback,
+                                action_callback=action_callback
                             )
                             
                             # Store result back in the task object
@@ -241,6 +256,10 @@ class WorkflowExecutor:
                             task["output"] = task_result.get("output", "")
                             task["validation"] = validation
                             task["completed_at"] = task_result.get("completed_at", "")
+                            
+                            # Store tool_call if present (FAISS retrieval)
+                            if "tool_call" in task_result:
+                                task["tool_call"] = task_result["tool_call"]
                             
                             # Save state to persist task completion
                             if self.agent_manager:

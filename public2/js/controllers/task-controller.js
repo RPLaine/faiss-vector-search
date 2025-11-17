@@ -90,7 +90,7 @@ export class TaskController {
         // Sort tasks by ID
         const sortedTasks = [...tasklist.tasks].sort((a, b) => a.id - b.id);
         
-        // Create task nodes
+        // Create task nodes and load tool calls if present
         const taskKeys = [];
         sortedTasks.forEach((task, index) => {
             const taskKey = `${agentId}-task-${task.id}`;
@@ -108,6 +108,19 @@ export class TaskController {
             });
             
             taskKeys.push(taskKey);
+            
+            // Load tool call data if present (FAISS retrieval)
+            if (task.tool_call) {
+                // Dispatch event to load tool call via ToolController
+                const event = new CustomEvent('loadToolCall', {
+                    detail: {
+                        agentId,
+                        taskId: task.id,
+                        toolCallData: task.tool_call
+                    }
+                });
+                document.dispatchEvent(event);
+            }
         });
         
         // Store task keys for this agent
@@ -119,6 +132,13 @@ export class TaskController {
         // This ensures proper render order: agents → tasks → connections
         requestAnimationFrame(() => {
             this.positionTasksForAgent(agentId, true, true); // immediate=true, isInitialCreation=true
+            
+            // Dispatch event after positioning completes - tools can now load
+            setTimeout(() => {
+                document.dispatchEvent(new CustomEvent('tasksPositioned', {
+                    detail: { agentId }
+                }));
+            }, 100);
         });
         
         console.log(`[TaskController] Created ${taskKeys.length} tasks for agent ${agentId}`);
@@ -407,6 +427,10 @@ export class TaskController {
                 this.canvasManager.connectionLinesManager.showConnectionsForAgent(agentId);
             }
         }, ANIMATION_DURATIONS.CONNECTION_SHOW_DELAY);
+        
+        // Also show tools for this agent's tasks
+        const showToolsEvent = new CustomEvent('showToolsForAgent', { detail: { agentId } });
+        document.dispatchEvent(showToolsEvent);
     }
     
     /**
@@ -417,6 +441,10 @@ export class TaskController {
         if (!taskKeys || taskKeys.length === 0) return;
         
         console.log(`[TaskController] Hiding tasks for agent ${agentId}`);
+        
+        // Hide tools first
+        const hideToolsEvent = new CustomEvent('hideToolsForAgent', { detail: { agentId } });
+        document.dispatchEvent(hideToolsEvent);
         
         // Hide connection lines first
         if (this.canvasManager && this.canvasManager.connectionLinesManager) {

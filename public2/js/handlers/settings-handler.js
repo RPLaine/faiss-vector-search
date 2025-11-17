@@ -50,6 +50,7 @@ export class SettingsHandler {
         // Range input value displays
         const tempInput = document.getElementById('llmTemperature');
         const topPInput = document.getElementById('llmTopP');
+        const thresholdStepInput = document.getElementById('retrievalThresholdStep');
         if (tempInput) {
             tempInput.addEventListener('input', (e) => {
                 document.getElementById('llmTempValue').textContent = e.target.value;
@@ -59,6 +60,25 @@ export class SettingsHandler {
             topPInput.addEventListener('input', (e) => {
                 document.getElementById('llmTopPValue').textContent = e.target.value;
             });
+        }
+        if (thresholdStepInput) {
+            thresholdStepInput.addEventListener('input', (e) => {
+                document.getElementById('retrievalThresholdStepValue').textContent = e.target.value;
+            });
+        }
+        
+        // Retrieval enabled toggle
+        const retrievalEnabledCheckbox = document.getElementById('retrievalEnabled');
+        if (retrievalEnabledCheckbox) {
+            retrievalEnabledCheckbox.addEventListener('change', () => {
+                this.modalManager.toggleRetrievalSettings();
+            });
+        }
+        
+        // Rebuild index button
+        const rebuildIndexBtn = document.getElementById('rebuildIndexBtn');
+        if (rebuildIndexBtn) {
+            rebuildIndexBtn.addEventListener('click', () => this.handleRebuildIndex());
         }
 
         // Add header button
@@ -92,6 +112,9 @@ export class SettingsHandler {
             // Populate modal
             this.modalManager.populateSettingsModal(settings);
             
+            // Load retrieval stats
+            await this.modalManager.loadRetrievalStats();
+            
             // Show modal
             this.modalManager.openSettingsModal();
             
@@ -110,7 +133,7 @@ export class SettingsHandler {
             this.logger.debug('Saving settings');
             
             // Get form data
-            const { llm, prompts } = this.modalManager.getSettingsData();
+            const { llm, prompts, retrieval } = this.modalManager.getSettingsData();
             
             // Validate LLM config
             const llmErrors = this.settingsController.validateLLMConfig(llm);
@@ -132,6 +155,13 @@ export class SettingsHandler {
                 return;
             }
             
+            // Validate retrieval config
+            const retrievalErrors = this.settingsController.validateRetrievalConfig(retrieval);
+            if (retrievalErrors.length > 0) {
+                alert(`Retrieval Configuration errors:\n\n${retrievalErrors.join('\n')}`);
+                return;
+            }
+            
             // Disable save button during save
             const saveBtn = document.getElementById('saveSettingsBtn');
             const originalText = saveBtn.textContent;
@@ -140,7 +170,7 @@ export class SettingsHandler {
             
             try {
                 // Save settings
-                await this.settingsController.updateAllSettings(llm, prompts);
+                await this.settingsController.updateAllSettings(llm, prompts, retrieval);
                 
                 // Close modal
                 this.modalManager.closeSettingsModal();
@@ -156,6 +186,50 @@ export class SettingsHandler {
         } catch (error) {
             this.logger.error('Failed to save settings:', error);
             alert(`Failed to save settings: ${error.message}`);
+        }
+    }
+    
+    async handleRebuildIndex() {
+        if (!confirm('Rebuild FAISS index from all .txt files in data2/? This may take a few moments.')) {
+            return;
+        }
+        
+        try {
+            const rebuildBtn = document.getElementById('rebuildIndexBtn');
+            const originalText = rebuildBtn.textContent;
+            rebuildBtn.disabled = true;
+            rebuildBtn.textContent = 'Rebuilding...';
+            
+            try {
+                // Get all .txt files from data2/
+                const response = await fetch('/api/retrieval/index/build', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        file_paths: [] // Empty means "scan data2/ directory"
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to rebuild index');
+                }
+                
+                const result = await response.json();
+                
+                // Reload stats
+                await this.modalManager.loadRetrievalStats();
+                
+                alert(`Index rebuilt successfully!\n\n${result.message || 'Index is ready for use.'}`);
+                
+            } finally {
+                rebuildBtn.disabled = false;
+                rebuildBtn.textContent = originalText;
+            }
+            
+        } catch (error) {
+            this.logger.error('Failed to rebuild index:', error);
+            alert(`Failed to rebuild index: ${error.message}`);
         }
     }
 

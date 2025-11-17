@@ -120,6 +120,8 @@ export const LAYOUT_DIMENSIONS = {
     GAP_AGENT_TO_TASK: 40,             // Horizontal gap between agent and tasks
     GAP_BETWEEN_TASKS: 20,             // Vertical gap between tasks
     GAP_BETWEEN_AGENTS: 50,            // Vertical spacing between agents
+    GAP_TASK_TO_TOOL: 40,              // Horizontal gap between task and tools
+    GAP_BETWEEN_TOOLS: 20,             // Vertical gap between tools
     
     // Canvas margins
     CANVAS_MIN_MARGIN: 50,             // Minimum canvas margin

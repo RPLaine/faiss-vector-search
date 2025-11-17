@@ -1,0 +1,62 @@
+# Fact-Checking and Verification
+
+## The Verification Process
+1. Original source verification
+2. Cross-reference with multiple sources
+3. Check for conflicts of interest
+4. Evaluate source credibility
+5. Document verification trail
+
+## Source Evaluation Criteria
+### Primary sources
+- Eyewitnesses
+- Original documents
+- Direct participants
+- Official records
+
+### Secondary sources
+- News reports
+- Analysis and commentary
+- Expert opinions
+- Academic studies
+
+### Assessing credibility
+- Expertise and qualifications
+- Track record of accuracy
+- Potential biases
+- Transparency about methods
+- Peer review and verification
+
+## Common Verification Tools
+- Reverse image search (Google, TinEye)
+- WHOIS domain lookup
+- Social media verification badges
+- Government databases
+- Academic repositories
+- Freedom of Information requests
+
+## Red Flags to Watch For
+- Anonymous sources without verification
+- Circular reporting (news outlets citing each other)
+- Lack of dates or timestamps
+- Vague attributions ("sources say", "experts claim")
+- Manipulated images or videos
+- Claims without supporting evidence
+- Conflicts with established facts
+
+## Fact-Checking Workflow
+1. Identify factual claims requiring verification
+2. Break down complex claims into checkable components
+3. Search for authoritative sources
+4. Contact original sources when possible
+5. Document findings with citations
+6. Update article if errors are found
+7. Issue corrections transparently
+
+## Handling Corrections
+- Acknowledge errors promptly
+- Explain what was wrong and why
+- Describe how the error occurred
+- Provide the correct information
+- Maintain original content with strikethrough
+- Add correction notice with timestamp

@@ -17,10 +17,11 @@
 import { ANIMATION_DURATIONS } from '../constants.js';
 
 export class ConnectionLinesManager {
-    constructor(svgId, canvasManager, taskManager) {
+    constructor(svgId, canvasManager, taskManager, toolManager = null) {
         this.svg = document.getElementById(svgId);
         this.canvasManager = canvasManager;
         this.taskManager = taskManager;
+        this.toolManager = toolManager; // Optional tool manager for tool connections
         this.lines = new Map(); // connection_key -> SVG path element
         this.animationTimeouts = new Map(); // connection_key -> timeout ID for cleanup
         this.transitionManager = canvasManager.transitionManager; // Reference for registration
@@ -137,6 +138,13 @@ export class ConnectionLinesManager {
         
         // Clean up any orphaned connections
         this.cleanupOrphanedConnections(agentId, sortedTaskKeys);
+        
+        // Update tool connections for this agent's tasks
+        if (this.toolManager) {
+            sortedTaskKeys.forEach(taskKey => {
+                this.updateToolConnectionsForTask(taskKey);
+            });
+        }
     }
     
     /**
@@ -355,8 +363,18 @@ export class ConnectionLinesManager {
     updateAllConnections() {
         if (!this.taskManager) return;
         
+        // Update agent-to-task connections
         for (const agentId of this.taskManager.agentTasks.keys()) {
             this.updateConnectionsForAgent(agentId);
+        }
+        
+        // Update task-to-tool connections
+        if (this.toolManager) {
+            for (const [taskKey, toolKeys] of this.toolManager.taskTools.entries()) {
+                if (toolKeys && toolKeys.size > 0) {
+                    this.updateToolConnectionsForTask(taskKey);
+                }
+            }
         }
     }
     
@@ -397,4 +415,125 @@ export class ConnectionLinesManager {
             }
         }
     }
+    
+    /**
+     * Create connection from task to its tool node
+     * @param {string} taskKey - The task key (agentId-taskId)
+     * @param {string} toolKey - The tool key (agentId-taskId-toolId)
+     * @param {boolean} isInitialCreation - Whether this is initial creation
+     */
+    createTaskToToolConnection(taskKey, toolKey, isInitialCreation = false) {
+        if (!this.taskManager || !this.toolManager) return;
+        
+        const taskData = this.taskManager.taskNodes.get(taskKey);
+        const toolData = this.toolManager.toolNodes.get(toolKey);
+        
+        if (!taskData || !taskData.element || !toolData || !toolData.element) return;
+        
+        // Get task dimensions and position
+        const taskRect = taskData.element.getBoundingClientRect();
+        const taskWidth = taskRect.width;
+        const taskHeight = taskRect.height;
+        
+        // Task right edge in global coords
+        const taskRightGlobalX = taskData.globalX + taskWidth;
+        const taskRightGlobalY = taskData.globalY + (taskHeight / 2);
+        
+        // Get tool dimensions and position
+        const toolRect = toolData.element.getBoundingClientRect();
+        const toolHeight = toolRect.height;
+        
+        // Tool left edge in global coords
+        const toolLeftGlobalX = toolData.globalX;
+        const toolLeftGlobalY = toolData.globalY + (toolHeight / 2);
+        
+        // Convert to screen coordinates
+        const taskRightScreen = this.canvasManager.globalToScreen(taskRightGlobalX, taskRightGlobalY);
+        const toolLeftScreen = this.canvasManager.globalToScreen(toolLeftGlobalX, toolLeftGlobalY);
+        
+        const connectionKey = `task-${taskKey}-to-tool-${toolKey}`;
+        
+        this.createConnection(
+            connectionKey,
+            taskRightScreen.x,
+            taskRightScreen.y,
+            toolLeftScreen.x,
+            toolLeftScreen.y,
+            'tool-connection', // Special class for tool connections
+            isInitialCreation
+        );
+    }
+    
+    /**
+     * Update all tool connections for a task
+     * @param {string} taskKey - The task key
+     */
+    updateToolConnectionsForTask(taskKey) {
+        if (!this.toolManager) return;
+        
+        const tools = this.toolManager.getTaskTools(taskKey);
+        if (!tools || tools.length === 0) {
+            this.removeToolConnectionsForTask(taskKey);
+            return;
+        }
+        
+        tools.forEach(toolKey => {
+            this.createTaskToToolConnection(taskKey, toolKey, false);
+        });
+    }
+    
+    /**
+     * Remove all tool connections for a task
+     * @param {string} taskKey - The task key
+     */
+    removeToolConnectionsForTask(taskKey) {
+        const keysToRemove = [];
+        
+        for (const [key, path] of this.lines.entries()) {
+            if (key.includes(`task-${taskKey}-to-tool-`)) {
+                const timeoutId = this.animationTimeouts.get(key);
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                    this.animationTimeouts.delete(key);
+                }
+                
+                if (this.transitionManager) {
+                    this.transitionManager.unregisterConnection(key);
+                }
+                
+                path.remove();
+                keysToRemove.push(key);
+            }
+        }
+        
+        keysToRemove.forEach(key => this.lines.delete(key));
+    }
+    
+    /**
+     * Remove a specific tool connection
+     * @param {string} toolKey - The tool key
+     */
+    removeToolConnection(toolKey) {
+        const keysToRemove = [];
+        
+        for (const [key, path] of this.lines.entries()) {
+            if (key.includes(`-to-tool-${toolKey}`)) {
+                const timeoutId = this.animationTimeouts.get(key);
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                    this.animationTimeouts.delete(key);
+                }
+                
+                if (this.transitionManager) {
+                    this.transitionManager.unregisterConnection(key);
+                }
+                
+                path.remove();
+                keysToRemove.push(key);
+            }
+        }
+        
+        keysToRemove.forEach(key => this.lines.delete(key));
+    }
 }
+

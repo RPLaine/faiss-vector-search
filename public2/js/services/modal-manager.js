@@ -136,6 +136,21 @@ export class ModalManager {
         document.getElementById('promptPlanning').value = prompts.phase_0_planning || '';
         document.getElementById('promptTaskExecution').value = prompts.task_execution || '';
         document.getElementById('promptTaskValidation').value = prompts.task_validation || '';
+        
+        // Populate retrieval settings
+        const retrieval = settings.retrieval || {};
+        document.getElementById('retrievalEnabled').checked = retrieval.enabled || false;
+        document.getElementById('retrievalModel').value = retrieval.embedding_model || 'TurkuNLP/sbert-cased-finnish-paraphrase';
+        document.getElementById('retrievalHitTarget').value = retrieval.hit_target || 3;
+        document.getElementById('retrievalTopK').value = retrieval.top_k || 10;
+        document.getElementById('retrievalThresholdStep').value = retrieval.step || 0.05;
+        document.getElementById('retrievalThresholdStepValue').textContent = retrieval.step || 0.05;
+        document.getElementById('retrievalDynamicThreshold').checked = retrieval.use_dynamic_threshold !== false;
+        document.getElementById('retrievalMaxContext').value = retrieval.max_context_length || 5000;
+        document.getElementById('retrievalStoreOutputs').checked = retrieval.store_task_outputs || false;
+        
+        // Toggle retrieval settings visibility
+        this.toggleRetrievalSettings();
     }
     
     populateHeaders(headers) {
@@ -193,7 +208,19 @@ export class ModalManager {
             task_validation: document.getElementById('promptTaskValidation').value
         };
         
-        return { llm: llmConfig, prompts };
+        // Get retrieval settings
+        const retrieval = {
+            enabled: document.getElementById('retrievalEnabled').checked,
+            embedding_model: document.getElementById('retrievalModel').value.trim(),
+            hit_target: parseInt(document.getElementById('retrievalHitTarget').value),
+            top_k: parseInt(document.getElementById('retrievalTopK').value),
+            step: parseFloat(document.getElementById('retrievalThresholdStep').value),
+            use_dynamic_threshold: document.getElementById('retrievalDynamicThreshold').checked,
+            max_context_length: parseInt(document.getElementById('retrievalMaxContext').value),
+            store_task_outputs: document.getElementById('retrievalStoreOutputs').checked
+        };
+        
+        return { llm: llmConfig, prompts, retrieval };
     }
     
     getHeaders() {
@@ -206,6 +233,38 @@ export class ModalManager {
             }
         });
         return headers;
+    }
+    
+    toggleRetrievalSettings() {
+        const enabled = document.getElementById('retrievalEnabled').checked;
+        const settingsDiv = document.getElementById('retrievalSettings');
+        if (settingsDiv) {
+            settingsDiv.style.opacity = enabled ? '1' : '0.5';
+            settingsDiv.style.pointerEvents = enabled ? 'auto' : 'none';
+        }
+    }
+    
+    async loadRetrievalStats() {
+        try {
+            const response = await fetch('/api/retrieval/stats');
+            if (!response.ok) throw new Error('Failed to load stats');
+            const stats = await response.json();
+            
+            const statsDiv = document.getElementById('retrievalStats');
+            if (stats.index_exists) {
+                statsDiv.innerHTML = `
+                    <p><strong>Documents:</strong> ${stats.num_documents || 0}</p>
+                    <p><strong>Index Type:</strong> ${stats.index_type || 'N/A'}</p>
+                    <p><strong>Embedding Dimension:</strong> ${stats.dimension || 0}</p>
+                    <p><strong>Index File:</strong> ${stats.index_path || 'N/A'}</p>
+                `;
+            } else {
+                statsDiv.innerHTML = '<p style=\"color: #f87171;\">⚠ No index found. Click \"Rebuild Index\" to create one.</p>';
+            }
+        } catch (error) {
+            const statsDiv = document.getElementById('retrievalStats');
+            statsDiv.innerHTML = '<p style=\"color: #f87171;\">Error loading stats</p>';
+        }
     }
     
     // ========================================

@@ -156,4 +156,98 @@ export class TaskPositionManager {
     disableDebugMode() {
         this.debugMode = false;
     }
+    
+    // ========================================
+    // Tool Position Methods
+    // ========================================
+    
+    /**
+     * Update tool position - SINGLE METHOD for all tool position updates
+     * 
+     * @param {string} toolKey - Tool identifier
+     * @param {HTMLElement} element - Tool DOM element
+     * @param {number} globalX - Global X coordinate
+     * @param {number} globalY - Global Y coordinate
+     * @param {Object} options - Update options
+     * @param {boolean} options.immediate - Skip transitions (default: false)
+     * @param {boolean} options.skipTransitionManager - Don't use TransitionManager (default: false)
+     * @param {string} options.reason - Debug reason for update
+     */
+    updateToolPosition(toolKey, element, globalX, globalY, options = {}) {
+        const {
+            immediate = false,
+            skipTransitionManager = false,
+            reason = 'position_update'
+        } = options;
+        
+        if (this.debugMode) {
+            console.log(`[TaskPositionManager] ${reason} - ${toolKey}`, {
+                globalX,
+                globalY,
+                immediate,
+                skipTransitionManager
+            });
+        }
+        
+        // Step 1: Clear conflicting inline styles
+        this._clearInlineTransitionStyles(element);
+        
+        // Step 2: Disable transitions if immediate update requested
+        if (immediate && !skipTransitionManager) {
+            element.classList.add('no-transition');
+        }
+        
+        // Step 3: Convert to screen coordinates
+        const screenPos = this.canvasManager.globalToScreen(globalX, globalY);
+        
+        // Step 4: Update DOM position
+        element.style.left = `${screenPos.x}px`;
+        element.style.top = `${screenPos.y}px`;
+        
+        // Step 5: Re-enable transitions if needed
+        if (immediate && !skipTransitionManager) {
+            requestAnimationFrame(() => {
+                element.classList.remove('no-transition');
+            });
+        }
+    }
+    
+    /**
+     * Update multiple tools at once (batch operation)
+     * 
+     * @param {Array} updates - Array of {toolKey, element, globalX, globalY}
+     * @param {Object} options - Update options
+     */
+    updateMultipleToolPositions(updates, options = {}) {
+        const { immediate = false, reason = 'batch_tool_update' } = options;
+        
+        if (this.debugMode) {
+            console.log(`[TaskPositionManager] ${reason} - Updating ${updates.length} tools`, {
+                immediate
+            });
+        }
+        
+        // For batch updates, use TransitionManager
+        if (immediate && this.transitionManager) {
+            this.transitionManager.disableAllTransitions();
+        }
+        
+        // Update all positions
+        updates.forEach(({ toolKey, element, globalX, globalY }) => {
+            // Clear conflicting inline styles
+            this._clearInlineTransitionStyles(element);
+            
+            // Convert and apply position
+            const screenPos = this.canvasManager.globalToScreen(globalX, globalY);
+            element.style.left = `${screenPos.x}px`;
+            element.style.top = `${screenPos.y}px`;
+        });
+        
+        // Re-enable transitions after all updates
+        if (immediate && this.transitionManager) {
+            requestAnimationFrame(() => {
+                this.transitionManager.enableAllTransitions();
+            });
+        }
+    }
 }

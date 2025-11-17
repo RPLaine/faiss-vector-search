@@ -673,6 +673,39 @@ async def run_agent(agent_id: str):
                 action_data["agent_id"] = agent_id
             
             await broadcast_event(action_data)
+        
+        # Save tool_call data immediately when tool completes (not just at task completion)
+        if action_data.get("type") == "tool_call_complete":
+            try:
+                event_agent_id = action_data.get("agent_id") or agent_id
+                task_id = action_data.get("data", {}).get("task_id")
+                
+                if event_agent_id and task_id:
+                    agent_record = agent_manager.get_agent(event_agent_id)
+                    if agent_record:
+                        tasklist = agent_record.get("tasklist", {})
+                        tasks = tasklist.get("tasks", [])
+                        
+                        # Find the task and store tool_call data
+                        for task in tasks:
+                            if task.get("id") == task_id:
+                                # Build tool_call structure from event data
+                                event_data = action_data.get("data", {})
+                                task["tool_call"] = {
+                                    "type": event_data.get("tool_type", "faiss_retrieval"),
+                                    "query": event_data.get("query", ""),
+                                    "documents": event_data.get("documents", []),
+                                    "threshold_used": event_data.get("threshold_used"),
+                                    "retrieval_time": event_data.get("retrieval_time", 0.0),
+                                    "threshold_stats": event_data.get("threshold_stats", {})
+                                }
+                                
+                                # Persist immediately
+                                agent_manager._save_state()
+                                logger.info(f"Saved tool_call data for agent {event_agent_id}, task {task_id}")
+                                break
+            except Exception as e:
+                logger.error(f"Failed to save tool_call data: {e}")
     
     try:
         # Execute workflow
@@ -948,6 +981,11 @@ async def update_settings(settings_data: Dict[str, Any]):
         if "prompts" in settings_data:
             settings_manager.update_prompts(settings_data["prompts"])
         
+        # Update retrieval config if provided
+        if "retrieval" in settings_data:
+            settings_manager.update_retrieval_config(settings_data["retrieval"])
+            logger.info("Retrieval configuration updated")
+        
         # Broadcast settings update to all clients
         await broadcast_event({
             "type": "settings_updated",
@@ -986,6 +1024,200 @@ async def reset_settings():
         
     except Exception as e:
         logger.error(f"Failed to reset settings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Retrieval / Knowledge Base Management Endpoints
+
+@app.get("/api/retrieval/stats")
+async def get_retrieval_stats():
+    """Get knowledge base statistics."""
+    if not workflow_executor or not workflow_executor.faiss_retriever:
+        return {
+            "enabled": False,
+            "available": False,
+            "message": "FAISS retrieval not initialized"
+        }
+    
+    try:
+        stats = workflow_executor.faiss_retriever.get_stats()
+        return stats
+    except Exception as e:
+        logger.error(f"Failed to get retrieval stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/retrieval/index/build")
+async def build_index_from_files(request: Dict[str, Any]):
+    """
+    Build FAISS index from text files.
+    
+    Request body:
+    {
+        "file_paths": ["path/to/file1.txt", "path/to/file2.txt"],  // optional, if empty scans data2/
+        "doc_type": "knowledge"  // optional
+    }
+    """
+    if not workflow_executor:
+        raise HTTPException(status_code=503, detail="Workflow executor not initialized")
+    
+    try:
+        # Initialize retriever on-demand if not already initialized
+        if not workflow_executor.faiss_retriever:
+            try:
+                from components2.settings_manager import SettingsManager
+                from components2.faiss_retriever import FaissRetriever
+                
+                settings_mgr = SettingsManager()
+                retrieval_config = settings_mgr.get_retrieval_config()
+                
+                # Temporarily force enable retrieval for index building
+                retrieval_config['enabled'] = True
+                
+                workflow_executor.faiss_retriever = FaissRetriever(retrieval_config)
+                logger.info("FAISS retriever initialized for index building")
+            except Exception as e:
+                logger.error(f"Failed to initialize FAISS retriever: {e}", exc_info=True)
+                raise HTTPException(status_code=500, detail=f"Failed to initialize retriever: {str(e)}")
+        
+        # If retriever exists but isn't available, try to re-initialize
+        if not workflow_executor.faiss_retriever.is_available():
+            logger.warning("FAISS retriever exists but is not available, attempting re-initialization")
+            try:
+                from components2.settings_manager import SettingsManager
+                from components2.faiss_retriever import FaissRetriever
+                
+                settings_mgr = SettingsManager()
+                retrieval_config = settings_mgr.get_retrieval_config()
+                retrieval_config['enabled'] = True
+                
+                workflow_executor.faiss_retriever = FaissRetriever(retrieval_config)
+                logger.info("FAISS retriever re-initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to re-initialize FAISS retriever: {e}", exc_info=True)
+                raise HTTPException(status_code=500, detail=f"Failed to initialize retriever: {str(e)}")
+        
+        file_paths = request.get("file_paths", [])
+        doc_type = request.get("doc_type", "knowledge")
+        
+        # If no file_paths provided, scan data2/ directory
+        if not file_paths:
+            data_dir = Path("data2")
+            if data_dir.exists() and data_dir.is_dir():
+                file_paths = [str(p) for p in data_dir.glob("*.txt")]
+                logger.info(f"Scanning data2/ directory, found {len(file_paths)} .txt files")
+            else:
+                raise HTTPException(status_code=400, detail="data2/ directory not found and no file_paths provided")
+        
+        if not file_paths:
+            raise HTTPException(status_code=400, detail="No .txt files found in data2/ directory")
+        
+        # Read file contents
+        documents = []
+        filenames = []
+        for file_path in file_paths:
+            path = Path(file_path)
+            if not path.exists():
+                logger.warning(f"File not found: {file_path}")
+                continue
+            
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    content = f.read().strip()
+                    if content:
+                        documents.append(content)
+                        filenames.append(path.name)
+            except Exception as e:
+                logger.warning(f"Failed to read {file_path}: {e}")
+                continue
+        
+        if not documents:
+            raise HTTPException(status_code=400, detail="No valid documents found in provided paths")
+        
+        # Add documents to index
+        success = workflow_executor.faiss_retriever.add_knowledge_documents(
+            documents=documents,
+            filenames=filenames,
+            doc_type=doc_type
+        )
+        
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to add documents to index")
+        
+        stats = workflow_executor.faiss_retriever.get_stats()
+        
+        return {
+            "success": True,
+            "message": f"Successfully built index from {len(documents)} documents",
+            "documents_added": len(documents),
+            "stats": stats
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to build index: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/retrieval/index/add-text")
+async def add_text_to_index(request: Dict[str, Any]):
+    """
+    Add text documents directly to the index.
+    
+    Request body:
+    {
+        "documents": [
+            {"content": "text content", "filename": "doc1.txt"},
+            {"content": "more text", "filename": "doc2.txt"}
+        ],
+        "doc_type": "knowledge"  // optional
+    }
+    """
+    if not workflow_executor or not workflow_executor.faiss_retriever:
+        raise HTTPException(status_code=503, detail="FAISS retrieval not initialized")
+    
+    try:
+        doc_list = request.get("documents", [])
+        doc_type = request.get("doc_type", "knowledge")
+        
+        if not doc_list:
+            raise HTTPException(status_code=400, detail="No documents provided")
+        
+        documents = []
+        filenames = []
+        for doc in doc_list:
+            content = doc.get("content", "").strip()
+            filename = doc.get("filename", f"document_{len(documents)}.txt")
+            if content:
+                documents.append(content)
+                filenames.append(filename)
+        
+        if not documents:
+            raise HTTPException(status_code=400, detail="No valid documents provided")
+        
+        # Add documents to index
+        success = workflow_executor.faiss_retriever.add_knowledge_documents(
+            documents=documents,
+            filenames=filenames,
+            doc_type=doc_type
+        )
+        
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to add documents to index")
+        
+        stats = workflow_executor.faiss_retriever.get_stats()
+        
+        return {
+            "success": True,
+            "documents_added": len(documents),
+            "stats": stats
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to add documents: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

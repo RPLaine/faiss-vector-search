@@ -2036,7 +2036,8 @@ body {
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
     width: 90%;
     max-width: 1000px;
-    max-height: 90vh;
+    height: 95vh;
+    min-height: 400px;
     display: flex;
     flex-direction: column;
     animation: slideUp 0.3s var(--easing-smooth);
@@ -2057,7 +2058,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: var(--space-lg);
+    padding: var(--space-md);
     border-bottom: 1px solid var(--color-border);
 }
 
@@ -2091,7 +2092,7 @@ body {
 
 .document-modal-body {
     flex: 1;
-    padding: var(--space-lg);
+    padding: var(--space-md);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -2107,7 +2108,7 @@ body {
     font-family: var(--font-mono);
     font-size: 13px;
     line-height: 1.6;
-    padding: var(--space-md);
+    padding: 8px;
     resize: none;
     outline: none;
     transition: border-color var(--transition-fast);
@@ -2121,7 +2122,7 @@ body {
     display: flex;
     justify-content: flex-end;
     gap: var(--space-md);
-    padding: var(--space-lg);
+    padding: var(--space-md);
     border-top: 1px solid var(--color-border);
 }
 

@@ -116,6 +116,10 @@ export const LAYOUT_DIMENSIONS = {
     TASK_WIDTH: 900,                    // Default task node width
     TASK_DEFAULT_HEIGHT: 300,           // Default task height when unknown
     
+    // Tool dimensions
+    TOOL_WIDTH: 900,                    // Default tool node width (same as tasks)
+    TOOL_DEFAULT_HEIGHT: 300,           // Default tool height when unknown
+    
     // Gaps and spacing
     GAP_AGENT_TO_TASK: 40,             // Horizontal gap between agent and tasks
     GAP_BETWEEN_TASKS: 20,             // Vertical gap between tasks

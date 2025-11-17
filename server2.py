@@ -1221,6 +1221,62 @@ async def add_text_to_index(request: Dict[str, Any]):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/retrieval/document/save")
+async def save_document(request: Dict[str, Any]):
+    """
+    Save/update a document and rebuild the FAISS index.
+    
+    Request body:
+    {
+        "filename": "article_structure.txt",
+        "content": "updated content..."
+    }
+    """
+    if not workflow_executor or not workflow_executor.faiss_retriever:
+        raise HTTPException(status_code=503, detail="FAISS retrieval not initialized")
+    
+    try:
+        filename = request.get("filename")
+        content = request.get("content")
+        
+        if not filename or not content:
+            raise HTTPException(status_code=400, detail="Filename and content are required")
+        
+        # Get data directory from settings
+        data_dir = Path("data2")  # Default for system 2
+        if not data_dir.exists():
+            data_dir.mkdir(parents=True)
+        
+        # Save document to file
+        file_path = data_dir / filename
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        
+        logger.info(f"Document saved: {file_path}")
+        
+        # Rebuild the FAISS index
+        logger.info("Rebuilding FAISS index...")
+        rebuild_success = workflow_executor.faiss_retriever.rebuild_index()
+        
+        if not rebuild_success:
+            logger.warning("Index rebuild returned False but document was saved")
+        
+        stats = workflow_executor.faiss_retriever.get_stats()
+        
+        return {
+            "success": True,
+            "message": f"Document '{filename}' saved and index rebuilt",
+            "file_path": str(file_path),
+            "stats": stats
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to save document: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # WebSocket Endpoint
 
 @app.websocket("/ws")

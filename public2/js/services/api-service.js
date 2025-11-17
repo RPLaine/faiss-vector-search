@@ -121,4 +121,13 @@ export class APIService {
     static async clearCompletedAgents() {
         return this._request('POST', '/agents/clear');
     }
+    
+    // Document Operations
+    
+    static async saveDocument(filename, content) {
+        return this._request('POST', '/retrieval/document/save', {
+            filename,
+            content
+        });
+    }
 }

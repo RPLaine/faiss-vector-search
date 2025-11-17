@@ -25,7 +25,7 @@ export class ToolRenderer {
      */
     renderTool(agentId, taskId, toolId, toolData) {
         const node = DOMUtils.createElement('div', {
-            className: `tool-node card-base initial-animation tool-hidden tool-visible collapsed`,
+            className: `tool-node card-base initial-animation tool-hidden tool-visible`,
             id: `tool-${agentId}-${taskId}-${toolId}`,
             dataset: {
                 agentId: agentId,
@@ -44,8 +44,8 @@ export class ToolRenderer {
             node.classList.remove('initial-animation');
         }, ANIMATION_DURATIONS.AGENT_INITIAL_ANIMATION);
         
-        // Add expand/collapse event listener
-        this._attachExpandCollapseHandler(node);
+        // Add document click handlers
+        this._attachDocumentClickHandlers(node);
         
         return node;
     }
@@ -67,36 +67,37 @@ export class ToolRenderer {
         
         return `
             <div class="tool-node-header">
-                <button class="tool-expand-toggle" aria-label="Expand/Collapse">
-                    <span class="expand-icon">▶</span>
-                </button>
                 <div class="tool-node-header-info">
-                    <h5>${icon} ${this._getToolTypeName(type)}</h5>
-                    <div class="tool-node-status status-badge ${status}">${status}</div>
+                    <h4>${icon} ${this._getToolTypeName(type)}</h4>
                 </div>
+                <div class="tool-node-status status-badge ${status}">${status}</div>
             </div>
             <div class="tool-node-body">
-                <div class="tool-node-section tool-query-section">
-                    <div class="tool-node-section-title">Query</div>
-                    <div class="tool-node-section-content">
-                        ${MarkdownFormatter.escapeHtml(query)}
+                <div class="tool-node-info-column">
+                    <div class="tool-node-section tool-query-section">
+                        <div class="tool-node-section-title">Query</div>
+                        <div class="tool-node-section-content">
+                            ${MarkdownFormatter.escapeHtml(query)}
+                        </div>
+                    </div>
+                    
+                    ${this._getThresholdProgressionHTML(thresholdStats)}
+                    
+                    <div class="tool-node-section tool-stats-section">
+                        <div class="tool-node-section-title">Statistics</div>
+                        <div class="tool-stats">
+                            ${thresholdUsed !== undefined ? `<span class="tool-stat"><strong>Threshold:</strong> ${thresholdUsed.toFixed(3)}</span>` : ''}
+                            ${retrievalTime !== undefined ? `<span class="tool-stat"><strong>Time:</strong> ${retrievalTime.toFixed(2)}s</span>` : ''}
+                            ${thresholdStats.attempts ? `<span class="tool-stat"><strong>Attempts:</strong> ${thresholdStats.attempts}</span>` : ''}
+                        </div>
                     </div>
                 </div>
-                
-                ${this._getThresholdProgressionHTML(thresholdStats)}
-                
-                <div class="tool-node-section tool-documents-section">
-                    <div class="tool-node-section-title">Retrieved Documents (${documents.length})</div>
-                    <div class="tool-documents-list">
-                        ${this._getDocumentsHTML(documents)}
-                    </div>
-                </div>
-                
-                <div class="tool-node-section tool-stats-section">
-                    <div class="tool-stats">
-                        ${thresholdUsed !== undefined ? `<span class="tool-stat"><strong>Threshold:</strong> ${thresholdUsed.toFixed(3)}</span>` : ''}
-                        ${retrievalTime !== undefined ? `<span class="tool-stat"><strong>Time:</strong> ${retrievalTime.toFixed(2)}s</span>` : ''}
-                        ${thresholdStats.attempts ? `<span class="tool-stat"><strong>Attempts:</strong> ${thresholdStats.attempts}</span>` : ''}
+                <div class="tool-node-output-column">
+                    <div class="tool-node-section tool-documents-section">
+                        <div class="tool-node-section-title">Retrieved Documents (${documents.length})</div>
+                        <div class="tool-documents-list">
+                            ${this._getDocumentsHTML(agentId, taskId, toolId, documents)}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -180,7 +181,7 @@ export class ToolRenderer {
     /**
      * Get documents list HTML
      */
-    _getDocumentsHTML(documents) {
+    _getDocumentsHTML(agentId, taskId, toolId, documents) {
         if (!documents || documents.length === 0) {
             return '<div class="tool-no-documents">No documents retrieved</div>';
         }
@@ -189,11 +190,18 @@ export class ToolRenderer {
             <div class="tool-document-item">
                 <div class="tool-document-header">
                     <span class="tool-document-number">#${i + 1}</span>
-                    <span class="tool-document-filename">${MarkdownFormatter.escapeHtml(doc.filename || 'unknown')}</span>
                     <span class="tool-document-score">${(doc.score || 0).toFixed(3)}</span>
                 </div>
-                <div class="tool-document-content">
-                    ${MarkdownFormatter.escapeHtml(this._truncateText(doc.content, 200))}
+                <div class="tool-document-filename-link" 
+                     data-agent-id="${agentId}" 
+                     data-task-id="${taskId}" 
+                     data-tool-id="${toolId}" 
+                     data-doc-index="${i}"
+                     data-filename="${MarkdownFormatter.escapeHtml(doc.filename || 'unknown')}">
+                    ${MarkdownFormatter.escapeHtml(doc.filename || 'unknown')}
+                </div>
+                <div class="tool-document-preview">
+                    ${MarkdownFormatter.escapeHtml(this._truncateText(doc.content, 150))}
                 </div>
             </div>
         `).join('');
@@ -209,71 +217,87 @@ export class ToolRenderer {
     }
     
     /**
-     * Attach expand/collapse handler to tool node
+     * Attach document click handlers to open modal
      */
-    _attachExpandCollapseHandler(node) {
-        const toggleBtn = node.querySelector('.tool-expand-toggle');
-        if (!toggleBtn) return;
-        
-        toggleBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.toggleExpanded(node);
+    _attachDocumentClickHandlers(node) {
+        const docLinks = node.querySelectorAll('.tool-document-filename-link');
+        docLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const agentId = link.dataset.agentId;
+                const taskId = link.dataset.taskId;
+                const toolId = link.dataset.toolId;
+                const docIndex = parseInt(link.dataset.docIndex);
+                const filename = link.dataset.filename;
+                
+                // Emit event for controller to handle
+                node.dispatchEvent(new CustomEvent('openDocumentModal', {
+                    bubbles: true,
+                    detail: { agentId, taskId, toolId, docIndex, filename }
+                }));
+            });
         });
     }
     
     /**
-     * Toggle expanded/collapsed state
+     * Open document viewer modal
      */
-    toggleExpanded(element) {
-        const isCollapsed = element.classList.contains('collapsed');
+    openDocumentModal(filename, content) {
+        // Create modal overlay
+        const modal = document.createElement('div');
+        modal.className = 'document-modal-overlay';
+        modal.innerHTML = `
+            <div class="document-modal">
+                <div class="document-modal-header">
+                    <h3>${MarkdownFormatter.escapeHtml(filename)}</h3>
+                    <button class="document-modal-close">&times;</button>
+                </div>
+                <div class="document-modal-body">
+                    <textarea class="document-content-editor">${MarkdownFormatter.escapeHtml(content)}</textarea>
+                </div>
+                <div class="document-modal-footer">
+                    <button class="btn-secondary document-modal-cancel">Cancel</button>
+                    <button class="btn-primary document-modal-save">Save & Rebuild Index</button>
+                </div>
+            </div>
+        `;
         
-        if (isCollapsed) {
-            this.expand(element);
-        } else {
-            this.collapse(element);
-        }
-    }
-    
-    /**
-     * Expand tool node
-     */
-    expand(element) {
-        element.classList.remove('collapsed');
-        const icon = element.querySelector('.expand-icon');
-        if (icon) {
-            icon.textContent = '▼';
-        }
+        document.body.appendChild(modal);
         
-        // Emit custom event for layout recalculation
-        element.dispatchEvent(new CustomEvent('toolExpanded', {
-            bubbles: true,
-            detail: {
-                agentId: parseInt(element.dataset.agentId),
-                taskId: parseInt(element.dataset.taskId),
-                toolId: parseInt(element.dataset.toolId)
+        // Focus textarea
+        const textarea = modal.querySelector('.document-content-editor');
+        textarea.focus();
+        
+        // Close handlers
+        const closeModal = () => {
+            modal.classList.add('closing');
+            setTimeout(() => modal.remove(), 300);
+        };
+        
+        modal.querySelector('.document-modal-close').addEventListener('click', closeModal);
+        modal.querySelector('.document-modal-cancel').addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+        
+        // Save handler
+        modal.querySelector('.document-modal-save').addEventListener('click', () => {
+            const newContent = textarea.value;
+            // Emit save event
+            document.dispatchEvent(new CustomEvent('saveDocument', {
+                detail: { filename, content: newContent }
+            }));
+            closeModal();
+        });
+        
+        // Keyboard shortcuts
+        modal.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+            if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                modal.querySelector('.document-modal-save').click();
             }
-        }));
-    }
-    
-    /**
-     * Collapse tool node
-     */
-    collapse(element) {
-        element.classList.add('collapsed');
-        const icon = element.querySelector('.expand-icon');
-        if (icon) {
-            icon.textContent = '▶';
-        }
-        
-        // Emit custom event for layout recalculation
-        element.dispatchEvent(new CustomEvent('toolCollapsed', {
-            bubbles: true,
-            detail: {
-                agentId: parseInt(element.dataset.agentId),
-                taskId: parseInt(element.dataset.taskId),
-                toolId: parseInt(element.dataset.toolId)
-            }
-        }));
+        });
     }
     
     /**
@@ -312,7 +336,14 @@ export class ToolRenderer {
         const docsList = element.querySelector('.tool-documents-list');
         if (!docsList) return;
         
-        docsList.innerHTML = this._getDocumentsHTML(documents);
+        const agentId = element.dataset.agentId;
+        const taskId = element.dataset.taskId;
+        const toolId = element.dataset.toolId;
+        
+        docsList.innerHTML = this._getDocumentsHTML(agentId, taskId, toolId, documents);
+        
+        // Reattach click handlers
+        this._attachDocumentClickHandlers(element);
         
         // Update document count in title
         const docsTitle = element.querySelector('.tool-documents-section .tool-node-section-title');

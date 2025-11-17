@@ -11,6 +11,8 @@
  * Mirrors TaskLayoutCalculator pattern for consistency.
  */
 
+import { LAYOUT_DIMENSIONS } from '../constants.js';
+
 export class ToolLayoutCalculator {
     /**
      * Calculate tool positions for a task
@@ -48,8 +50,8 @@ export class ToolLayoutCalculator {
         // Calculate heights
         const toolHeights = sortedToolKeys.map(toolKey => {
             const toolData = getToolData(toolKey);
-            if (!toolData || !toolData.element) return 0;
-            return toolData.element.offsetHeight || 200; // Default tool height
+            if (!toolData || !toolData.element) return LAYOUT_DIMENSIONS.TOOL_DEFAULT_HEIGHT;
+            return toolData.element.offsetHeight || LAYOUT_DIMENSIONS.TOOL_DEFAULT_HEIGHT;
         });
         
         // Align first tool with task top (simpler than task alignment logic)

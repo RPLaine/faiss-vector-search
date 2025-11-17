@@ -10,6 +10,7 @@
 
 import { POSITIONING_DELAYS, ANIMATION_DURATIONS, LAYOUT_DIMENSIONS } from '../constants.js';
 import { UUIDGenerator } from '../utils/uuid-generator.js';
+import { APIService } from '../services/api-service.js';
 
 export class ToolController {
     constructor(toolManager, toolRenderer, canvasManager, taskManager) {
@@ -40,21 +41,6 @@ export class ToolController {
             this.positionToolsForAllTasks();
         });
         
-        // Listen for tool expand/collapse events (may need layout adjustment)
-        document.addEventListener('toolExpanded', (e) => {
-            const { agentId, taskId } = e.detail;
-            setTimeout(() => {
-                this.positionToolsForTask(agentId, taskId);
-            }, POSITIONING_DELAYS.EXPAND_TRANSITION_REENABLE);
-        });
-        
-        document.addEventListener('toolCollapsed', (e) => {
-            const { agentId, taskId } = e.detail;
-            setTimeout(() => {
-                this.positionToolsForTask(agentId, taskId);
-            }, POSITIONING_DELAYS.EXPAND_TRANSITION_REENABLE);
-        });
-        
         // Listen for agent selection visibility events
         document.addEventListener('showToolsForAgent', (e) => {
             const { agentId } = e.detail;
@@ -70,6 +56,18 @@ export class ToolController {
         document.addEventListener('loadToolCall', (e) => {
             const { agentId, taskId, toolCallData } = e.detail;
             this.loadToolCallsForTask(agentId, taskId, toolCallData);
+        });
+        
+        // Listen for document modal open requests
+        document.addEventListener('openDocumentModal', (e) => {
+            const { agentId, taskId, toolId, docIndex, filename } = e.detail;
+            this.handleOpenDocumentModal(agentId, taskId, toolId, docIndex, filename);
+        });
+        
+        // Listen for document save requests
+        document.addEventListener('saveDocument', (e) => {
+            const { filename, content } = e.detail;
+            this.handleSaveDocument(filename, content);
         });
     }
     
@@ -601,6 +599,81 @@ export class ToolController {
         // Clear pending tool loads for this task
         const taskKey = this.toolManager.constructor.getTaskKey(agentId, taskId);
         this.pendingToolLoads.delete(taskKey);
+    }
+    
+    /**
+     * Handle document modal open request
+     */
+    handleOpenDocumentModal(agentId, taskId, toolId, docIndex, filename) {
+        console.log(`[ToolController] Opening document modal: ${filename}`);
+        
+        // Get tool data
+        const toolKey = this.toolManager.constructor.getToolKey(agentId, taskId, toolId);
+        const toolData = this.toolManager.getTool(toolKey);
+        
+        if (!toolData || !toolData.documents || !toolData.documents[docIndex]) {
+            console.error(`[ToolController] Document not found: ${docIndex}`);
+            return;
+        }
+        
+        const document = toolData.documents[docIndex];
+        const content = document.content || '';
+        
+        // Open modal using renderer
+        this.renderer.openDocumentModal(filename, content);
+    }
+    
+    /**
+     * Handle document save request
+     */
+    async handleSaveDocument(filename, content) {
+        console.log(`[ToolController] Saving document: ${filename}`);
+        
+        try {
+            const result = await APIService.saveDocument(filename, content);
+            
+            if (result.success) {
+                console.log(`[ToolController] Document saved successfully:`, result.data);
+                // You could emit a success notification here
+                this._showNotification('success', `Document '${filename}' saved and index rebuilt`);
+            } else {
+                console.error(`[ToolController] Failed to save document:`, result.error);
+                this._showNotification('error', `Failed to save document: ${result.error}`);
+            }
+        } catch (error) {
+            console.error(`[ToolController] Error saving document:`, error);
+            this._showNotification('error', `Error saving document: ${error.message}`);
+        }
+    }
+    
+    /**
+     * Show notification (simple implementation - could be enhanced with a notification service)
+     */
+    _showNotification(type, message) {
+        // Create a simple notification element
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.textContent = message;
+        notification.style.cssText = `
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            padding: 12px 20px;
+            background: ${type === 'success' ? '#10b981' : '#ef4444'};
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 10001;
+            animation: slideInRight 0.3s ease;
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 4 seconds
+        setTimeout(() => {
+            notification.style.animation = 'slideOutRight 0.3s ease';
+            setTimeout(() => notification.remove(), 300);
+        }, 4000);
     }
     
 }

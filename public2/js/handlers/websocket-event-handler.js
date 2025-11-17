@@ -170,6 +170,12 @@ export class WebSocketEventHandler {
         }
         
         this.taskController.clearTasksForAgent(agentId);
+        
+        // Clear tool nodes for restarted agent
+        if (this.toolController) {
+            this.toolController.clearAgentTools(agentId);
+        }
+        
         this.statsService.update();
         
         // Update control panels for all agents (disable controls for other agents)

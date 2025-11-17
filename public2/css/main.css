@@ -859,8 +859,7 @@ body {
 }
 
 .task-node-status {
-    padding: 4px 8px;
-    border-radius: 4px;
+    /* Uses .status-badge base class for consistent styling with tool-node-status */
 }
 
 .task-node-status.cancelled {
@@ -1316,6 +1315,8 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     white-space: nowrap;
+    padding: 4px 8px;
+    border-radius: 4px;
 }
 
 .status-badge.created {

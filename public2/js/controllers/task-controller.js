@@ -171,6 +171,12 @@ export class TaskController {
      * Handle task running state
      */
     handleTaskRunning(agentId, taskId) {
+        // Clear old tool nodes before task starts processing again
+        const clearToolsEvent = new CustomEvent('clearTaskTools', {
+            detail: { agentId, taskId }
+        });
+        document.dispatchEvent(clearToolsEvent);
+        
         // Align running task with agent
         this.shiftTasksToRunning(agentId, taskId);
     }

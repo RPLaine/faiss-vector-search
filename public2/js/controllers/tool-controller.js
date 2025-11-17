@@ -70,6 +70,12 @@ export class ToolController {
             const { filename, content } = e.detail;
             this.handleSaveDocument(filename, content);
         });
+        
+        // Listen for task tool clearing requests
+        document.addEventListener('clearTaskTools', (e) => {
+            const { agentId, taskId } = e.detail;
+            this.clearTaskTools(agentId, taskId);
+        });
     }
     
     /**
@@ -606,6 +612,13 @@ export class ToolController {
         
         const toolKeys = this.toolManager.getTaskTools(agentId, taskId);
         
+        // Remove connection lines first
+        const taskKey = this.toolManager.constructor.getTaskKey(agentId, taskId);
+        if (this.canvasManager && this.canvasManager.connectionLinesManager) {
+            this.canvasManager.connectionLinesManager.removeToolConnectionsForTask(taskKey);
+        }
+        
+        // Then remove tool elements and state
         toolKeys.forEach(toolKey => {
             const toolData = this.toolManager.getTool(toolKey);
             if (toolData && toolData.element) {
@@ -615,7 +628,6 @@ export class ToolController {
         });
         
         // Clear pending tool loads for this task
-        const taskKey = this.toolManager.constructor.getTaskKey(agentId, taskId);
         this.pendingToolLoads.delete(taskKey);
     }
     

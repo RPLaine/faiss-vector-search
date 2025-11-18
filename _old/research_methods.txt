@@ -1,0 +1,96 @@
+# Tutkimus ja Selvitystyö
+
+## Tutkimusmenetelmät
+
+### Taustatutkimus (Desk Research)
+- Verkkotietokannat ja arkistot
+- Tieteelliset journaalit ja julkaisut
+- Viranomaisasiakirjat ja raportit
+- Historialliset dokumentit
+- Sosiaalisen median analyysi
+- Uutisarkistot
+
+### Kenttätutkimus (Field Research)
+- Paikkakäynnit ja havainnointi
+- Haastattelut sidosryhmien kanssa
+- Asiakirjojen keruu
+- Valokuva- ja videodokumentointi
+- Julkiset kokoukset ja kuulemiset
+
+### Datajournalismi
+- Julkisuuslain (FOIA) mukaiset tietopyynnöt
+- Julkisten asiakirjojen pyynnöt
+- Tietokanta-analyysi
+- Tilastollinen tulkinta
+- Datan visualisointi
+- Taulukkolaskennan tutkiminen
+
+## Selvitysstrategiat
+
+### Rahavirtojen seuraaminen
+- Seuraa taloudellisia transaktioita
+- Tarkista verotiedot
+- Tutki yritysten rekisteri- ja tilinpäätöstiedot
+- Selvitä kiinteistörekisterit ja omistukset
+- Analysoi vaalirahoitus ja lahjoitukset
+- Tutki budjettiasiakirjoja
+
+### Aikajanan rakentaminen
+- Tapahtumien kronologinen kartoitus
+- Tunnista tarinan aukot
+- Etsi ristiriitaisuuksia
+- Määritä syy–seuraus -suhteet
+- Dokumentoi tarinan kehityskaari
+
+### Lähdeverkoston rakentaminen
+- Tunnista keskeiset toimijat
+- Rakenna luottamusta vähitellen
+- Suojaa luottamukselliset lähteet
+- Vaali sisäpiirilähteitä
+- Hyödynnä sosiaalista mediaa yhteyksien luomisessa
+
+## Organisointi ja Dokumentointi
+
+### Muistiinpanokäytäntö
+- Lisää päivämäärä ja kellonaika kaikkiin muistiinpanoihin
+- Kirjaa lähdetiedot
+- Erottele faktat mielipiteistä
+- Merkitse suorat sitaatit sanatarkasti
+- Merkitse asiat, jotka vaativat jatkotoimia
+
+### Tiedostojen hallinta
+- Luo projektikansiot teemoittain
+- Käytä johdonmukaista nimeämiskäytäntöä
+- Varmuuskopioi tiedostot säännöllisesti
+- Ylläpidä lähdekontaktilistoja
+- Pidä tutkintapäiväkirjaa
+
+### Viitteiden seuranta
+- Kirjaa URL-osoitteet ja käyttöpäivämäärät
+- Tallenna verkkolähteet PDF-muodossa
+- Valokuvaa fyysiset dokumentit
+- Merkitse julkaisun yksityiskohdat
+- Ylläpidä lähdeluetteloa
+
+## Turvallisuus ja Suojaus
+
+### Lähdesuoja
+- Käytä salattua viestintää
+- Tapaa turvallisissa paikoissa
+- Vältä sähköisiä jälkiä
+- Hyödynnä anonyymejä vihjepuhelimia / kanavia
+- Suojaa tunnistetiedot
+
+### Digitaalinen turvallisuus
+- Käytä VPN-yhteyksiä tutkimuksessa
+- Salaa arkaluonteiset tiedostot
+- Suojaa salasanat ja käytä kaksivaiheista tunnistautumista
+- Huomioi metatiedot
+- Käytä turvallisia selaimia
+
+### Henkilökohtainen turvallisuus
+- Informoi toimitusta riskialttiista tehtävistä
+- Pidä hätäyhteystiedot saatavilla
+- Tunne oikeutesi
+- Luota vaistoihisi
+- Harkitse vaarallisten ympäristöjen koulutusta

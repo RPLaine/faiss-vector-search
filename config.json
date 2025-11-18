@@ -1,0 +1,49 @@
+{
+    "external_llm": {
+        "url": "https://www.northbeach.fi/dolphin/stream",
+        "model": "qwen",
+        "payload_type": "message",
+        "timeout": 300,
+        "max_tokens": 2000,
+        "temperature": 0.3,
+        "top_p": 0.90,
+        "top_k": 20,
+        "headers": {
+            "Content-Type": "application/json"
+        }
+    },
+    "embedding": {
+        "model": "TurkuNLP/sbert-cased-finnish-paraphrase",
+        "dimension": 768,
+        "batch_size": 256
+    },
+    "retrieval": {
+        "hit_target": 5,
+        "step": 0.01,
+        "top_k": 20,
+        "similarity_threshold": 0.55,
+        "max_context_length": 10000
+    },
+    "index": {
+        "type": "IndexFlatIP",
+        "save_path": "data/faiss.index",
+        "metadata_path": "data/metadata.pkl"
+    },
+    "optimization": {
+        "enabled": true,
+        "temperature_values": [0.1, 0.2, 0.3, 0.4, 0.5],
+        "evaluator": {
+            "temperature": 0.3,
+            "max_tokens": 500,
+            "timeout": 60
+        }
+    },
+    "improvement": {
+        "enabled": true,
+        "target_score": 1.0,
+        "improver": {
+            "max_tokens": 2000,
+            "timeout": 300
+        }
+    }
+}

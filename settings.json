@@ -32,5 +32,6 @@
     "use_dynamic_threshold": true,
     "store_task_outputs": true,
     "max_context_length": 10000
-  }
+  },
+  "language": "fi"
 }

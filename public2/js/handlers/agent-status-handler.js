@@ -21,10 +21,11 @@ import {
 } from '../constants/status-constants.js';
 
 export class AgentStatusHandler {
-    constructor(agentManager, agentRenderer, controlPanelManager) {
+    constructor(agentManager, agentRenderer, controlPanelManager, languageService = null) {
         this.agentManager = agentManager;
         this.agentRenderer = agentRenderer;
         this.controlPanelManager = controlPanelManager;
+        this.lang = languageService;
     }
     
     /**

@@ -20,6 +20,7 @@ import { FormHandler } from './services/form-handler.js';
 import { LoggerService } from './services/logger-service.js';
 import { ModalManager } from './services/modal-manager.js';
 import { SettingsService } from './services/settings-service.js';
+import { LanguageService } from './services/language-service.js';
 import { TransitionManager } from './ui/transition-manager.js';
 import { ControlPanelManager } from './ui/control-panel-manager.js';
 import { WebSocketEventHandler } from './handlers/websocket-event-handler.js';
@@ -48,6 +49,7 @@ class App {
         this.transitionManager = new TransitionManager();
         this.modalManager = new ModalManager();
         this.modalManager.setupGlobalClosers();
+        this.languageService = new LanguageService();
         
         // State managers (Note: TaskManager is injected into CanvasManager for connection lines)
         this.agentManager = new AgentManager();
@@ -69,12 +71,12 @@ class App {
         // Settings
         this.settingsService = new SettingsService();
         this.settingsController = new SettingsController(this.settingsService, this.loggerService);
-        this.settingsHandler = new SettingsHandler(this.settingsController, this.modalManager, this.loggerService);
+        this.settingsHandler = new SettingsHandler(this.settingsController, this.modalManager, this.loggerService, this.languageService);
         
         // Renderers
-        this.agentRenderer = new AgentRenderer('#agentNodesContainer');
-        this.taskRenderer = new TaskRenderer('#agentNodesContainer');
-        this.toolRenderer = new ToolRenderer('#agentNodesContainer');
+        this.agentRenderer = new AgentRenderer('#agentNodesContainer', this.languageService);
+        this.taskRenderer = new TaskRenderer('#agentNodesContainer', this.languageService);
+        this.toolRenderer = new ToolRenderer('#agentNodesContainer', this.languageService);
         
         // Inject TaskManager reference into TaskRenderer for selection
         this.taskRenderer.taskManager = this.taskManager;
@@ -83,7 +85,8 @@ class App {
         this.agentStatusHandler = new AgentStatusHandler(
             this.agentManager,
             this.agentRenderer,
-            this.controlPanelManager
+            this.controlPanelManager,
+            this.languageService
         );
         
         // Inject AgentStatusHandler into ControlPanelManager for centralized business logic
@@ -133,7 +136,8 @@ class App {
             this.modalManager,
             this.controlPanelManager,
             this.agentManager,
-            this.canvasManager
+            this.canvasManager,
+            this.languageService
         );
         
         // Inject ControlPanelHandler into TaskController for final task completion detection
@@ -150,7 +154,8 @@ class App {
             this.canvasManager,
             this.modalManager,
             this.controlPanelManager,
-            this.selectionHandler  // Inject SelectionHandler
+            this.selectionHandler,  // Inject SelectionHandler
+            this.languageService
         );
         this.uiManager.taskManager = this.taskManager;
         this.uiManager.agentManager = this.agentManager; // Inject AgentManager
@@ -183,14 +188,30 @@ class App {
             this.toolController  // Inject ToolController for tool event handling
         );
         
+        // Inject languageService into WebSocketEventHandler
+        this.wsEventHandler.languageService = this.languageService;
+        
         this.init();
     }
     
-    init() {
+    async init() {
         // Set up connection state callback
         this.wsService.setConnectionStateCallback((connected) => {
             this.uiManager.setConnected(connected);
         });
+        
+        // Register language change callback
+        this.languageService.onChange((lang) => {
+            console.log(`Language changed to: ${lang}`);
+            this.uiManager.updateAllText();
+        });
+        
+        // Load initial language (will be updated from server on connection)
+        try {
+            await this.languageService.loadLanguage('en');
+        } catch (error) {
+            console.error('Failed to load initial language:', error);
+        }
         
         // Initialize WebSocket handlers
         this.wsEventHandler.registerHandlers(this.wsService, this.statsService);

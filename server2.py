@@ -1027,6 +1027,48 @@ async def reset_settings():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/language")
+async def get_language():
+    """Get current language setting."""
+    if not settings_manager:
+        raise HTTPException(status_code=503, detail="Settings manager not initialized")
+    
+    try:
+        return {"language": settings_manager.get_language()}
+    except Exception as e:
+        logger.error(f"Failed to get language: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/language")
+async def update_language(request: Dict[str, Any]):
+    """Update language setting."""
+    if not settings_manager:
+        raise HTTPException(status_code=503, detail="Settings manager not initialized")
+    
+    try:
+        language = request.get("language")
+        if not language:
+            raise HTTPException(status_code=400, detail="Language is required")
+        
+        settings_manager.update_language(language)
+        
+        # Broadcast language change to all clients
+        await broadcast_event({
+            "type": "language_changed",
+            "timestamp": datetime.now().isoformat(),
+            "data": {"language": language}
+        })
+        
+        return {"success": True, "language": language}
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to update language: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Retrieval / Knowledge Base Management Endpoints
 
 @app.get("/api/retrieval/stats")
@@ -1291,11 +1333,13 @@ async def websocket_endpoint(websocket: WebSocket):
         # Send initial state
         agents = agent_manager.list_agents() if agent_manager else []
         selected_agent_id = agent_manager.get_selected_agent_id() if agent_manager else None
+        language = settings_manager.get_language() if settings_manager else "en"
         await websocket.send_json({
             "type": "connection_established",
             "data": {
                 "agents": agents,
                 "selected_agent_id": selected_agent_id,
+                "language": language,
                 "timestamp": datetime.now().isoformat()
             }
         })

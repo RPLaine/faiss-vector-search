@@ -19,13 +19,14 @@
 import { POSITIONING_DELAYS } from '../constants.js';
 
 export class ControlPanelHandler {
-    constructor(agentController, haltController, modalManager, controlPanelManager, agentManager, canvasManager) {
+    constructor(agentController, haltController, modalManager, controlPanelManager, agentManager, canvasManager, languageService = null) {
         this.agentController = agentController;
         this.haltController = haltController;
         this.modalManager = modalManager;
         this.controlPanelManager = controlPanelManager;
         this.agentManager = agentManager; // For querying agent state
         this.canvasManager = canvasManager; // For expand/collapse repositioning
+        this.lang = languageService;
         
         this._attachHandlers();
     }

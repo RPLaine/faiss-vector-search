@@ -19,7 +19,7 @@ import { SCROLL_DELAYS, POSITIONING_DELAYS } from '../constants.js';
 import { APIService } from '../services/api-service.js';
 
 export class UIManager {
-    constructor(agentController, taskController, agentRenderer, canvasManager, modalManager, controlPanelManager, selectionHandler = null) {
+    constructor(agentController, taskController, agentRenderer, canvasManager, modalManager, controlPanelManager, selectionHandler = null, languageService = null) {
         this.agentController = agentController;
         this.taskController = taskController;
         this.agentRenderer = agentRenderer;
@@ -27,6 +27,7 @@ export class UIManager {
         this.modalManager = modalManager;
         this.controlPanelManager = controlPanelManager;
         this.selectionHandler = selectionHandler;
+        this.languageService = languageService;
         this.taskManager = null; // Will be set externally
         this.agentManager = null; // Will be set externally for agent queries
     }
@@ -39,15 +40,74 @@ export class UIManager {
         const indicator = document.getElementById('statusIndicator');
         const text = document.getElementById('statusText');
         
+        if (!this.languageService) {
+            // Fallback to hardcoded text if language service not available
+            if (connected) {
+                indicator.classList.add('connected');
+                indicator.classList.remove('disconnected');
+                text.textContent = 'Connected';
+            } else {
+                indicator.classList.remove('connected');
+                indicator.classList.add('disconnected');
+                text.textContent = 'Disconnected';
+            }
+            return;
+        }
+        
         if (connected) {
             indicator.classList.add('connected');
             indicator.classList.remove('disconnected');
-            text.textContent = 'Connected';
+            text.textContent = this.languageService.t('connection.connected');
         } else {
             indicator.classList.remove('connected');
             indicator.classList.add('disconnected');
-            text.textContent = 'Disconnected';
+            text.textContent = this.languageService.t('connection.disconnected');
         }
+    }
+    
+    /**
+     * Update all static text in the UI based on current language
+     * Scans for elements with data-i18n attribute and updates their text content
+     */
+    updateAllText() {
+        if (!this.languageService) {
+            console.warn('[UIManager] LanguageService not available for text updates');
+            return;
+        }
+        
+        // Update all elements with data-i18n attribute
+        document.querySelectorAll('[data-i18n]').forEach(element => {
+            const key = element.getAttribute('data-i18n');
+            if (key) {
+                // Handle special cases for input placeholders and hints
+                if (element.hasAttribute('placeholder')) {
+                    element.setAttribute('placeholder', this.languageService.t(key));
+                } else if (element.tagName === 'OPTION') {
+                    element.textContent = this.languageService.t(key);
+                } else {
+                    element.textContent = this.languageService.t(key);
+                }
+            }
+        });
+        
+        // Update connection status text
+        const statusText = document.getElementById('statusText');
+        if (statusText) {
+            const isConnected = statusText.parentElement?.querySelector('#statusIndicator')?.classList.contains('connected');
+            statusText.textContent = this.languageService.t(
+                isConnected ? 'connection.connected' : 'connection.disconnected'
+            );
+        }
+        
+        // Re-render all visible agents to update dynamic text
+        if (this.agentManager) {
+            const agents = this.agentManager.getAllAgents();
+            agents.forEach(agent => {
+                this.agentRenderer.updateStatus(agent.id, agent.status);
+            });
+        }
+        
+        console.log('[UIManager] All text updated for language:', this.languageService.getLanguage());
     }
     
     // ========================================

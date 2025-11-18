@@ -26,7 +26,8 @@ class SettingsManager:
     # Required template variables for each prompt
     PROMPT_REQUIREMENTS = {
         "phase_0_planning": ["{agent_name}", "{agent_context}"],
-        "task_execution": ["{agent_name}", "{goal}", "{task_name}", "{task_description}", "{expected_output}"],
+        "task_execution_first": ["{agent_name}", "{goal}", "{task_name}", "{task_description}", "{expected_output}", "{context}"],
+        "task_execution_sequential": ["{agent_name}", "{goal}", "{task_id}", "{task_name}", "{task_description}", "{expected_output}", "{previous_tasks_context}", "{additional_context}"],
         "task_validation": ["{task_name}", "{task_description}", "{expected_output}", "{actual_output}"],
         "hidden_context": []  # No required variables
     }
@@ -91,6 +92,7 @@ class SettingsManager:
             Default settings dictionary
         """
         return {
+            "language": "en",
             "llm": {
                 "url": "http://localhost:11434/v1/chat/completions",
                 "model": "qwen",
@@ -107,7 +109,8 @@ class SettingsManager:
             "prompts": {
                 "hidden_context": "",
                 "phase_0_planning": "",
-                "task_execution": "",
+                "task_execution_first": "",
+                "task_execution_sequential": "",
                 "task_validation": ""
             },
             "retrieval": {
@@ -170,6 +173,7 @@ class SettingsManager:
             Complete settings dictionary
         """
         return {
+            "language": self.get_language(),
             "llm": self.get_llm_config(),
             "prompts": self.get_all_prompts(),
             "retrieval": self.get_retrieval_config()
@@ -332,3 +336,29 @@ class SettingsManager:
         """Reload settings from file."""
         self._load_settings()
         logger.info("Reloaded settings from file")
+    
+    def get_language(self) -> str:
+        """
+        Get current language setting.
+        
+        Returns:
+            Language code ('en' or 'fi')
+        """
+        return self._settings.get("language", "en")
+    
+    def update_language(self, language: str) -> None:
+        """
+        Update language setting.
+        
+        Args:
+            language: Language code ('en' or 'fi')
+            
+        Raises:
+            ValueError: If language is not supported
+        """
+        if language not in ["en", "fi"]:
+            raise ValueError(f"Unsupported language: {language}. Supported languages: en, fi")
+        
+        self._settings["language"] = language
+        self._save_settings()
+        logger.info(f"Updated language to: {language}")

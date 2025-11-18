@@ -16,8 +16,9 @@ import { AnimationUtils } from '../utils/animation-utils.js';
 import { ANIMATION_DURATIONS } from '../constants.js';
 
 export class ToolRenderer {
-    constructor(containerSelector) {
+    constructor(containerSelector, languageService = null) {
         this.container = document.querySelector(containerSelector);
+        this.lang = languageService;
     }
     
     /**
@@ -64,18 +65,22 @@ export class ToolRenderer {
         
         // Icon based on tool type
         const icon = this._getToolIcon(type);
+        const statusText = this.lang ? this.lang.t(`status.${status}`) : status;
+        const queryLabel = this.lang ? this.lang.t('tool.section.query') : 'Query';
+        const statsLabel = this.lang ? this.lang.t('tool.section.summary') : 'Statistics';
+        const docsLabel = this.lang ? this.lang.t('tool.section.documents') : 'Retrieved Documents';
         
         return `
             <div class="tool-node-header">
                 <div class="tool-node-header-info">
                     <h4>${icon} ${this._getToolTypeName(type)}</h4>
                 </div>
-                <div class="tool-node-status status-badge ${status}">${status}</div>
+                <div class="tool-node-status status-badge ${status}">${statusText}</div>
             </div>
             <div class="tool-node-body">
                 <div class="tool-node-info-column">
                     <div class="tool-node-section tool-query-section">
-                        <div class="tool-node-section-title">Query</div>
+                        <div class="tool-node-section-title">${queryLabel}</div>
                         <div class="tool-node-section-content">
                             ${MarkdownFormatter.escapeHtml(query)}
                         </div>
@@ -84,7 +89,7 @@ export class ToolRenderer {
                     ${this._getThresholdProgressionHTML(thresholdStats)}
                     
                     <div class="tool-node-section tool-stats-section">
-                        <div class="tool-node-section-title">Statistics</div>
+                        <div class="tool-node-section-title">${statsLabel}</div>
                         <div class="tool-stats">
                             ${thresholdUsed !== undefined ? `<span class="tool-stat"><strong>Threshold:</strong> ${thresholdUsed.toFixed(3)}</span>` : ''}
                             ${retrievalTime !== undefined ? `<span class="tool-stat"><strong>Time:</strong> ${retrievalTime.toFixed(2)}s</span>` : ''}
@@ -94,7 +99,7 @@ export class ToolRenderer {
                 </div>
                 <div class="tool-node-output-column">
                     <div class="tool-node-section tool-documents-section">
-                        <div class="tool-node-section-title">Retrieved Documents (${documents.length})</div>
+                        <div class="tool-node-section-title">${docsLabel} (${documents.length})</div>
                         <div class="tool-documents-list">
                             ${this._getDocumentsHTML(agentId, taskId, toolId, documents)}
                         </div>
@@ -124,16 +129,21 @@ export class ToolRenderer {
      * Get tool type display name
      */
     _getToolTypeName(type) {
-        switch(type) {
-            case 'faiss_retrieval':
-                return 'Knowledge Retrieval';
-            case 'web_search':
-                return 'Web Search';
-            case 'api_call':
-                return 'API Call';
-            default:
-                return 'Tool Call';
+        if (!this.lang) {
+            // Fallback
+            switch(type) {
+                case 'faiss_retrieval':
+                    return 'Knowledge Retrieval';
+                case 'web_search':
+                    return 'Web Search';
+                case 'api_call':
+                    return 'API Call';
+                default:
+                    return 'Tool Call';
+            }
         }
+        
+        return this.lang.t(`tool.type.${type}`);
     }
     
     /**
@@ -147,18 +157,25 @@ export class ToolRenderer {
         const progression = thresholdStats.progression;
         const targetReached = thresholdStats.target_reached;
         
+        const thresholdLabel = this.lang ? this.lang.t('tool.section.threshold') : 'Threshold Progression';
+        const attemptLabel = this.lang ? this.lang.t('tool.table.attempt') : 'Attempt';
+        const thresholdColLabel = this.lang ? this.lang.t('tool.table.threshold') : 'Threshold';
+        const hitsLabel = this.lang ? this.lang.t('tool.table.hits') : 'Hits';
+        const targetLabel = this.lang ? this.lang.t('tool.table.target') : 'Target';
+        const statusLabel = this.lang ? this.lang.t('tool.table.status') : 'Status';
+        
         return `
             <div class="tool-node-section tool-threshold-section">
-                <div class="tool-node-section-title">Threshold Progression</div>
+                <div class="tool-node-section-title">${thresholdLabel}</div>
                 <div class="tool-threshold-table">
                     <table>
                         <thead>
                             <tr>
-                                <th>Attempt</th>
-                                <th>Threshold</th>
-                                <th>Hits</th>
-                                <th>Target</th>
-                                <th>Status</th>
+                                <th>${attemptLabel}</th>
+                                <th>${thresholdColLabel}</th>
+                                <th>${hitsLabel}</th>
+                                <th>${targetLabel}</th>
+                                <th>${statusLabel}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -182,8 +199,10 @@ export class ToolRenderer {
      * Get documents list HTML
      */
     _getDocumentsHTML(agentId, taskId, toolId, documents) {
+        const emptyText = this.lang ? this.lang.t('tool.document.empty') : 'No documents retrieved';
+        
         if (!documents || documents.length === 0) {
-            return '<div class="tool-no-documents">No documents retrieved</div>';
+            return `<div class="tool-no-documents">${emptyText}</div>`;
         }
         
         return documents.map((doc, i) => `

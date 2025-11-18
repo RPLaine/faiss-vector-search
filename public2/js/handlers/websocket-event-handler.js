@@ -19,6 +19,7 @@ export class WebSocketEventHandler {
         this.canvasInitializer = canvasInitializer;
         this.agentStatusHandler = agentStatusHandler;
         this.tasklistStreamStarted = new Set();
+        this.languageService = null; // Will be set externally
     }
     
     /**
@@ -30,6 +31,9 @@ export class WebSocketEventHandler {
         
         // Connection events
         wsService.on('connection_established', (data) => this.handleConnectionEstablished(data));
+        
+        // Language events
+        wsService.on('language_changed', (data) => this.handleLanguageChanged(data));
         
         // Agent lifecycle events
         wsService.on('agent_created', (data) => this.handleAgentCreated(data));
@@ -79,9 +83,31 @@ export class WebSocketEventHandler {
             return;
         }
         
+        // Load language if provided
+        if (data.data.language && this.languageService) {
+            this.languageService.loadLanguage(data.data.language).catch(error => {
+                console.error('[WebSocket] Failed to load language from server:', error);
+            });
+        }
+        
         // Delegate to CanvasInitializer for proper initialization
         const selectedAgentId = data.data.selected_agent_id;
         this.canvasInitializer.initializeFromBackend(data.data.agents, selectedAgentId);
+    }
+    
+    handleLanguageChanged(data) {
+        console.log('[WebSocket] language_changed:', data);
+        const language = data.data.language;
+        
+        if (!this.languageService) {
+            console.warn('[WebSocket] LanguageService not available');
+            return;
+        }
+        
+        // Load new language file
+        this.languageService.loadLanguage(language).catch(error => {
+            console.error('[WebSocket] Failed to load language:', error);
+        });
     }
     
     // Agent lifecycle handlers

@@ -16,8 +16,9 @@ import { AnimationUtils } from '../utils/animation-utils.js';
 import { ANIMATION_DURATIONS } from '../constants.js';
 
 export class AgentRenderer {
-    constructor(containerSelector) {
+    constructor(containerSelector, languageService = null) {
         this.container = document.querySelector(containerSelector);
+        this.lang = languageService;
     }
     
     /**
@@ -61,19 +62,23 @@ export class AgentRenderer {
      * Get agent HTML template
      */
     _getAgentTemplate(agent) {
+        const tempLabel = this.lang ? this.lang.t('agent.temperature', { value: agent.temperature || 'N/A' }) : `Temp: ${agent.temperature || 'N/A'}`;
+        const waitingText = this.lang ? this.lang.t('agent.waiting') : 'Waiting to start...';
+        const statusText = this._getStatusText(agent.status);
+        
         return `
             <div class="agent-node-header">
                 <div class="agent-node-info">
                     <h3>${MarkdownFormatter.escapeHtml(agent.name)}</h3>
                     ${agent.context ? `<div class="agent-node-context">${MarkdownFormatter.escapeHtml(agent.context)}</div>` : ''}
                 </div>
-                <div class="agent-node-status status-badge ${agent.status}">${agent.status}</div>
+                <div class="agent-node-status status-badge ${agent.status}">${statusText}</div>
             </div>
             <div class="agent-node-meta">
-                <span>Temp: ${agent.temperature || 'N/A'}</span>
+                <span>${tempLabel}</span>
             </div>
             <div class="agent-node-content content-container ${agent.expanded ? 'expanded' : ''}" id="content-container-${agent.id}">
-                <div class="content-text" id="content-${agent.id}">${agent.phase_0_response ? MarkdownFormatter.formatJSON(agent.phase_0_response) : 'Waiting to start...'}</div>
+                <div class="content-text" id="content-${agent.id}">${agent.phase_0_response ? MarkdownFormatter.formatJSON(agent.phase_0_response) : waitingText}</div>
             </div>
         `;
     }
@@ -87,6 +92,23 @@ export class AgentRenderer {
     }
     
     /**
+     * Get translated status text
+     */
+    _getStatusText(status) {
+        if (!this.lang) {
+            // Fallback for status display mapping
+            const statusDisplayMap = {
+                'halted': 'Phase Complete',
+                'tasklist_error': 'Tasklist Error'
+            };
+            return statusDisplayMap[status] || status;
+        }
+        
+        // Use translation keys
+        return this.lang.t(`status.${status}`);
+    }
+    
+    /**
      * Update agent status badge
      */
     updateStatus(agentId, status) {
@@ -94,13 +116,7 @@ export class AgentRenderer {
         if (!node) return;
         
         const statusEl = node.querySelector('.agent-node-status');
-        
-        // Map internal status to display text
-        const statusDisplayMap = {
-            'halted': 'Phase Complete',
-            'tasklist_error': 'Tasklist Error'
-        };
-        const displayStatus = statusDisplayMap[status] || status;
+        const displayStatus = this._getStatusText(status);
         
         statusEl.className = `agent-node-status status-badge ${status}`;
         statusEl.textContent = displayStatus;
@@ -145,9 +161,10 @@ export class AgentRenderer {
         }
         
         // Update temperature
+        const tempLabel = this.lang ? this.lang.t('agent.temperature', { value: agent.temperature || 'N/A' }) : `Temp: ${agent.temperature || 'N/A'}`;
         const metaEl = node.querySelector('.agent-node-meta');
         if (metaEl) {
-            metaEl.innerHTML = `<span>Temp: ${agent.temperature || 'N/A'}</span>`;
+            metaEl.innerHTML = `<span>${tempLabel}</span>`;
         }
     }
     
@@ -200,11 +217,12 @@ export class AgentRenderer {
         const node = document.getElementById(`agent-${agentId}`);
         if (!node) return;
         
+        const errorPrefix = this.lang ? this.lang.t('agent.error_prefix') : 'Error:';
         const meta = node.querySelector('.agent-node-meta');
         if (meta) {
             const errorDiv = DOMUtils.createElement('div', {
                 className: 'agent-error',
-                textContent: `Error: ${error}`
+                textContent: `${errorPrefix} ${error}`
             });
             meta.appendChild(errorDiv);
         }

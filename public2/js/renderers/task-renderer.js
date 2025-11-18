@@ -15,8 +15,9 @@ import { AnimationUtils } from '../utils/animation-utils.js';
 import { ANIMATION_DURATIONS } from '../constants.js';
 
 export class TaskRenderer {
-    constructor(containerSelector) {
+    constructor(containerSelector, languageService = null) {
         this.container = document.querySelector(containerSelector);
+        this.lang = languageService;
     }
     
     /**
@@ -66,7 +67,14 @@ export class TaskRenderer {
             taskStatus = 'failed';
         }
         
-        const taskOutput = task.output || 'Waiting to start...';
+        const taskOutput = task.output || (this.lang ? this.lang.t('task.no_output') : 'No output yet');
+        const statusText = this.lang ? this.lang.t(`status.${taskStatus}`) : taskStatus;
+        const taskOrderText = this.lang ? this.lang.t('task.order', { order: index + 1 }) : `Task ${index + 1}`;
+        
+        const objectiveLabel = this.lang ? this.lang.t('task.objective') : 'Objective';
+        const expectationLabel = this.lang ? this.lang.t('task.expectation') : 'Expectation';
+        const validationLabel = this.lang ? this.lang.t('task.validation') : 'Validation';
+        const outputLabel = this.lang ? this.lang.t('task.output') : 'Output';
         
         // Generate validation HTML
         const validationHtml = this._getValidationHTML(agentId, task);
@@ -75,32 +83,32 @@ export class TaskRenderer {
             <div class="task-node-header">
                 <div class="task-node-header-info">
                     <h4>${MarkdownFormatter.escapeHtml(task.name)}</h4>
-                    <div class="task-node-order">Task ${index + 1} of ${totalTasks}</div>
+                    <div class="task-node-order">${taskOrderText} of ${totalTasks}</div>
                 </div>
-                <div class="task-node-status status-badge ${taskStatus}">${taskStatus}</div>
+                <div class="task-node-status status-badge ${taskStatus}">${statusText}</div>
             </div>
             <div class="task-node-body">
                 <div class="task-node-info-column">
                     <div class="task-node-section">
-                        <div class="task-node-section-title">Objective</div>
+                        <div class="task-node-section-title">${objectiveLabel}</div>
                         <div class="task-node-section-content">
                             ${MarkdownFormatter.escapeHtml(task.description)}
                         </div>
                     </div>
                     <div class="task-node-section">
-                        <div class="task-node-section-title">Expectation</div>
+                        <div class="task-node-section-title">${expectationLabel}</div>
                         <div class="task-node-section-content">
                             ${MarkdownFormatter.escapeHtml(task.expected_output)}
                         </div>
                     </div>
                     <div class="task-node-section">
-                        <div class="task-node-section-title">Validation</div>
+                        <div class="task-node-section-title">${validationLabel}</div>
                         ${validationHtml}
                     </div>
                 </div>
                 <div class="task-node-output-column">
                     <div class="task-node-section">
-                        <div class="task-node-section-title">Output</div>
+                        <div class="task-node-section-title">${outputLabel}</div>
                         <div class="task-node-content content-container" id="task-content-${agentId}-${task.id}">
                             <div class="content-text">${MarkdownFormatter.formatMarkdown(taskOutput)}</div>
                         </div>
@@ -114,22 +122,27 @@ export class TaskRenderer {
      * Get validation HTML based on task validation data
      */
     _getValidationHTML(agentId, task) {
+        const notValidatedText = this.lang ? this.lang.t('task.validation.not_validated') : 'Not yet validated';
+        
         if (!task.validation) {
             return `
                 <div class="task-node-validation" id="task-validation-${agentId}-${task.id}">
-                    <div class="validation-result">Not yet validated</div>
+                    <div class="validation-result">${notValidatedText}</div>
                 </div>
             `;
         }
         
         const { is_valid, score, reason } = task.validation;
         const validationClass = is_valid ? 'valid' : 'invalid';
+        const validText = this.lang ? this.lang.t('task.validation.valid') : '✓ Valid';
+        const invalidText = this.lang ? this.lang.t('task.validation.invalid') : '✗ Invalid';
+        const scoreText = this.lang ? this.lang.t('task.validation.score', { score }) : `Score: ${score}/100`;
         
         return `
             <div class="task-node-validation ${validationClass} show" id="task-validation-${agentId}-${task.id}">
                 <div class="validation-result">
-                    <strong>${is_valid ? '✓ Valid' : '✗ Invalid'}</strong>
-                    <span class="validation-score">Score: ${score}/100</span>
+                    <strong>${is_valid ? validText : invalidText}</strong>
+                    <span class="validation-score">${scoreText}</span>
                     <div class="validation-reason">${MarkdownFormatter.escapeHtml(reason)}</div>
                 </div>
             </div>
@@ -159,8 +172,9 @@ export class TaskRenderer {
     updateStatus(element, status) {
         const statusEl = element.querySelector('.task-node-status');
         if (statusEl) {
+            const statusText = this.lang ? this.lang.t(`status.${status}`) : status;
             statusEl.className = `task-node-status status-badge ${status}`;
-            statusEl.textContent = status;
+            statusEl.textContent = statusText;
         }
         
         // Update task node class for border styling
@@ -202,12 +216,14 @@ export class TaskRenderer {
         const resultEl = validationEl.querySelector('.validation-result');
         if (!resultEl) return;
         
+        const validatingText = this.lang ? this.lang.t('task.validation.loading') : 'Validating...';
+        
         validationEl.className = 'task-node-validation validating';
         
         resultEl.innerHTML = `
             <div class="validation-spinner">
                 <div class="spinner-icon">⟳</div>
-                <span>Validating output...</span>
+                <span>${validatingText}</span>
             </div>
         `;
         
@@ -227,11 +243,15 @@ export class TaskRenderer {
         const resultEl = validationEl.querySelector('.validation-result');
         if (!resultEl) return;
         
+        const validText = this.lang ? this.lang.t('task.validation.valid') : '✓ Valid';
+        const invalidText = this.lang ? this.lang.t('task.validation.invalid') : '✗ Invalid';
+        const scoreText = this.lang ? this.lang.t('task.validation.score', { score }) : `Score: ${score}/100`;
+        
         validationEl.className = `task-node-validation ${isValid ? 'valid' : 'invalid'}`;
         
         resultEl.innerHTML = `
-            <strong>${isValid ? '✓ Valid' : '✗ Invalid'}</strong>
-            <span class="validation-score">Score: ${score}/100</span>
+            <strong>${isValid ? validText : invalidText}</strong>
+            <span class="validation-score">${scoreText}</span>
             <div class="validation-reason">${MarkdownFormatter.escapeHtml(reason)}</div>
         `;
         

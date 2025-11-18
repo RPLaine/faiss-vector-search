@@ -5,10 +5,11 @@
  * Coordinates between UI elements, ModalManager, and SettingsController.
  */
 export class SettingsHandler {
-    constructor(settingsController, modalManager, loggerService) {
+    constructor(settingsController, modalManager, loggerService, languageService = null) {
         this.settingsController = settingsController;
         this.modalManager = modalManager;
         this.logger = loggerService;
+        this.lang = languageService;
         
         this.setupEventListeners();
     }
@@ -100,6 +101,12 @@ export class SettingsHandler {
         if (resetBtn) {
             resetBtn.addEventListener('click', () => this.handleResetSettings());
         }
+        
+        // Language selector
+        const languageSelect = document.getElementById('languageSelect');
+        if (languageSelect) {
+            languageSelect.addEventListener('change', () => this.handleLanguageChange());
+        }
     }
 
     async handleOpenSettings() {
@@ -112,6 +119,12 @@ export class SettingsHandler {
             // Populate modal
             this.modalManager.populateSettingsModal(settings);
             
+            // Populate language selector
+            const languageSelect = document.getElementById('languageSelect');
+            if (languageSelect && settings.language) {
+                languageSelect.value = settings.language;
+            }
+            
             // Load retrieval stats
             await this.modalManager.loadRetrievalStats();
             
@@ -120,12 +133,42 @@ export class SettingsHandler {
             
         } catch (error) {
             this.logger.error('Failed to open settings:', error);
-            alert(`Failed to load settings: ${error.message}`);
+            const message = this.lang ? this.lang.t('alert.load_settings_failed', { error: error.message }) : `Failed to load settings: ${error.message}`;
+            alert(message);
         }
     }
 
     handleCloseSettings() {
         this.modalManager.closeSettingsModal();
+    }
+    
+    async handleLanguageChange() {
+        try {
+            const languageSelect = document.getElementById('languageSelect');
+            const language = languageSelect.value;
+            
+            this.logger.debug(`Changing language to: ${language}`);
+            
+            // Save language to backend
+            const response = await fetch('/api/language', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ language })
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to change language');
+            }
+            
+            // Language change will be broadcast via WebSocket and handled by websocket-event-handler
+            this.logger.info(`Language changed to: ${language}`);
+            
+        } catch (error) {
+            this.logger.error('Failed to change language:', error);
+            const message = this.lang ? this.lang.t('alert.language_change_failed', { error: error.message }) : `Failed to change language: ${error.message}`;
+            alert(message);
+        }
     }
 
     async handleSaveSettings() {
@@ -138,7 +181,8 @@ export class SettingsHandler {
             // Validate LLM config
             const llmErrors = this.settingsController.validateLLMConfig(llm);
             if (llmErrors.length > 0) {
-                alert(`LLM Configuration errors:\n\n${llmErrors.join('\n')}`);
+                const message = this.lang ? this.lang.t('alert.llm_config_errors', { errors: llmErrors.join('\n') }) : `LLM Configuration errors:\n\n${llmErrors.join('\n')}`;
+                alert(message);
                 return;
             }
             
@@ -151,22 +195,25 @@ export class SettingsHandler {
                 }
             }
             if (promptErrors.length > 0) {
-                alert(`Prompt validation errors:\n\n${promptErrors.join('\n')}`);
+                const message = this.lang ? this.lang.t('alert.prompt_validation_errors', { errors: promptErrors.join('\n') }) : `Prompt validation errors:\n\n${promptErrors.join('\n')}`;
+                alert(message);
                 return;
             }
             
             // Validate retrieval config
             const retrievalErrors = this.settingsController.validateRetrievalConfig(retrieval);
             if (retrievalErrors.length > 0) {
-                alert(`Retrieval Configuration errors:\n\n${retrievalErrors.join('\n')}`);
+                const message = this.lang ? this.lang.t('alert.llm_config_errors', { errors: retrievalErrors.join('\n') }) : `Retrieval Configuration errors:\n\n${retrievalErrors.join('\n')}`;
+                alert(message);
                 return;
             }
             
             // Disable save button during save
             const saveBtn = document.getElementById('saveSettingsBtn');
             const originalText = saveBtn.textContent;
+            const savingText = this.lang ? this.lang.t('modal.settings.button.saving') : 'Saving...';
             saveBtn.disabled = true;
-            saveBtn.textContent = 'Saving...';
+            saveBtn.textContent = savingText;
             
             try {
                 // Save settings
@@ -185,20 +232,23 @@ export class SettingsHandler {
             
         } catch (error) {
             this.logger.error('Failed to save settings:', error);
-            alert(`Failed to save settings: ${error.message}`);
+            const message = this.lang ? this.lang.t('alert.save_settings_failed', { error: error.message }) : `Failed to save settings: ${error.message}`;
+            alert(message);
         }
     }
     
     async handleRebuildIndex() {
-        if (!confirm('Rebuild FAISS index from all .txt files in data2/? This may take a few moments.')) {
+        const confirmMessage = this.lang ? this.lang.t('confirm.rebuild_index') : 'Rebuild FAISS index from all .txt files in data2/?\n\nThis may take a few moments.';
+        if (!confirm(confirmMessage)) {
             return;
         }
         
         try {
             const rebuildBtn = document.getElementById('rebuildIndexBtn');
             const originalText = rebuildBtn.textContent;
+            const rebuildingText = this.lang ? this.lang.t('modal.settings.button.rebuilding') : 'Rebuilding...';
             rebuildBtn.disabled = true;
-            rebuildBtn.textContent = 'Rebuilding...';
+            rebuildBtn.textContent = rebuildingText;
             
             try {
                 // Get all .txt files from data2/
@@ -220,7 +270,8 @@ export class SettingsHandler {
                 // Reload stats
                 await this.modalManager.loadRetrievalStats();
                 
-                alert(`Index rebuilt successfully!\n\n${result.message || 'Index is ready for use.'}`);
+                const successMessage = this.lang ? this.lang.t('alert.rebuild_index_success', { message: result.message || 'Index is ready for use.' }) : `Index rebuilt successfully!\n\n${result.message || 'Index is ready for use.'}`;
+                alert(successMessage);
                 
             } finally {
                 rebuildBtn.disabled = false;
@@ -229,12 +280,14 @@ export class SettingsHandler {
             
         } catch (error) {
             this.logger.error('Failed to rebuild index:', error);
-            alert(`Failed to rebuild index: ${error.message}`);
+            const message = this.lang ? this.lang.t('alert.rebuild_index_failed', { error: error.message }) : `Failed to rebuild index: ${error.message}`;
+            alert(message);
         }
     }
 
     async handleResetSettings() {
-        if (!confirm('Are you sure you want to reset all settings to defaults? This cannot be undone.')) {
+        const confirmMessage = this.lang ? this.lang.t('confirm.reset_settings') : 'Are you sure you want to reset all settings to defaults?\n\nThis will reset:\n- LLM configuration\n- All prompt templates\n- Retrieval settings';
+        if (!confirm(confirmMessage)) {
             return;
         }
 
@@ -244,8 +297,9 @@ export class SettingsHandler {
             // Disable reset button
             const resetBtn = document.getElementById('resetSettingsBtn');
             const originalText = resetBtn.textContent;
+            const resettingText = this.lang ? this.lang.t('modal.settings.button.resetting') : 'Resetting...';
             resetBtn.disabled = true;
-            resetBtn.textContent = 'Resetting...';
+            resetBtn.textContent = resettingText;
             
             try {
                 // Reset settings
@@ -264,7 +318,8 @@ export class SettingsHandler {
             
         } catch (error) {
             this.logger.error('Failed to reset settings:', error);
-            alert(`Failed to reset settings: ${error.message}`);
+            const message = this.lang ? this.lang.t('alert.reset_settings_failed', { error: error.message }) : `Failed to reset settings: ${error.message}`;
+            alert(message);
         }
     }
 }

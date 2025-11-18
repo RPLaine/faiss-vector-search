@@ -12,40 +12,40 @@
         <header class="header">
             <div class="header-content">
                 <div class="header-left">
-                    <h1 class="app-title">AI Journalist Agents</h1>
+                    <h1 class="app-title" data-i18n="app.title">AI Journalist Agents</h1>
                     <div class="connection-status">
                         <span class="status-indicator" id="statusIndicator"></span>
-                        <span class="status-text" id="statusText">Connecting...</span>
+                        <span class="status-text" id="statusText" data-i18n="connection.connecting">Connecting...</span>
                     </div>
                 </div>
                 <div class="header-center">
                     <div class="control-group">
                         <button type="button" id="addAgentBtn" class="btn btn-primary">
                             <span class="btn-icon">+</span>
-                            Create New Agent
+                            <span class="btn-text" data-i18n="header.create_agent">Create New Agent</span>
                         </button>
                         <button type="button" id="clearCompletedBtn" class="btn btn-secondary">
                             <span class="btn-icon">🗑</span>
-                            Clear Completed
+                            <span class="btn-text" data-i18n="header.clear_completed">Clear Completed</span>
                         </button>
                         <button type="button" id="settingsBtn" class="btn btn-secondary" title="Settings">
                             <span class="btn-icon">⚙️</span>
-                            Settings
+                            <span class="btn-text" data-i18n="header.settings">Settings</span>
                         </button>
                     </div>
                 </div>
                 <div class="header-right">
                     <div class="agent-stats">
                         <span class="stat-item">
-                            <span class="stat-label">Active:</span>
+                            <span class="stat-label" data-i18n="header.stats.active">Active:</span>
                             <span class="stat-value" id="activeCount">0</span>
                         </span>
                         <span class="stat-item">
-                            <span class="stat-label">Completed:</span>
+                            <span class="stat-label" data-i18n="header.stats.completed">Completed:</span>
                             <span class="stat-value" id="completedCount">0</span>
                         </span>
                         <span class="stat-item">
-                            <span class="stat-label">Total:</span>
+                            <span class="stat-label" data-i18n="header.stats.total">Total:</span>
                             <span class="stat-value" id="totalCount">0</span>
                         </span>
                     </div>
@@ -59,33 +59,33 @@
                 <div class="controls-panel-left">
                     <button type="button" class="btn btn-primary btn-action" id="controlPanelAction" disabled>
                         <span class="btn-icon">▶️</span>
-                        <span class="btn-text">Start</span>
+                        <span class="btn-text" data-i18n="control_panel.start">Start</span>
                     </button>
                     <button type="button" class="btn btn-primary btn-continue" id="controlPanelContinue" style="display: none;" disabled>
                         <span class="btn-icon">⏩</span>
-                        Continue
+                        <span class="btn-text" data-i18n="control_panel.continue">Continue</span>
                     </button>
                     <button type="button" class="btn btn-secondary btn-edit" id="controlPanelEdit" disabled>
                         <span class="btn-icon">✏️</span>
-                        Edit
+                        <span class="btn-text" data-i18n="control_panel.edit">Edit</span>
                     </button>
                     <button type="button" class="btn btn-secondary btn-delete" id="controlPanelDelete" disabled>
                         <span class="btn-icon">🗑️</span>
-                        Delete
+                        <span class="btn-text" data-i18n="control_panel.delete">Delete</span>
                     </button>
                 </div>
                 <div class="controls-panel-right">
                     <label class="auto-control">
                         <input type="checkbox" class="auto-checkbox" id="controlPanelAuto" disabled>
-                        Auto
+                        <span data-i18n="control_panel.auto">Auto</span>
                     </label>
                     <label class="auto-control halt-control" id="controlPanelHaltLabel" style="display: none;">
                         <input type="checkbox" class="halt-checkbox" id="controlPanelHalt" disabled>
-                        Halt
+                        <span data-i18n="control_panel.halt">Halt</span>
                     </label>
                     <label class="auto-control">
                         <input type="checkbox" class="expand-checkbox" id="controlPanelExpand" disabled>
-                        Expand
+                        <span data-i18n="control_panel.expand">Expand</span>
                     </label>
                 </div>
             </div>
@@ -219,15 +219,26 @@
         <div class="modal-overlay"></div>
         <div class="modal-content modal-large">
             <div class="modal-header">
-                <h2 class="modal-title">System Settings</h2>
+                <h2 class="modal-title" data-i18n="modal.settings.title">System Settings</h2>
                 <button type="button" class="modal-close" id="closeSettingsBtn">&times;</button>
             </div>
             <div class="modal-body">
+                <!-- Language Selector -->
+                <div class="form-group">
+                    <label for="languageSelect" class="form-label" data-i18n="modal.settings.language_label">Language</label>
+                    <select id="languageSelect" class="form-input">
+                        <option value="en" data-i18n="modal.settings.language_en">English</option>
+                        <option value="fi" data-i18n="modal.settings.language_fi">Suomi (Finnish)</option>
+                    </select>
+                </div>
+                
+                <hr style="margin: 20px 0; border: 1px solid #ddd;">
+                
                 <!-- Tabs -->
                 <div class="tabs">
-                    <button class="tab-button active" data-tab="llm">LLM Configuration</button>
-                    <button class="tab-button" data-tab="prompts">Prompt Templates</button>
-                    <button class="tab-button" data-tab="retrieval">Retrieval (FAISS)</button>
+                    <button class="tab-button active" data-tab="llm" data-i18n="modal.settings.tab_llm">LLM Configuration</button>
+                    <button class="tab-button" data-tab="prompts" data-i18n="modal.settings.tab_prompts">Prompt Templates</button>
+                    <button class="tab-button" data-tab="retrieval" data-i18n="modal.settings.tab_retrieval">Retrieval (FAISS)</button>
                 </div>
 
                 <!-- LLM Configuration Tab -->

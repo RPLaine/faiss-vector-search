@@ -1,0 +1,278 @@
+{
+  "app": {
+    "title": "AI Journalist Agents",
+    "subtitle": "Live Demo"
+  },
+  "header": {
+    "create_agent": "Create New Agent",
+    "clear_completed": "Clear Completed",
+    "settings": "Settings",
+    "stats": {
+      "active": "Active:",
+      "completed": "Completed:",
+      "total": "Total:"
+    }
+  },
+  "connection": {
+    "connecting": "Connecting...",
+    "connected": "Connected",
+    "disconnected": "Disconnected"
+  },
+  "status": {
+    "created": "created",
+    "running": "running",
+    "halted": "halted",
+    "phase_complete": "Phase Complete",
+    "stopped": "stopped",
+    "completed": "completed",
+    "failed": "failed",
+    "cancelled": "cancelled",
+    "tasklist_error": "Tasklist Error",
+    "validating": "validating"
+  },
+  "control_panel": {
+    "start": "Start",
+    "stop": "Stop",
+    "redo": "Redo",
+    "restart": "Restart",
+    "continue": "Continue",
+    "edit": "Edit",
+    "delete": "Delete",
+    "auto": "Auto",
+    "halt": "Halt",
+    "expand": "Expand"
+  },
+  "modal": {
+    "create_agent": {
+      "title": "Create AI Journalist Agent",
+      "name_label": "Agent Name",
+      "name_placeholder": "e.g., Tech Reporter, Sports Columnist",
+      "context_label": "Additional Context (Optional)",
+      "context_placeholder": "e.g., Focus on recent developments, Interview tech experts, Use data from Q4 2024",
+      "context_hint": "Provide guidance or constraints for the journalist. The agent will invent its own subject.",
+      "temperature_label": "Creativity (Temperature: {value})",
+      "temperature_hint": "Lower values = more focused, Higher values = more creative",
+      "cancel": "Cancel",
+      "create": "Create"
+    },
+    "edit_agent": {
+      "title": "Edit AI Journalist Agent",
+      "name_label": "Agent Name",
+      "name_placeholder": "e.g., Tech Reporter, Sports Columnist",
+      "context_label": "Additional Context (Optional)",
+      "context_placeholder": "e.g., Focus on recent developments, Interview tech experts, Use data from Q4 2024",
+      "context_hint": "Provide guidance or constraints for the journalist.",
+      "temperature_label": "Creativity (Temperature: {value})",
+      "temperature_hint": "Lower values = more focused, Higher values = more creative",
+      "cancel": "Cancel",
+      "save": "Save Changes"
+    },
+    "settings": {
+      "title": "System Settings",
+      "close": "×",
+      "tabs": {
+        "llm": "LLM Configuration",
+        "prompts": "Prompt Templates",
+        "retrieval": "Retrieval (FAISS)"
+      },
+      "llm": {
+        "url_label": "LLM Server URL",
+        "url_placeholder": "https://api.example.com/v1/chat/completions",
+        "model_label": "Model",
+        "model_placeholder": "qwen",
+        "payload_type_label": "Payload Type",
+        "payload_type_message": "Message",
+        "payload_type_completion": "Completion",
+        "timeout_label": "Timeout (seconds)",
+        "timeout_placeholder": "300",
+        "max_tokens_label": "Max Tokens",
+        "max_tokens_placeholder": "2000",
+        "temperature_label": "Temperature: {value}",
+        "top_p_label": "Top P: {value}",
+        "top_k_label": "Top K",
+        "top_k_placeholder": "20",
+        "headers_label": "Custom Headers",
+        "add_header": "Add Header"
+      },
+      "prompts": {
+        "hidden_context_label": "Hidden Context",
+        "hidden_context_placeholder": "System-wide instructions for AI behavior...",
+        "hidden_context_hint": "System-wide instructions added to all LLM calls",
+        "planning_label": "Tasklist Planning Prompt",
+        "planning_placeholder": "Template for generating agent tasklists...",
+        "planning_hint": "Required variables: {agent_name}, {agent_context}",
+        "execution_label": "Task Execution Prompt",
+        "execution_placeholder": "Template for executing individual tasks...",
+        "execution_hint": "Required variables: {agent_name}, {goal}, {task_name}, {task_description}, {expected_output}, {context}",
+        "validation_label": "Task Validation Prompt",
+        "validation_placeholder": "Template for validating task outputs...",
+        "validation_hint": "Required variables: {task_name}, {task_description}, {expected_output}, {actual_output}"
+      },
+      "retrieval": {
+        "enabled_label": "Enable FAISS Retrieval",
+        "enabled_hint": "When enabled, tasks will retrieve relevant documents before LLM execution",
+        "model_label": "Embedding Model",
+        "model_placeholder": "TurkuNLP/sbert-cased-finnish-paraphrase",
+        "model_hint": "Sentence transformer model for generating embeddings",
+        "hit_target_label": "Hit Target",
+        "hit_target_placeholder": "3",
+        "hit_target_hint": "Stop searching when this many documents found",
+        "top_k_label": "Top K",
+        "top_k_placeholder": "10",
+        "top_k_hint": "Maximum documents to return",
+        "threshold_step_label": "Threshold Step: {value}",
+        "threshold_step_hint": "Amount to decrease threshold each iteration",
+        "dynamic_threshold_label": "Use Dynamic Threshold",
+        "dynamic_threshold_hint": "Automatically adjust threshold until hit_target reached",
+        "max_context_label": "Max Context Length",
+        "max_context_placeholder": "5000",
+        "max_context_hint": "Maximum characters from retrieved documents to include in prompt",
+        "store_outputs_label": "Store Task Outputs in Index",
+        "store_outputs_hint": "Add completed task outputs to knowledge base for future retrieval",
+        "stats_label": "Index Statistics",
+        "stats_loading": "Loading...",
+        "rebuild_index": "Rebuild Index from data2/",
+        "rebuild_index_hint": "Rebuilds FAISS index from all .txt files in data2/ directory"
+      },
+      "actions": {
+        "reset": "Reset to Defaults",
+        "cancel": "Cancel",
+        "save": "Save Settings",
+        "saving": "Saving...",
+        "resetting": "Resetting...",
+        "rebuilding": "Rebuilding..."
+      }
+    }
+  },
+  "agent": {
+    "meta": {
+      "temp": "Temp: {value}",
+      "temp_na": "Temp: N/A"
+    },
+    "content": {
+      "waiting": "Waiting to start...",
+      "error_prefix": "Error: "
+    },
+    "workflow": {
+      "stopped_error": "⚠️ **Agent Stopped Due to Error:**\n\n{error}\n\n*Click Continue to retry.*"
+    }
+  },
+  "task": {
+    "header": {
+      "order": "Task {current} of {total}"
+    },
+    "sections": {
+      "objective": "Objective",
+      "expectation": "Expectation",
+      "validation": "Validation",
+      "output": "Output"
+    },
+    "validation": {
+      "not_validated": "Not yet validated",
+      "validating": "Validating output...",
+      "valid": "✓ Valid",
+      "invalid": "✗ Invalid",
+      "score": "Score: {score}/100"
+    },
+    "content": {
+      "waiting": "Waiting to start..."
+    }
+  },
+  "tool": {
+    "types": {
+      "faiss_retrieval": "Knowledge Retrieval",
+      "web_search": "Web Search",
+      "api_call": "API Call",
+      "unknown": "Tool Call"
+    },
+    "sections": {
+      "query": "Query",
+      "threshold_progression": "Threshold Progression",
+      "statistics": "Statistics",
+      "documents": "Retrieved Documents ({count})",
+      "no_documents": "No documents retrieved"
+    },
+    "stats": {
+      "threshold": "Threshold:",
+      "time": "Time:",
+      "attempts": "Attempts:"
+    },
+    "table": {
+      "headers": {
+        "attempt": "Attempt",
+        "threshold": "Threshold",
+        "hits": "Hits",
+        "target": "Target",
+        "status": "Status"
+      },
+      "status": {
+        "reached": "✓",
+        "not_reached": "-"
+      },
+      "target_na": "N/A"
+    },
+    "document": {
+      "number": "#{number}",
+      "unknown_filename": "unknown"
+    },
+    "modal": {
+      "cancel": "Cancel",
+      "save": "Save & Rebuild Index"
+    }
+  },
+  "alert": {
+    "failed_load_settings": "Failed to load settings: {error}",
+    "llm_config_errors": "LLM Configuration errors:\n\n{errors}",
+    "prompt_validation_errors": "Prompt validation errors:\n\n{errors}",
+    "retrieval_config_errors": "Retrieval Configuration errors:\n\n{errors}",
+    "failed_save_settings": "Failed to save settings: {error}",
+    "index_rebuilt": "Index rebuilt successfully!\n\n{message}",
+    "index_rebuilt_default": "Index is ready for use.",
+    "failed_rebuild_index": "Failed to rebuild index: {error}",
+    "failed_reset_settings": "Failed to reset settings: {error}",
+    "action_failed": "Action failed: {error}",
+    "continue_failed": "Continue failed: {error}",
+    "failed_create_agent": "Failed to create agent: {error}",
+    "failed_update_agent": "Failed to update agent: {error}",
+    "cannot_edit_running": "Cannot edit a running agent. Please stop it first.",
+    "agent_not_found": "Agent {agentId} not found"
+  },
+  "confirm": {
+    "delete_agent": "Are you sure you want to delete agent \"{name}\"?",
+    "restart_agent": "Restart this agent from the beginning? This will clear all progress.",
+    "reset_settings": "Are you sure you want to reset all settings to defaults? This cannot be undone.",
+    "rebuild_index": "Rebuild FAISS index from all .txt files in data2/? This may take a few moments."
+  },
+  "log": {
+    "agent_created": "[Agent {agentId}] Created successfully",
+    "agent_started": "[Agent {agentId}] Starting (halt: {halt})",
+    "agent_stopped": "[Agent {agentId}] Stopping",
+    "agent_continued": "[Agent {agentId}] Continuing from halt at phase {phase}",
+    "agent_restarted": "[Agent {agentId}] Restarting from phase 0",
+    "agent_redo": "[Agent {agentId}] Redoing",
+    "agent_updated": "[Agent {agentId}] Updating",
+    "agent_deleted": "[Agent {agentId}] Deleting",
+    "workflow_phase": "[Agent {agentId}] Workflow: {status}",
+    "task_running": "[Agent {agentId}] Task {taskId} running",
+    "task_completed": "[Agent {agentId}] Task {taskId} completed",
+    "task_failed": "[Agent {agentId}] Task {taskId} failed",
+    "cleared_completed": "Cleared completed agents"
+  },
+  "workflow": {
+    "phases": {
+      "phase_0": "Create Tasklist",
+      "phase_1": "Get Sources",
+      "phase_2": "Extract Data",
+      "phase_3": "Find Names",
+      "phase_4": "Send Contacts",
+      "phase_5": "Receive Info",
+      "phase_6": "Write Article",
+      "unknown": "Unknown"
+    },
+    "status": {
+      "tasklist_generating": "Generating tasklist...",
+      "tasklist_generated": "Tasklist generated",
+      "error": "Error"
+    }
+  }
+}
